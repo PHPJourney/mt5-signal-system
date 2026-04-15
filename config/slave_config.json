@@ -5,7 +5,8 @@
         "username": "",
         "password": "",
         "topic_prefix": "mt5/signal",
-        "client_id": "slave_server_001"
+        "client_id": "slave_server_001",
+        "license_key": ""
     },
     "trading": {
         "multiplier": 1.0,

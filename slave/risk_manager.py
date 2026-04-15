@@ -34,7 +34,7 @@ class RiskManager:
         self.daily_start_balance = self.initial_balance
 
         self.logger.info(f"Risk Manager initialized - Max daily loss: "
-                        f"${self.risk_status.max_daily_loss_usd:.2f}")
+                        f"${self.risk_status.max_daily_loss:.2f}")
 
     def _get_account_balance(self) -> float:
         """获取账户余额"""
@@ -92,7 +92,7 @@ class RiskManager:
             self.risk_status.trading_enabled = False
             self.risk_status.blocked_reason = (
                 f"Daily loss limit reached: ${self.risk_status.daily_loss:.2f} / "
-                f"${self.risk_status.max_daily_loss_usd:.2f}"
+                f"${self.risk_status.max_daily_loss:.2f}"
             )
             self.logger.warning(self.risk_status.blocked_reason)
             return False

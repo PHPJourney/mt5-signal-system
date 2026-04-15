@@ -1,21 +1,88 @@
-# GitHub Actions 使用指南
+# GitHub Actions 打包指南
 
-通过 GitHub Actions 自动构建 Windows EXE，无需本地 Windows 电脑！
+## 📦 工作流概览
+
+本项目包含 4 个 GitHub Actions 工作流，用于自动化编译和打包 MT5 Signal System。
+
+### 1. build-master.yml - Master Server 打包
+**触发条件：**
+- 推送标签（v*）
+- master/main 分支推送（仅当 master/ 或 common/ 目录变更时）
+- 手动触发
+
+**生成产物：**
+- Windows: `MT5-Master-Server-vX.X.X-Windows.zip`
+- Linux: `MT5-Master-Server-vX.X.X-Linux.tar.gz`
+
+### 2. build-slave.yml - Slave Server 打包
+**触发条件：**
+- 推送标签（v*）
+- master/main 分支推送（仅当 slave/ 或 common/ 目录变更时）
+- 手动触发
+
+**生成产物：**
+- Windows: `MT5-Slave-Server-vX.X.X-Windows.zip`
+- Linux: `MT5-Slave-Server-vX.X.X-Linux.tar.gz`
+
+### 3. build-manager.yml - Management Panel 打包
+**触发条件：**
+- 推送标签（v*）
+- master/main 分支推送（仅当 mt5_manager.py 或 config_panel.py 变更时）
+- 手动触发
+
+**生成产物：**
+- Windows: `MT5-Manager-vX.X.X-Windows.zip`
+- Linux: `MT5-Manager-vX.X.X-Linux.tar.gz`
+
+### 4. release-all.yml - 综合发布
+**触发条件：**
+- 推送标签（v*）
+- 手动触发
+
+**功能：**
+- 并行构建所有组件
+- 创建统一的 Release
+- 上传所有打包文件
 
 ---
 
-## 🎯 什么是 GitHub Actions？
+## 🚀 使用方法
 
-GitHub Actions 是 GitHub 提供的持续集成/持续部署(CI/CD)服务，可以：
-- ✅ 自动运行测试
-- ✅ 自动构建项目
-- ✅ 自动打包发布
-- ✅ 在云端Windows环境中运行
+### 方法一：通过标签自动发布（推荐）
 
-**对于本项目：**
-- 推送代码到 GitHub
-- Actions 自动在 Windows 环境中打包 EXE
-- 下载生成的 EXE 文件
+```bash
+# 1. 提交代码更改
+git add .
+git commit -m "Update version"
+
+# 2. 创建标签
+git tag v1.0.0
+
+# 3. 推送标签（触发自动构建）
+git push origin v1.0.0
+```
+
+GitHub Actions 会自动：
+1. 在 Windows 和 Linux 上构建所有组件
+2. 生成独立的安装包
+3. 创建 GitHub Release
+4. 上传所有打包文件
+
+### 方法二：手动触发
+
+1. 进入项目的 **Actions** 标签页
+2. 选择要运行的工作流：
+   - Build Master Server
+   - Build Slave Server
+   - Build Management Panel
+   - Release All Components
+3. 点击 **Run workflow**
+4. 选择分支（通常是 main/master）
+5. 点击 **Run workflow** 按钮
+
+### 方法三：PR/MR 测试
+
+当创建 Pull Request 时，相关的工作流会自动运行以验证构建是否成功。
 
 ---
 

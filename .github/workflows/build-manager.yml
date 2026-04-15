@@ -1,0 +1,257 @@
+name: Build Management Panel
+
+on:
+  push:
+    branches: [ main, master ]
+    tags: [ 'v*' ]
+    paths:
+      - 'mt5_manager.py'
+      - 'config_panel.py'
+      - '.github/workflows/build-manager.yml'
+  pull_request:
+    branches: [ main, master ]
+    paths:
+      - 'mt5_manager.py'
+      - 'config_panel.py'
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  build-manager-windows:
+    name: Build Manager (Windows)
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pyinstaller
+        pip install paho-mqtt
+        pip install numpy
+        pip install MetaTrader5
+        pip install psutil
+        pip install ttkbootstrap
+
+    - name: Build Manager EXE
+      run: |
+        pyinstaller --name="MT5_Manager" `
+          --onedir `
+          --windowed `
+          --icon=NONE `
+          --add-data "config;config" `
+          --add-data "common;common" `
+          --add-data "master;master" `
+          --add-data "slave;slave" `
+          --hidden-import=paho.mqtt.client `
+          --hidden-import=MetaTrader5 `
+          --hidden-import=numpy `
+          --hidden-import=numpy.core.multiarray `
+          --hidden-import=psutil `
+          --hidden-import=tkinter `
+          --hidden-import=ttkbootstrap `
+          --hidden-import=common `
+          --hidden-import=common.models `
+          --hidden-import=common.utils `
+          --hidden-import=common.mqtt_client `
+          --hidden-import=master `
+          --hidden-import=slave `
+          mt5_manager.py
+      shell: pwsh
+
+    - name: Create Manager Package
+      run: |
+        $RELEASE_DIR = "dist/MT5_Manager_Package"
+        New-Item -ItemType Directory -Force -Path "$RELEASE_DIR" | Out-Null
+
+        # Copy executable
+        Copy-Item -Recurse -Force "dist/MT5_Manager/*" "$RELEASE_DIR/"
+
+        # Copy documentation
+        Copy-Item "MANAGER_GUIDE.md" "$RELEASE_DIR/"
+        Copy-Item "QUICK_START_MANAGER.md" "$RELEASE_DIR/"
+        Copy-Item "README.md" "$RELEASE_DIR/"
+
+        # Create launch script
+        @"
+        @echo off
+        chcp 65001 >nul
+        title MT5 Signal System - Manager
+        echo ========================================
+        echo   MT5 Signal System - Management Panel
+        echo ========================================
+        echo.
+        echo Starting Management Panel...
+        echo.
+        start MT5_Manager.exe
+        "@ | Out-File -FilePath "$RELEASE_DIR/start_manager.bat" -Encoding ASCII
+
+        # Create readme
+        @"
+        MT5 Manager - Management Panel
+        ===============================
+
+        A comprehensive GUI tool for managing MT5 Signal System.
+
+        Features:
+        - Dashboard with real-time status
+        - Visual configuration editor
+        - Service control (start/stop/restart)
+        - Real-time monitoring
+        - Log viewer with color coding
+
+        Quick Start:
+        1. Double-click start_manager.bat or MT5_Manager.exe
+        2. Configure Master/Slave settings
+        3. Start services from the dashboard
+
+        Documentation:
+        - MANAGER_GUIDE.md - Complete user guide
+        - QUICK_START_MANAGER.md - Quick start guide
+        "@ | Out-File -FilePath "$RELEASE_DIR/README_Manager.txt" -Encoding UTF8
+
+    - name: Upload Manager Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: MT5-Manager-Windows
+        path: dist/MT5_Manager_Package/
+        retention-days: 90
+
+    - name: Zip Manager Package
+      if: startsWith(github.ref, 'refs/tags/')
+      run: |
+        $ZIP_NAME = "MT5-Manager-${{ github.ref_name }}-Windows.zip"
+        Compress-Archive -Path "dist/MT5_Manager_Package\*" -DestinationPath "$ZIP_NAME" -Force
+        echo "MANAGER_ZIP=$ZIP_NAME" >> $env:GITHUB_ENV
+      shell: pwsh
+
+    - name: Create Manager Release
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: ncipollo/release-action@v1
+      with:
+        artifacts: ${{ env.MANAGER_ZIP }}
+        tag: ${{ github.ref_name }}
+        name: MT5 Manager ${{ github.ref_name }}
+        body: |
+          MT5 Management Panel ${{ github.ref_name }}
+
+          **What's Included:**
+          - Standalone GUI application (no Python required)
+          - Complete documentation
+          - All necessary dependencies
+
+          **Features:**
+          - 📊 Dashboard with real-time statistics
+          - ⚙️ Visual configuration editor
+          - 🎮 One-click service control
+          - 📡 Real-time monitoring
+          - 📋 Color-coded log viewer
+
+          **Quick Start:**
+          1. Extract the zip file
+          2. Run start_manager.bat or MT5_Manager.exe
+          3. Configure your Master/Slave settings
+          4. Start services from the dashboard
+        token: ${{ secrets.GITHUB_TOKEN }}
+        allowUpdates: true
+
+  build-manager-linux:
+    name: Build Manager (Linux Portable)
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install paho-mqtt
+        pip install numpy
+        pip install psutil
+        pip install ttkbootstrap
+
+    - name: Create Portable Package
+      run: |
+        RELEASE_DIR="dist/MT5_Manager_Portable_Linux"
+        mkdir -p "$RELEASE_DIR"
+
+        # Copy files
+        cp mt5_manager.py "$RELEASE_DIR/"
+        cp MANAGER_GUIDE.md "$RELEASE_DIR/"
+        cp QUICK_START_MANAGER.md "$RELEASE_DIR/"
+        cp README.md "$RELEASE_DIR/"
+        cp requirements.txt "$RELEASE_DIR/" 2>/dev/null || true
+
+        # Create requirements file if not exists
+        cat > "$RELEASE_DIR/requirements.txt" << 'EOF'
+        paho-mqtt>=1.6.1
+        numpy>=1.21.0
+        psutil>=5.9.0
+        ttkbootstrap>=1.10.0
+        EOF
+
+        # Create launch script
+        cat > "$RELEASE_DIR/start_manager.sh" << 'EOF'
+        #!/bin/bash
+        echo "========================================"
+        echo "  MT5 Signal System - Management Panel"
+        echo "========================================"
+        echo ""
+
+        # Check Python
+        if ! command -v python3 &> /dev/null; then
+            echo "[Error] Python3 not found. Please install Python 3.8+"
+            exit 1
+        fi
+
+        echo "[Info] Python version: $(python3 --version)"
+        echo ""
+
+        # Install dependencies
+        echo "[Info] Installing dependencies..."
+        pip3 install -r requirements.txt 2>/dev/null || pip install -r requirements.txt
+
+        echo ""
+        echo "[Info] Starting Management Panel..."
+        echo ""
+
+        python3 mt5_manager.py
+        EOF
+
+        chmod +x "$RELEASE_DIR/start_manager.sh"
+
+    - name: Upload Linux Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: MT5-Manager-Linux
+        path: dist/MT5_Manager_Portable_Linux/
+        retention-days: 90
+
+    - name: Create Tarball
+      if: startsWith(github.ref, 'refs/tags/')
+      run: |
+        cd dist
+        tar -czf "../MT5-Manager-${{ github.ref_name }}-Linux.tar.gz" MT5_Manager_Portable_Linux/
+        cd ..
+
+    - name: Upload Linux Release
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: ncipollo/release-action@v1
+      with:
+        artifacts: MT5-Manager-${{ github.ref_name }}-Linux.tar.gz
+        tag: ${{ github.ref_name }}
+        name: MT5 Manager ${{ github.ref_name }}
+        token: ${{ secrets.GITHUB_TOKEN }}
+        allowUpdates: true

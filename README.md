@@ -2,6 +2,56 @@
 
 基于 MQTT 的 MT5 信号跟单系统,支持主从服务器架构,实现交易信号的实时复制。
 
+## 🎯 新功能：图形化管理界面
+
+### MT5 Manager - 综合管理面板
+
+**全新推出的桌面 GUI 管理工具**，让您轻松配置、监控和管理 MT5 信号系统！
+
+#### ✨ 主要功能
+
+1. **📊 仪表板**
+   - 实时显示 Master/Slave 服务状态
+   - 一键启动/停止服务
+   - 实时统计（发送/接收信号数、失败次数、平均延迟）
+   - 快速操作按钮
+
+2. **⚙️ 可视化配置**
+   - Master 配置界面（MQTT、MT5 账户、信号参数）
+   - Slave 配置界面（MQTT、MT5 账户、订阅、风险管理）
+   - 表单验证和保存功能
+
+3. **📡 实时监控**
+   - MQTT Broker 连接状态
+   - Master/Slave 在线状态
+   - 信号历史表格（时间、类型、品种、价格、状态）
+
+4. **📋 日志查看器**
+   - 多日志文件切换（master.log / slave.log / system.log）
+   - 彩色日志显示（ERROR/WARNING/INFO/DEBUG）
+   - 自动刷新功能
+   - 日志导出功能
+
+#### 🚀 快速启动
+
+**Windows:**
+```bash
+双击 start_manager.bat
+# 或
+python mt5_manager.py
+```
+
+**macOS/Linux:**
+```bash
+./start_manager.sh
+# 或
+python3 mt5_manager.py
+```
+
+详细使用说明请查看 [MANAGER_GUIDE.md](MANAGER_GUIDE.md)
+
+---
+
 ## 功能特性
 
 ### 核心功能
@@ -13,6 +63,7 @@
   - 最大手数限制
   - 每日亏损限制
   - 点差过滤
+- ✅ **图形化管理**: 完整的桌面 GUI 管理面板
 
 ### 系统架构
 

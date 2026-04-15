@@ -1,0 +1,90 @@
+name: Release All Components
+
+on:
+  push:
+    tags: [ 'v*' ]
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  build-master:
+    name: Build Master Server
+    uses: ./.github/workflows/build-master.yml
+
+  build-slave:
+    name: Build Slave Server
+    uses: ./.github/workflows/build-slave.yml
+
+  build-manager:
+    name: Build Management Panel
+    uses: ./.github/workflows/build-manager.yml
+
+  create-release:
+    name: Create Combined Release
+    needs: [build-master, build-slave, build-manager]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts
+
+    - name: List artifacts
+      run: |
+        echo "Downloaded artifacts:"
+        find artifacts -type f | sort
+
+    - name: Create Release Notes
+      run: |
+        cat > RELEASE_NOTES.md << EOF
+        # MT5 Signal System ${{ github.ref_name }}
+
+        ## 📦 Available Downloads
+
+        ### Master Server
+        - **Windows**: MT5-Master-Server-${{ github.ref_name }}-Windows.zip
+        - **Linux**: MT5-Master-Server-${{ github.ref_name }}-Linux.tar.gz
+
+        ### Slave Server
+        - **Windows**: MT5-Slave-Server-${{ github.ref_name }}-Windows.zip
+        - **Linux**: MT5-Slave-Server-${{ github.ref_name }}-Linux.tar.gz
+
+        ### Management Panel
+        - **Windows**: MT5-Manager-${{ github.ref_name }}-Windows.zip
+        - **Linux**: MT5-Manager-${{ github.ref_name }}-Linux.tar.gz
+
+        ## 🚀 Quick Start
+
+        ### Option 1: Use Management Panel (Recommended)
+        1. Download and extract MT5 Manager
+        2. Run start_manager.bat (Windows) or ./start_manager.sh (Linux)
+        3. Configure Master and Slave settings through the GUI
+        4. Start services with one click
+
+        ### Option 2: Manual Setup
+        1. Download Master and/or Slave packages
+        2. Extract to desired location
+        3. Edit configuration files in config/ directory
+        4. Run the executable or launch script
+
+        ## 📋 What's Changed
+        See commit history for detailed changes.
+
+        ## 🔗 Documentation
+        - [README](README.md)
+        - [Quick Start](QUICKSTART.md)
+        - [Manager Guide](MANAGER_GUIDE.md)
+        - [Architecture](ARCHITECTURE.md)
+        EOF
+
+    - name: Upload Release Assets
+      uses: ncipollo/release-action@v1
+      with:
+        artifacts: "artifacts/**/*.zip,artifacts/**/*.tar.gz"
+        tag: ${{ github.ref_name }}
+        name: MT5 Signal System ${{ github.ref_name }}
+        bodyFile: RELEASE_NOTES.md
+        token: ${{ secrets.GITHUB_TOKEN }}
+        allowUpdates: true
+        removeArtifacts: false

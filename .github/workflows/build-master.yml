@@ -1,0 +1,233 @@
+name: Build Master Server
+
+on:
+  push:
+    branches: [ main, master ]
+    tags: [ 'v*' ]
+    paths:
+      - 'master/**'
+      - 'common/**'
+      - '.github/workflows/build-master.yml'
+  pull_request:
+    branches: [ main, master ]
+    paths:
+      - 'master/**'
+      - 'common/**'
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  build-master-windows:
+    name: Build Master (Windows)
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pyinstaller
+        pip install paho-mqtt
+        pip install numpy
+        pip install MetaTrader5
+        pip install psutil
+
+    - name: Build Master EXE
+      run: |
+        pyinstaller --name="MT5_Master_Server" `
+          --onedir `
+          --console `
+          --add-data "config/master_config.json;config" `
+          --add-data "common;common" `
+          --add-data "master;master" `
+          --hidden-import=paho.mqtt.client `
+          --hidden-import=MetaTrader5 `
+          --hidden-import=numpy `
+          --hidden-import=numpy.core.multiarray `
+          --hidden-import=common `
+          --hidden-import=common.models `
+          --hidden-import=common.utils `
+          --hidden-import=common.mqtt_client `
+          --hidden-import=master `
+          --hidden-import=master.auth_manager `
+          --hidden-import=master.mqtt_auth_bridge `
+          master/signal_sender.py
+      shell: pwsh
+
+    - name: Create Portable Package
+      run: |
+        $RELEASE_DIR = "dist/MT5_Master_Portable"
+        New-Item -ItemType Directory -Force -Path "$RELEASE_DIR/config" | Out-Null
+        New-Item -ItemType Directory -Force -Path "$RELEASE_DIR/common" | Out-Null
+        New-Item -ItemType Directory -Force -Path "$RELEASE_DIR/master" | Out-Null
+
+        # Copy files
+        Copy-Item -Recurse -Force "dist/MT5_Master_Server/*" "$RELEASE_DIR/"
+        Copy-Item -Force "config/master_config.json" "$RELEASE_DIR/config/"
+        Copy-Item -Recurse -Force "common/*" "$RELEASE_DIR/common/"
+        Copy-Item -Recurse -Force "master/*" "$RELEASE_DIR/master/"
+        Copy-Item "README.md" "$RELEASE_DIR/"
+        Copy-Item "requirements.txt" "$RELEASE_DIR/"
+
+        # Create launch script
+        @"
+        @echo off
+        chcp 65001 >nul
+        title MT5 Master Server
+        echo ========================================
+        echo   MT5 Signal System - Master Server
+        echo ========================================
+        echo.
+
+        if not exist "config\master_config.json" (
+            echo ERROR: Config file not found: config\master_config.json
+            pause
+            exit /b 1
+        )
+
+        echo Starting Master Server...
+        echo.
+
+        python master\signal_sender.py --config config\master_config.json
+
+        pause
+        "@ | Out-File -FilePath "$RELEASE_DIR/start_master.bat" -Encoding ASCII
+
+        # Create readme
+        @"
+        MT5 Master Server - Portable Version
+        ====================================
+
+        Usage:
+        1. Ensure Python 3.8+ is installed
+        2. Install dependencies: pip install -r requirements.txt
+        3. Edit config/master_config.json
+        4. Double-click start_master.bat to start
+
+        Config: config/master_config.json
+        Logs: logs/master.log
+        "@ | Out-File -FilePath "$RELEASE_DIR/README_Portable.txt" -Encoding UTF8
+
+    - name: Upload Master Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: MT5-Master-Server-Windows
+        path: dist/MT5_Master_Portable/
+        retention-days: 90
+
+    - name: Zip Master Package
+      if: startsWith(github.ref, 'refs/tags/')
+      run: |
+        $ZIP_NAME = "MT5-Master-Server-${{ github.ref_name }}-Windows.zip"
+        Compress-Archive -Path "dist/MT5_Master_Portable\*" -DestinationPath "$ZIP_NAME" -Force
+        echo "MASTER_ZIP=$ZIP_NAME" >> $env:GITHUB_ENV
+      shell: pwsh
+
+    - name: Create Master Release
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: ncipollo/release-action@v1
+      with:
+        artifacts: ${{ env.MASTER_ZIP }}
+        tag: ${{ github.ref_name }}
+        name: MT5 Master Server ${{ github.ref_name }}
+        body: |
+          MT5 Master Server ${{ github.ref_name }}
+
+          **What's Included:**
+          - Standalone executable (no Python required)
+          - Configuration files
+          - Documentation
+
+          **Quick Start:**
+          1. Extract the zip file
+          2. Edit config/master_config.json
+          3. Run MT5_Master_Server.exe or start_master.bat
+        token: ${{ secrets.GITHUB_TOKEN }}
+        allowUpdates: true
+
+  build-master-linux:
+    name: Build Master (Linux Portable)
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install paho-mqtt
+        pip install numpy
+        pip install psutil
+
+    - name: Create Portable Package
+      run: |
+        RELEASE_DIR="dist/MT5_Master_Portable_Linux"
+        mkdir -p "$RELEASE_DIR/config"
+        mkdir -p "$RELEASE_DIR/common"
+        mkdir -p "$RELEASE_DIR/master"
+        mkdir -p "$RELEASE_DIR/logs"
+
+        # Copy files
+        cp -r common/* "$RELEASE_DIR/common/"
+        cp -r master/* "$RELEASE_DIR/master/"
+        cp config/master_config.json "$RELEASE_DIR/config/" 2>/dev/null || echo "Config will be created on first run"
+        cp README.md "$RELEASE_DIR/"
+        cp requirements.txt "$RELEASE_DIR/"
+
+        # Create launch script
+        cat > "$RELEASE_DIR/start_master.sh" << 'EOF'
+        #!/bin/bash
+        echo "========================================"
+        echo "  MT5 Signal System - Master Server"
+        echo "========================================"
+        echo ""
+
+        if [ ! -f "config/master_config.json" ]; then
+            echo "ERROR: Config file not found: config/master_config.json"
+            exit 1
+        fi
+
+        echo "Starting Master Server..."
+        echo ""
+
+        python3 master/signal_sender.py --config config/master_config.json
+        EOF
+
+        chmod +x "$RELEASE_DIR/start_master.sh"
+
+    - name: Upload Linux Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: MT5-Master-Server-Linux
+        path: dist/MT5_Master_Portable_Linux/
+        retention-days: 90
+
+    - name: Create Tarball
+      if: startsWith(github.ref, 'refs/tags/')
+      run: |
+        cd dist
+        tar -czf "../MT5-Master-Server-${{ github.ref_name }}-Linux.tar.gz" MT5_Master_Portable_Linux/
+        cd ..
+        echo "MASTER_TAR=tar.gz" >> $GITHUB_ENV
+
+    - name: Upload Linux Release
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: ncipollo/release-action@v1
+      with:
+        artifacts: MT5-Master-Server-${{ github.ref_name }}-Linux.tar.gz
+        tag: ${{ github.ref_name }}
+        name: MT5 Master Server ${{ github.ref_name }}
+        token: ${{ secrets.GITHUB_TOKEN }}
+        allowUpdates: true
