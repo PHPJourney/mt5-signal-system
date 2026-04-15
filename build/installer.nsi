@@ -5,6 +5,9 @@
 !include "LogicLib.nsh"
 !include "FileFunc.nsh"
 
+; Change to project root directory
+!cd ".."
+
 ; General settings
 Name "MT5 Signal System"
 OutFile "dist\MT5_Signal_System_Installer.exe"
