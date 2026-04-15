@@ -45,6 +45,11 @@ jobs:
           pip install pyinstaller paho-mqtt numpy psutil ttkbootstrap pillow
         shell: pwsh
 
+      - name: Generate icon
+        run: |
+          python -c "from PIL import Image, ImageDraw, ImageFont; img = Image.new('RGBA', (256,256), (30,100,200,255)); draw = ImageDraw.Draw(img); draw.ellipse([(20,20),(236,236)], outline=(255,255,255,200), width=8); draw.rectangle([(60,60),(196,196)], outline=(255,255,255,150), width=4); font = ImageFont.load_default(); draw.text((60, 70), 'MT5', fill=(255,255,255), font=font); img.save('icon.ico')"
+        shell: pwsh
+
       - name: Clean dist directory
         run: |
           if (Test-Path "dist") {
@@ -57,11 +62,6 @@ jobs:
           }
           New-Item -Path "dist" -ItemType Directory -Force
           Write-Host "✓ dist/ directory cleaned"
-        shell: pwsh
-
-      - name: Generate icon
-        run: |
-          python -c "from PIL import Image, ImageDraw, ImageFont; img = Image.new('RGBA', (256,256), (30,100,200,255)); draw = ImageDraw.Draw(img); draw.ellipse([(20,20),(236,236)], outline=(255,255,255,200), width=8); draw.rectangle([(60,60),(196,196)], outline=(255,255,255,150), width=4); font = ImageFont.load_default(); draw.text((60, 70), 'MT5', fill=(255,255,255), font=font); img.save('icon.ico')"
         shell: pwsh
 
       - name: Build MT5 Manager EXE
@@ -151,6 +151,38 @@ jobs:
           } else {
               Write-Error "NSIS installation failed"
               exit 1
+          }
+        shell: pwsh
+
+      - name: Debug file locations
+        run: |
+          Write-Host "=== Current working directory ==="
+          pwd
+          
+          Write-Host "`n=== Repository root contents ==="
+          Get-ChildItem -Force | ForEach-Object { 
+              Write-Host "$($_.Name) $($_.Mode)"
+          }
+          
+          Write-Host "`n=== dist/ directory contents ==="
+          Get-ChildItem -Path "dist" -File | ForEach-Object { 
+              Write-Host "$($_.FullName) - $($_.Length) bytes"
+          }
+          
+          Write-Host "`n=== Absolute paths check ==="
+          $exePath = Join-Path (Get-Location).Path "dist\MT5_Manager.exe"
+          Write-Host "Expected path: $exePath"
+          if (Test-Path $exePath) {
+              Write-Host "✓ File exists at absolute path" -ForegroundColor Green
+          } else {
+              Write-Host "✗ File NOT found at absolute path" -ForegroundColor Red
+          }
+          
+          Write-Host "`n=== Relative path check ==="
+          if (Test-Path "dist\MT5_Manager.exe") {
+              Write-Host "✓ File exists at relative path" -ForegroundColor Green
+          } else {
+              Write-Host "✗ File NOT found at relative path" -ForegroundColor Red
           }
         shell: pwsh
 
