@@ -10,6 +10,7 @@
 
 ; Set code page to UTF-8
 Unicode true
+!define MUI_LANGDLL_ALLLANGUAGES
 
 ; General settings
 Name "MT5 Signal System"
@@ -19,8 +20,19 @@ RequestExecutionLevel admin
 ShowInstDetails show
 ShowUninstDetails show
 
+; Version without git hash
+!define VERSION "2.0.0"
+VIProductVersion "${VERSION}.0"
+VIAddVersionKey "ProductName" "MT5 Signal System"
+VIAddVersionKey "FileVersion" "${VERSION}"
+VIAddVersionKey "ProductVersion" "${VERSION}"
+VIAddVersionKey "LegalCopyright" "MT5 Signal System"
+VIAddVersionKey "FileDescription" "MT5 Trading Signal Management System"
+
 ; UI settings
 !define MUI_ABORTWARNING
+!define MUI_ICON "icon.ico"
+!define MUI_UNICON "icon.ico"
 
 ; Pages
 !insertmacro MUI_PAGE_WELCOME
@@ -33,7 +45,9 @@ ShowUninstDetails show
 !insertmacro MUI_UNPAGE_INSTFILES
 
 ; Language
+!insertmacro MUI_LANGUAGE "English"
 !insertmacro MUI_LANGUAGE "SimpChinese"
+!insertmacro MUI_RESERVEFILE_LANGDLL
 
 ; Variables
 Var EnableMaster
@@ -113,31 +127,31 @@ Section -Post
     StrCmp $EnableSlave "true" 0 +2
         File "dist\MT5_Slave.exe"
 
-    ; 创建系统说明
-    FileOpen $0 "$INSTDIR\系统说明.txt" w
-    FileWrite $0 "========================================$\r$\n"
-    FileWrite $0 "MT5 Signal System - 系统说明$\r$\n"
-    FileWrite $0 "========================================$\r$\n"
-    FileWrite $0 "$\r$\n"
-    FileWrite $0 "本系统已编译为独立的 Windows 可执行文件，$\r$\n"
-    FileWrite $0 "无需安装 Python 环境！$\r$\n"
-    FileWrite $0 "$\r$\n"
-    FileWrite $0 "安装组件：$\r$\n"
-    FileWrite $0 "✓ MT5_Manager.exe  : 管理面板（图形界面）$\r$\n"
+    ; 创建系统说明（使用 UTF-8 BOM）
+    FileOpen $0 "$INSTDIR\system_readme.txt" w
+    FileWriteUTF16LE $0 "========================================$\r$\n"
+    FileWriteUTF16LE $0 "MT5 Signal System - System Instructions$\r$\n"
+    FileWriteUTF16LE $0 "========================================$\r$\n"
+    FileWriteUTF16LE $0 "$\r$\n"
+    FileWriteUTF16LE $0 "This system is compiled as standalone Windows executables.$\r$\n"
+    FileWriteUTF16LE $0 "No Python environment installation required!$\r$\n"
+    FileWriteUTF16LE $0 "$\r$\n"
+    FileWriteUTF16LE $0 "Installed components:$\r$\n"
+    FileWriteUTF16LE $0 "MT5_Manager.exe  : Management Panel (GUI)$\r$\n"
     
     StrCmp $EnableMaster "true" 0 +2
-    FileWrite $0 "✓ MT5_Master.exe   : Master 信号服务$\r$\n"
+    FileWriteUTF16LE $0 "MT5_Master.exe   : Master Signal Service$\r$\n"
     
     StrCmp $EnableSlave "true" 0 +2
-    FileWrite $0 "✓ MT5_Slave.exe    : Slave 信号服务$\r$\n"
+    FileWriteUTF16LE $0 "MT5_Slave.exe    : Slave Signal Service$\r$\n"
     
-    FileWrite $0 "$\r$\n"
-    FileWrite $0 "使用方法：$\r$\n"
-    FileWrite $0 "1. 双击 MT5_Manager.exe 启动管理面板$\r$\n"
-    FileWrite $0 "2. 在面板中配置参数$\r$\n"
-    FileWrite $0 "3. 点击'启动'按钮运行服务$\r$\n"
-    FileWrite $0 "$\r$\n"
-    FileWrite $0 "注意：如果使用交易功能，需要安装 MetaTrader 5 终端$\r$\n"
+    FileWriteUTF16LE $0 "$\r$\n"
+    FileWriteUTF16LE $0 "Usage:$\r$\n"
+    FileWriteUTF16LE $0 "1. Double-click MT5_Manager.exe to start the panel$\r$\n"
+    FileWriteUTF16LE $0 "2. Configure parameters in the panel$\r$\n"
+    FileWriteUTF16LE $0 "3. Click 'Start' button to run services$\r$\n"
+    FileWriteUTF16LE $0 "$\r$\n"
+    FileWriteUTF16LE $0 "Note: MetaTrader 5 terminal required for trading functions$\r$\n"
     FileClose $0
 
     ; 创建桌面快捷方式
@@ -146,8 +160,8 @@ Section -Post
     ; 创建开始菜单
     CreateDirectory "$SMPROGRAMS\MT5 Signal System"
     CreateShortCut "$SMPROGRAMS\MT5 Signal System\MT5 Manager.lnk" "$INSTDIR\MT5_Manager.exe" "" "$INSTDIR\icon.ico"
-    CreateShortCut "$SMPROGRAMS\MT5 Signal System\系统说明.lnk" "$INSTDIR\系统说明.txt"
-    CreateShortCut "$SMPROGRAMS\MT5 Signal System\卸载.lnk" "$INSTDIR\uninstall.exe"
+    CreateShortCut "$SMPROGRAMS\MT5 Signal System\System Instructions.lnk" "$INSTDIR\system_readme.txt"
+    CreateShortCut "$SMPROGRAMS\MT5 Signal System\Uninstall.lnk" "$INSTDIR\uninstall.exe"
 
     ; 写入卸载信息
     WriteUninstaller "$INSTDIR\uninstall.exe"
@@ -163,7 +177,7 @@ Section -Post
     WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\MT5SignalSystem" \
                      "Publisher" "MT5 Signal System"
     WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\MT5SignalSystem" \
-                     "DisplayVersion" "2.0"
+                     "DisplayVersion" "${VERSION}"
     
     SetOutPath "$INSTDIR"
 SectionEnd
@@ -176,7 +190,7 @@ Section "Uninstall"
     Delete "$INSTDIR\MT5_Slave.exe"
     Delete "$INSTDIR\icon.ico"
     Delete "$INSTDIR\install_config.json"
-    Delete "$INSTDIR\系统说明.txt"
+    Delete "$INSTDIR\system_readme.txt"
     Delete "$INSTDIR\README.md"
     Delete "$INSTDIR\QUICKSTART.md"
     Delete "$INSTDIR\uninstall.exe"
@@ -184,8 +198,8 @@ Section "Uninstall"
     ; 删除快捷方式
     Delete "$DESKTOP\MT5 Manager.lnk"
     Delete "$SMPROGRAMS\MT5 Signal System\MT5 Manager.lnk"
-    Delete "$SMPROGRAMS\MT5 Signal System\系统说明.lnk"
-    Delete "$SMPROGRAMS\MT5 Signal System\卸载.lnk"
+    Delete "$SMPROGRAMS\MT5 Signal System\System Instructions.lnk"
+    Delete "$SMPROGRAMS\MT5 Signal System\Uninstall.lnk"
 
     ; 删除目录
     RMDir "$SMPROGRAMS\MT5 Signal System"
@@ -199,12 +213,12 @@ SectionEnd
 
 ; 描述
 !insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
-    !insertmacro MUI_DESCRIPTION_TEXT ${SecPanel} "管理面板 - 用于配置和监控（必需）"
-    !insertmacro MUI_DESCRIPTION_TEXT ${SecMaster} "Master 信号管理 - 作为主服务器发送交易信号（至少选择一个）"
-    !insertmacro MUI_DESCRIPTION_TEXT ${SecSlave} "Slave 信号管理 - 作为从服务器接收并执行交易（至少选择一个）"
-    !insertmacro MUI_DESCRIPTION_TEXT ${SecDeps} "系统说明文档"
-    !insertmacro MUI_DESCRIPTION_TEXT ${SecConfig} "配置文件模板和示例"
-    !insertmacro MUI_DESCRIPTION_TEXT ${SecDocs} "用户手册和快速入门指南"
+    !insertmacro MUI_DESCRIPTION_TEXT ${SecPanel} "Management Panel - Configuration and Monitoring (Required)"
+    !insertmacro MUI_DESCRIPTION_TEXT ${SecMaster} "Master Signal Management - Send trading signals as master server"
+    !insertmacro MUI_DESCRIPTION_TEXT ${SecSlave} "Slave Signal Management - Receive and execute trades as slave server"
+    !insertmacro MUI_DESCRIPTION_TEXT ${SecDeps} "System instructions document"
+    !insertmacro MUI_DESCRIPTION_TEXT ${SecConfig} "Configuration file templates and examples"
+    !insertmacro MUI_DESCRIPTION_TEXT ${SecDocs} "User manual and quick start guide"
 !insertmacro MUI_FUNCTION_DESCRIPTION_END
 
 ; 自定义函数 - 验证至少选择一个
@@ -220,7 +234,7 @@ Function .onLeaveComponents
     IntCmp $R0 0 0 skip_check
     IntCmp $R1 0 0 skip_check
     
-    MessageBox MB_ICONEXCLAMATION|MB_OK "请至少选择 Master 或 Slave 中的一个！$\n$\n不能两者都不选。"
+    MessageBox MB_ICONEXCLAMATION|MB_OK "Please select at least one: Master or Slave!$\n$\nCannot leave both unselected."
     Abort
     
     skip_check:
@@ -236,9 +250,18 @@ Function .onInit
     SectionSetFlags ${SecMaster} ${SF_SELECTED}   ; 默认选择 Master
     SectionSetFlags ${SecSlave} ${SF_SELECTED}    ; 默认选择 Slave
     SectionSetFlags ${SecDeps} ${SF_SELECTED}
+    
+    ; 语言选择
+    !insertmacro MUI_LANGDLL_DISPLAY
 FunctionEnd
 
 Function un.onInit
-    MessageBox MB_ICONQUESTION|MB_YESNO|MB_DEFBUTTON2 "确定要完全卸载 MT5 Signal System 吗？" IDYES +2
+    ; 获取语言设置
+    !insertmacro MUI_UNGETLANGUAGE
+    
+    ; 使用英文避免乱码
+    MessageBox MB_ICONQUESTION|MB_YESNO|MB_DEFBUTTON2 \
+        "Are you sure you want to completely uninstall MT5 Signal System?$\n$\nThis will remove all installed files." \
+        IDYES +2
     Abort
 FunctionEnd

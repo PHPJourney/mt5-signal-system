@@ -11,11 +11,11 @@ class MasterConfigTab:
         self.frame = ttk.Frame(notebook)
         notebook.add(self.frame, text="⚙️ Master 配置")
         
-        # 从 app 获取最新配置
-        self.config = app.master_config
-        
-        # 创建变量
+        # 创建变量（先创建空变量）
         self._create_variables()
+        
+        # 加载配置到 UI
+        self.load_config_to_ui()
         
         self.create_ui()
     
@@ -23,36 +23,41 @@ class MasterConfigTab:
         """创建 Tk 变量"""
         # MT5 终端
         self.mt5_terminal_var = tk.StringVar()
-        self.mt5_path_var = tk.StringVar(
-            value=self.config.get('mt5', {}).get('terminal_path', '')
-        )
+        self.mt5_path_var = tk.StringVar()
         
         # MQTT
-        self.broker_var = tk.StringVar(
-            value=self.config.get('mqtt', {}).get('broker', 'localhost')
-        )
-        self.port_var = tk.IntVar(
-            value=self.config.get('mqtt', {}).get('port', 1883)
-        )
-        self.mqtt_user_var = tk.StringVar(
-            value=self.config.get('mqtt', {}).get('username', '')
-        )
-        self.mqtt_pass_var = tk.StringVar(
-            value=self.config.get('mqtt', {}).get('password', '')
-        )
-        self.client_id_var = tk.StringVar(
-            value=self.config.get('mqtt', {}).get('client_id', 'master_001')
-        )
+        self.broker_var = tk.StringVar()
+        self.port_var = tk.IntVar()
+        self.mqtt_user_var = tk.StringVar()
+        self.mqtt_pass_var = tk.StringVar()
+        self.client_id_var = tk.StringVar()
         
         # 信号
+        self.symbols_var = tk.StringVar()
+        self.max_pos_var = tk.IntVar()
+        self.lot_size_var = tk.DoubleVar()
+    
+    def load_config_to_ui(self):
+        """从配置文件加载到 UI"""
+        # 重新读取配置
+        self.config = self.app.config_manager.load_config("master_config")
+        self.app.master_config = self.config  # 同步到 app
+        
+        # 更新变量值
+        self.mt5_path_var.set(self.config.get('mt5', {}).get('terminal_path', ''))
+        
+        self.broker_var.set(self.config.get('mqtt', {}).get('broker', 'localhost'))
+        self.port_var.set(self.config.get('mqtt', {}).get('port', 1883))
+        self.mqtt_user_var.set(self.config.get('mqtt', {}).get('username', ''))
+        self.mqtt_pass_var.set(self.config.get('mqtt', {}).get('password', ''))
+        self.client_id_var.set(self.config.get('mqtt', {}).get('client_id', 'master_001'))
+        
         symbols = ','.join(self.config.get('signal', {}).get('symbols', []))
-        self.symbols_var = tk.StringVar(value=symbols)
-        self.max_pos_var = tk.IntVar(
-            value=self.config.get('signal', {}).get('max_positions', 5)
-        )
-        self.lot_size_var = tk.DoubleVar(
-            value=self.config.get('signal', {}).get('lot_size', 0.01)
-        )
+        self.symbols_var.set(symbols)
+        self.max_pos_var.set(self.config.get('signal', {}).get('max_positions', 5))
+        self.lot_size_var.set(self.config.get('signal', {}).get('lot_size', 0.01))
+        
+        print("✓ Master 配置已加载到 UI")
     
     def create_ui(self):
         """创建配置界面"""
@@ -81,16 +86,31 @@ class MasterConfigTab:
         # 信号配置
         self._create_signal_section(scrollable_frame)
         
-        # 保存按钮
+        # 按钮区域
         btn_frame = ttk.Frame(scrollable_frame)
         btn_frame.pack(fill=tk.X, padx=10, pady=10)
 
+        # 重新加载按钮
+        ttk.Button(
+            btn_frame,
+            text="🔄 重新加载",
+            command=self.reload_config,
+            width=15
+        ).pack(side=tk.LEFT, padx=5)
+
+        # 保存按钮
         ttk.Button(
             btn_frame,
             text="💾 保存 Master 配置",
             command=self.save_config,
             width=20
-        ).pack(side=tk.RIGHT)
+        ).pack(side=tk.RIGHT, padx=5)
+    
+    def reload_config(self):
+        """重新加载配置"""
+        self.load_config_to_ui()
+        messagebox.showinfo("成功", "配置已重新加载")
+        self.app.update_status("Master 配置已重新加载")
     
     def _create_mt5_terminal_section(self, parent):
         """创建 MT5 终端选择区域"""

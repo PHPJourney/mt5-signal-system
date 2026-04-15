@@ -1,4 +1,3 @@
-# ui/slave_config.py
 """Slave 配置模块"""
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
@@ -12,12 +11,54 @@ class SlaveConfigTab:
         self.frame = ttk.Frame(notebook)
         notebook.add(self.frame, text="⚙️ Slave 配置")
         
-        self.config = app.slave_config
+        # 创建变量
+        self._create_variables()
+        
+        # 加载配置到 UI
+        self.load_config_to_ui()
+        
         self.create_ui()
+    
+    def _create_variables(self):
+        """创建 Tk 变量"""
+        self.mt5_terminal_var = tk.StringVar()
+        self.mt5_path_var = tk.StringVar()
+        
+        self.broker_var = tk.StringVar()
+        self.port_var = tk.IntVar()
+        self.mqtt_user_var = tk.StringVar()
+        self.mqtt_pass_var = tk.StringVar()
+        self.client_id_var = tk.StringVar()
+        
+        self.master_id_var = tk.StringVar()
+        
+        self.max_dd_var = tk.DoubleVar()
+        self.max_pos_var = tk.IntVar()
+        self.lot_mult_var = tk.DoubleVar()
+    
+    def load_config_to_ui(self):
+        """从配置文件加载到 UI"""
+        self.config = self.app.config_manager.load_config("slave_config")
+        self.app.slave_config = self.config
+        
+        self.mt5_path_var.set(self.config.get('mt5', {}).get('terminal_path', ''))
+        
+        self.broker_var.set(self.config.get('mqtt', {}).get('broker', 'localhost'))
+        self.port_var.set(self.config.get('mqtt', {}).get('port', 1883))
+        self.mqtt_user_var.set(self.config.get('mqtt', {}).get('username', ''))
+        self.mqtt_pass_var.set(self.config.get('mqtt', {}).get('password', ''))
+        self.client_id_var.set(self.config.get('mqtt', {}).get('client_id', 'slave_001'))
+        
+        self.master_id_var.set(self.config.get('subscription', {}).get('master_id', 'master_001'))
+        
+        self.max_dd_var.set(self.config.get('risk', {}).get('max_drawdown', 10))
+        self.max_pos_var.set(self.config.get('risk', {}).get('max_positions', 3))
+        self.lot_mult_var.set(self.config.get('risk', {}).get('lot_multiplier', 1.0))
+        
+        print("✓ Slave 配置已加载到 UI")
     
     def create_ui(self):
         """创建配置界面"""
-        # 创建滚动区域
         canvas = tk.Canvas(self.frame)
         scrollbar = ttk.Scrollbar(self.frame, orient="vertical", command=canvas.yview)
         scrollable_frame = ttk.Frame(canvas)
@@ -33,28 +74,33 @@ class SlaveConfigTab:
         canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
 
-        # MT5 终端选择
         self._create_mt5_terminal_section(scrollable_frame)
-        
-        # MQTT 配置
         self._create_mqtt_section(scrollable_frame)
-        
-        # 订阅配置
         self._create_subscription_section(scrollable_frame)
-        
-        # 风险管理
         self._create_risk_section(scrollable_frame)
         
-        # 保存按钮
         btn_frame = ttk.Frame(scrollable_frame)
         btn_frame.pack(fill=tk.X, padx=10, pady=10)
+
+        ttk.Button(
+            btn_frame,
+            text="🔄 重新加载",
+            command=self.reload_config,
+            width=15
+        ).pack(side=tk.LEFT, padx=5)
 
         ttk.Button(
             btn_frame,
             text="💾 保存 Slave 配置",
             command=self.save_config,
             width=20
-        ).pack(side=tk.RIGHT)
+        ).pack(side=tk.RIGHT, padx=5)
+    
+    def reload_config(self):
+        """重新加载配置"""
+        self.load_config_to_ui()
+        messagebox.showinfo("成功", "配置已重新加载")
+        self.app.update_status("Slave 配置已重新加载")
     
     def _create_mt5_terminal_section(self, parent):
         """创建 MT5 终端选择区域"""
@@ -66,7 +112,6 @@ class SlaveConfigTab:
 
         ttk.Label(terminal_list_frame, text="检测到").pack(side=tk.LEFT, padx=5)
         
-        self.mt5_terminal_var = tk.StringVar()
         self.mt5_terminal_combo = ttk.Combobox(
             terminal_list_frame, 
             textvariable=self.mt5_terminal_var,
@@ -95,7 +140,6 @@ class SlaveConfigTab:
         path_frame.pack(fill=tk.X, pady=5)
         
         ttk.Label(path_frame, text="或手动指定路径:").pack(side=tk.LEFT, padx=5)
-        self.mt5_path_var = tk.StringVar(value=self.config.get('mt5', {}).get('terminal_path', ''))
         ttk.Entry(path_frame, textvariable=self.mt5_path_var, width=50).pack(side=tk.LEFT, padx=5)
         ttk.Button(
             path_frame,
@@ -110,27 +154,22 @@ class SlaveConfigTab:
 
         row = 0
         ttk.Label(mqtt_frame, text="Broker 地址:").grid(row=row, column=0, sticky=tk.W, pady=2)
-        self.broker_var = tk.StringVar(value=self.config.get('mqtt', {}).get('broker', 'localhost'))
         ttk.Entry(mqtt_frame, textvariable=self.broker_var, width=40).grid(row=row, column=1, padx=5)
         row += 1
 
         ttk.Label(mqtt_frame, text="端口:").grid(row=row, column=0, sticky=tk.W, pady=2)
-        self.port_var = tk.IntVar(value=self.config.get('mqtt', {}).get('port', 1883))
         ttk.Spinbox(mqtt_frame, from_=1, to=65535, textvariable=self.port_var, width=38).grid(row=row, column=1, padx=5)
         row += 1
 
         ttk.Label(mqtt_frame, text="用户名:").grid(row=row, column=0, sticky=tk.W, pady=2)
-        self.mqtt_user_var = tk.StringVar(value=self.config.get('mqtt', {}).get('username', ''))
         ttk.Entry(mqtt_frame, textvariable=self.mqtt_user_var, width=40).grid(row=row, column=1, padx=5)
         row += 1
 
         ttk.Label(mqtt_frame, text="密码:").grid(row=row, column=0, sticky=tk.W, pady=2)
-        self.mqtt_pass_var = tk.StringVar(value=self.config.get('mqtt', {}).get('password', ''))
         ttk.Entry(mqtt_frame, textvariable=self.mqtt_pass_var, show="*", width=40).grid(row=row, column=1, padx=5)
         row += 1
 
         ttk.Label(mqtt_frame, text="Client ID:").grid(row=row, column=0, sticky=tk.W, pady=2)
-        self.client_id_var = tk.StringVar(value=self.config.get('mqtt', {}).get('client_id', 'slave_001'))
         ttk.Entry(mqtt_frame, textvariable=self.client_id_var, width=40).grid(row=row, column=1, padx=5)
     
     def _create_subscription_section(self, parent):
@@ -140,7 +179,6 @@ class SlaveConfigTab:
 
         row = 0
         ttk.Label(sub_frame, text="Master ID:").grid(row=row, column=0, sticky=tk.W, pady=2)
-        self.master_id_var = tk.StringVar(value=self.config.get('subscription', {}).get('master_id', 'master_001'))
         ttk.Entry(sub_frame, textvariable=self.master_id_var, width=40).grid(row=row, column=1, padx=5)
     
     def _create_risk_section(self, parent):
@@ -150,17 +188,14 @@ class SlaveConfigTab:
 
         row = 0
         ttk.Label(risk_frame, text="最大回撤 (%):").grid(row=row, column=0, sticky=tk.W, pady=2)
-        self.max_dd_var = tk.DoubleVar(value=self.config.get('risk', {}).get('max_drawdown', 10))
         ttk.Spinbox(risk_frame, from_=1, to=100, increment=0.1, textvariable=self.max_dd_var, width=38).grid(row=row, column=1, padx=5)
         row += 1
 
         ttk.Label(risk_frame, text="最大持仓数:").grid(row=row, column=0, sticky=tk.W, pady=2)
-        self.max_pos_var = tk.IntVar(value=self.config.get('risk', {}).get('max_positions', 3))
         ttk.Spinbox(risk_frame, from_=1, to=100, textvariable=self.max_pos_var, width=38).grid(row=row, column=1, padx=5)
         row += 1
 
         ttk.Label(risk_frame, text="手数倍数:").grid(row=row, column=0, sticky=tk.W, pady=2)
-        self.lot_mult_var = tk.DoubleVar(value=self.config.get('risk', {}).get('lot_multiplier', 1.0))
         ttk.Spinbox(risk_frame, from_=0.1, to=10, increment=0.1, textvariable=self.lot_mult_var, width=38).grid(row=row, column=1, padx=5)
     
     def refresh_terminals(self):
@@ -172,6 +207,8 @@ class SlaveConfigTab:
             return
         
         terminal_options = []
+        self.terminals_data = terminals
+        
         for term in terminals:
             display_text = f"{term['broker']} - 账号: {term['login']} ({term['path']})"
             terminal_options.append(display_text)
@@ -187,7 +224,7 @@ class SlaveConfigTab:
     def on_terminal_selected(self, event):
         """当用户选择终端时"""
         selection = self.mt5_terminal_combo.get()
-        if selection:
+        if selection and hasattr(self, 'terminals_data'):
             import re
             path_match = re.search(r'\((.+)\)$', selection)
             if path_match:
@@ -232,3 +269,5 @@ class SlaveConfigTab:
             self.app.slave_config = config
             messagebox.showinfo("成功", "Slave 配置已保存")
             self.app.update_status("Slave 配置已保存")
+        else:
+            messagebox.showerror("错误", "保存配置失败")

@@ -69,8 +69,18 @@ jobs:
           pyinstaller --clean --onefile --windowed `
             --name "MT5_Manager" `
             --icon "icon.ico" `
-            --add-data "config;config" `
-            --add-data "common;common" `
+            --hidden-import "services" `
+            --hidden-import "services.mt5_detector" `
+            --hidden-import "services.process_manager" `
+            --hidden-import "services.config_manager" `
+            --hidden-import "ui" `
+            --hidden-import "ui.dashboard" `
+            --hidden-import "ui.master_config" `
+            --hidden-import "ui.slave_config" `
+            --hidden-import "ui.monitoring" `
+            --hidden-import "ui.logs" `
+            --hidden-import "common" `
+            --hidden-import "common.utils" `
             --hidden-import "paho.mqtt.client" `
             --hidden-import "paho.mqtt" `
             --hidden-import "numpy" `
