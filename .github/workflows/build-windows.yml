@@ -74,21 +74,33 @@ jobs:
             mt5_manager.py
         shell: pwsh
 
-      - name: Verify build output
+      - name: Prepare files for upload
         run: |
-          Write-Host "=== dist/ directory after build ==="
-          Get-ChildItem -Path "dist" -Recurse | ForEach-Object { Write-Host $_.FullName }
+          # Create a clean directory without path prefixes
+          New-Item -Path "artifact" -ItemType Directory -Force
+          
+          # Copy only the files we need (no directory structure)
+          Copy-Item "dist/MT5_Manager.exe" "artifact/"
+          Copy-Item "icon.ico" "artifact/"
+          
+          if (Test-Path "README.md") {
+            Copy-Item "README.md" "artifact/"
+          }
+          if (Test-Path "QUICKSTART.md") {
+            Copy-Item "QUICKSTART.md" "artifact/"
+          }
+          
+          Write-Host "=== Files ready for upload ==="
+          Get-ChildItem -Path "artifact" | ForEach-Object { 
+              Write-Host "$($_.Name) - $($_.Length) bytes"
+          }
         shell: pwsh
 
       - name: Upload Windows EXE artifacts
         uses: actions/upload-artifact@v4
         with:
           name: windows-build
-          path: |
-            dist/MT5_Manager.exe
-            icon.ico
-            README.md
-            QUICKSTART.md
+          path: artifact/
           retention-days: 30
 
   build-nsis-installer:
@@ -123,20 +135,30 @@ jobs:
       - name: Verify downloaded files
         run: |
           Write-Host "=== Files in dist/ directory ==="
-          Get-ChildItem -Path "dist" -Recurse | ForEach-Object { 
-              Write-Host "$($_.FullName) - $($_.Length) bytes"
+          Get-ChildItem -Path "dist" -File | ForEach-Object { 
+              Write-Host "$($_.Name) - $($_.Length) bytes"
           }
-          Write-Host "`n=== Checking for MT5_Manager.exe ==="
+          
+          Write-Host "`n=== Checking for required files ==="
+          $success = $true
+          
           if (Test-Path "dist\MT5_Manager.exe") {
               Write-Host "✓ MT5_Manager.exe found" -ForegroundColor Green
           } else {
               Write-Host "✗ MT5_Manager.exe NOT found" -ForegroundColor Red
-              exit 1
+              $success = $false
           }
+          
           if (Test-Path "dist\icon.ico") {
               Write-Host "✓ icon.ico found" -ForegroundColor Green
           } else {
               Write-Host "✗ icon.ico NOT found" -ForegroundColor Yellow
+          }
+          
+          if (-not $success) {
+              Write-Host "`n=== Full directory tree ===" -ForegroundColor Red
+              Get-ChildItem -Path "dist" -Recurse | ForEach-Object { Write-Host $_.FullName }
+              exit 1
           }
         shell: pwsh
 
