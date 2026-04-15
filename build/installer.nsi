@@ -1,5 +1,5 @@
 ; MT5 Signal System - Unified Installer
-; 统一安装器 - 面板必选，主从二选一
+; 统一安装器 - 面板必选，主从至少选一个
 
 !include "MUI2.nsh"
 !include "LogicLib.nsh"
@@ -42,21 +42,16 @@ Var EnableSlave
 ; 组件选择
 Section "管理面板 (必需)" SecPanel
     SectionIn RO  ; 必选，不可取消
-    
-    ; 标记面板已安装
-    StrCpy $EnablePanel "true"
 SectionEnd
 
 Section "Master 信号管理 (主服务器)" SecMaster
     ; 标记启用 Master
     StrCpy $EnableMaster "true"
-    StrCpy $EnableSlave "false"  ; 互斥：选择 Master 则禁用 Slave
 SectionEnd
 
 Section "Slave 信号管理 (从服务器)" SecSlave
     ; 标记启用 Slave
     StrCpy $EnableSlave "true"
-    StrCpy $EnableMaster "false"  ; 互斥：选择 Slave 则禁用 Master
 SectionEnd
 
 Section "系统说明文档" SecDeps
@@ -110,21 +105,13 @@ Section -Post
     File "dist\MT5_Manager.exe"
     File "dist\icon.ico"
 
-    ; 根据选择复制 Master 或 Slave
-    StrCmp $EnableMaster "true" master_section slave_check
-    
-    master_section:
+    ; 根据选择复制 Master
+    StrCmp $EnableMaster "true" 0 +2
         File "dist\MT5_Master.exe"
-        Goto copy_done
-    
-    slave_check:
-    StrCmp $EnableSlave "true" slave_section copy_done
-    
-    slave_section:
+
+    ; 根据选择复制 Slave
+    StrCmp $EnableSlave "true" 0 +2
         File "dist\MT5_Slave.exe"
-        Goto copy_done
-    
-    copy_done:
 
     ; 创建系统说明
     FileOpen $0 "$INSTDIR\系统说明.txt" w
@@ -213,46 +200,41 @@ SectionEnd
 ; 描述
 !insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
     !insertmacro MUI_DESCRIPTION_TEXT ${SecPanel} "管理面板 - 用于配置和监控（必需）"
-    !insertmacro MUI_DESCRIPTION_TEXT ${SecMaster} "Master 信号管理 - 作为主服务器发送交易信号（与 Slave 二选一）"
-    !insertmacro MUI_DESCRIPTION_TEXT ${SecSlave} "Slave 信号管理 - 作为从服务器接收并执行交易（与 Master 二选一）"
+    !insertmacro MUI_DESCRIPTION_TEXT ${SecMaster} "Master 信号管理 - 作为主服务器发送交易信号（至少选择一个）"
+    !insertmacro MUI_DESCRIPTION_TEXT ${SecSlave} "Slave 信号管理 - 作为从服务器接收并执行交易（至少选择一个）"
     !insertmacro MUI_DESCRIPTION_TEXT ${SecDeps} "系统说明文档"
     !insertmacro MUI_DESCRIPTION_TEXT ${SecConfig} "配置文件模板和示例"
     !insertmacro MUI_DESCRIPTION_TEXT ${SecDocs} "用户手册和快速入门指南"
 !insertmacro MUI_FUNCTION_DESCRIPTION_END
 
-; 自定义函数 - 实现 Master/Slave 互斥
-Function .onSelChange
-    ; 如果选择了 Master，取消 Slave
+; 自定义函数 - 验证至少选择一个
+Function .onLeaveComponents
+    ; 检查 Master 和 Slave 是否都未选
     SectionGetFlags ${SecMaster} $R0
     IntOp $R0 $R0 & ${SF_SELECTED}
-    IntCmp $R0 ${SF_SELECTED} 0 check_slave
     
-    ; Master 被选中，取消 Slave
-    SectionSetFlags ${SecSlave} 0
-    Goto done
+    SectionGetFlags ${SecSlave} $R1
+    IntOp $R1 $R1 & ${SF_SELECTED}
     
-    check_slave:
-    ; 如果选择了 Slave，取消 Master
-    SectionGetFlags ${SecSlave} $R0
-    IntOp $R0 $R0 & ${SF_SELECTED}
-    IntCmp $R0 ${SF_SELECTED} 0 done
+    ; 如果两者都未选，显示错误
+    IntCmp $R0 0 0 skip_check
+    IntCmp $R1 0 0 skip_check
     
-    ; Slave 被选中，取消 Master
-    SectionSetFlags ${SecMaster} 0
+    MessageBox MB_ICONEXCLAMATION|MB_OK "请至少选择 Master 或 Slave 中的一个！$\n$\n不能两者都不选。"
+    Abort
     
-    done:
+    skip_check:
 FunctionEnd
 
 Function .onInit
     ; 初始化变量
     StrCpy $EnableMaster "false"
     StrCpy $EnableSlave "false"
-    StrCpy $EnablePanel "true"
     
-    ; 设置默认选择
+    ; 设置默认选择（两者都选）
     SectionSetFlags ${SecPanel} ${SF_SELECTED}    ; 面板必选
     SectionSetFlags ${SecMaster} ${SF_SELECTED}   ; 默认选择 Master
-    SectionSetFlags ${SecSlave} 0                  ; Slave 未选
+    SectionSetFlags ${SecSlave} ${SF_SELECTED}    ; 默认选择 Slave
     SectionSetFlags ${SecDeps} ${SF_SELECTED}
 FunctionEnd
 
