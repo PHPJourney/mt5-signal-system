@@ -26,6 +26,7 @@ jobs:
         python -m pip install --upgrade pip
         pip install pyinstaller
         pip install paho-mqtt
+        pip install numpy
         # Note: MetaTrader5 will be installed but won't work in CI
         # It's only needed at runtime on Windows with MT5 terminal
         pip install MetaTrader5
