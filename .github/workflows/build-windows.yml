@@ -1,0 +1,115 @@
+name: Build Windows EXE
+
+on:
+  push:
+    branches: [ main, master ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pyinstaller
+        pip install paho-mqtt
+        # Note: MetaTrader5 will be installed but won't work in CI
+        # It's only needed at runtime on Windows with MT5 terminal
+        pip install MetaTrader5
+
+    - name: Build Master Server EXE
+      run: |
+        pyinstaller --name="MT5_Master_Server" `
+          --onedir `
+          --console `
+          --add-data "config;config" `
+          --hidden-import=paho.mqtt.client `
+          --hidden-import=MetaTrader5 `
+          --hidden-import=common `
+          --hidden-import=common.models `
+          --hidden-import=common.utils `
+          --hidden-import=common.mqtt_client `
+          master/signal_sender.py
+      shell: pwsh
+
+    - name: Build Slave Server EXE
+      run: |
+        pyinstaller --name="MT5_Slave_Server" `
+          --onedir `
+          --console `
+          --add-data "config;config" `
+          --hidden-import=paho.mqtt.client `
+          --hidden-import=MetaTrader5 `
+          --hidden-import=common `
+          --hidden-import=common.models `
+          --hidden-import=common.utils `
+          --hidden-import=common.mqtt_client `
+          --hidden-import=slave `
+          --hidden-import=slave.symbol_mapper `
+          --hidden-import=slave.risk_manager `
+          slave/signal_receiver.py
+      shell: pwsh
+
+    - name: Create Release Package
+      run: |
+        $RELEASE_DIR = "dist/MT5_Signal_System_Release"
+        New-Item -ItemType Directory -Force -Path $RELEASE_DIR | Out-Null
+        New-Item -ItemType Directory -Force -Path "$RELEASE_DIR/Master_Server" | Out-Null
+        New-Item -ItemType Directory -Force -Path "$RELEASE_DIR/Slave_Server" | Out-Null
+        New-Item -ItemType Directory -Force -Path "$RELEASE_DIR/config" | Out-Null
+
+        # Copy executables
+        Copy-Item -Recurse -Force "dist/MT5_Master_Server/*" "$RELEASE_DIR/Master_Server/"
+        Copy-Item -Recurse -Force "dist/MT5_Slave_Server/*" "$RELEASE_DIR/Slave_Server/"
+        Copy-Item -Recurse -Force "config/*" "$RELEASE_DIR/config/"
+
+        # Copy documentation
+        Copy-Item "README.md" "$RELEASE_DIR/"
+        Copy-Item "WINDOWS_GUIDE.md" "$RELEASE_DIR/"
+        Copy-Item "QUICKSTART.md" "$RELEASE_DIR/"
+        Copy-Item "CHEATSHEET.md" "$RELEASE_DIR/"
+
+        # Create launch scripts
+        @"
+        @echo off
+        title MT5 Master Server
+        cd Master_Server
+        MT5_Master_Server.exe --config ..\config\master_config.json
+        pause
+        "@ | Out-File -FilePath "$RELEASE_DIR/start_master.bat" -Encoding ASCII
+
+        @"
+        @echo off
+        title MT5 Slave Server
+        cd Slave_Server
+        MT5_Slave_Server.exe --config ..\config\slave_config.json
+        pause
+        "@ | Out-File -FilePath "$RELEASE_DIR/start_slave.bat" -Encoding ASCII
+      shell: pwsh
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: MT5-Signal-System-Windows
+        path: dist/MT5_Signal_System_Release/
+
+    - name: Create Release (on tag)
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: dist/MT5_Signal_System_Release/**
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

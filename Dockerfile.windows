@@ -1,0 +1,49 @@
+FROM python:3.11-windowsservercore
+
+WORKDIR /app
+
+# Copy project files
+COPY . .
+
+# Install dependencies
+RUN pip install --no-cache-dir \
+    pyinstaller \
+    paho-mqtt \
+    MetaTrader5
+
+# Build Master Server
+RUN pyinstaller --name="MT5_Master_Server" \
+    --onedir \
+    --console \
+    --add-data "config;config" \
+    --hidden-import=paho.mqtt.client \
+    --hidden-import=MetaTrader5 \
+    --hidden-import=common \
+    --hidden-import=common.models \
+    --hidden-import=common.utils \
+    --hidden-import=common.mqtt_client \
+    master/signal_sender.py
+
+# Build Slave Server
+RUN pyinstaller --name="MT5_Slave_Server" \
+    --onedir \
+    --console \
+    --add-data "config;config" \
+    --hidden-import=paho.mqtt.client \
+    --hidden-import=MetaTrader5 \
+    --hidden-import=common \
+    --hidden-import=common.models \
+    --hidden-import=common.utils \
+    --hidden-import=common.mqtt_client \
+    --hidden-import=slave \
+    --hidden-import=slave.symbol_mapper \
+    --hidden-import=slave.risk_manager \
+    slave/signal_receiver.py
+
+# Create release package
+RUN mkdir C:\app\dist\MT5_Signal_System_Release && \
+    xcopy /E /I C:\app\dist\MT5_Master_Server C:\app\dist\MT5_Signal_System_Release\Master_Server && \
+    xcopy /E /I C:\app\dist\MT5_Slave_Server C:\app\dist\MT5_Signal_System_Release\Slave_Server && \
+    xcopy /E /I C:\app\config C:\app\dist\MT5_Signal_System_Release\config
+
+CMD ["echo", "Build completed!"]

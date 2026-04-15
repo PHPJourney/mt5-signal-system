@@ -1,0 +1,2 @@
+paho-mqtt>=1.6.1
+MetaTrader5>=5.0.45

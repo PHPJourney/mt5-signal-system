@@ -1,0 +1,40 @@
+{
+    "mqtt": {
+        "broker": "localhost",
+        "port": 1883,
+        "username": "",
+        "password": "",
+        "topic_prefix": "mt5/signal",
+        "client_id": "slave_server_001"
+    },
+    "trading": {
+        "multiplier": 1.0,
+        "reverse_trading": false,
+        "max_lot_size": 10.0,
+        "min_lot_size": 0.01,
+        "lot_step": 0.01,
+        "slippage_points": 30,
+        "magic_number": 999999
+    },
+    "risk_management": {
+        "max_daily_loss_usd": 1000.0,
+        "max_spread_points": 50,
+        "enable_spread_filter": true,
+        "enable_risk_management": true
+    },
+    "symbol_mapping": {
+        "EURUSD": "EURUSD",
+        "GBPUSD": "GBPUSD",
+        "USDJPY": "USDJPY",
+        "XAUUSD": "GOLD",
+        "BTCUSD": "BITCOIN",
+        "US30": "DJI30",
+        "NAS100": "NDX100"
+    },
+    "logging": {
+        "level": "INFO",
+        "file": "logs/slave.log",
+        "max_size_mb": 10,
+        "backup_count": 5
+    }
+}

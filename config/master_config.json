@@ -1,0 +1,21 @@
+{
+    "mqtt": {
+        "broker": "localhost",
+        "port": 1883,
+        "username": "",
+        "password": "",
+        "topic_prefix": "mt5/signal",
+        "client_id": "master_server"
+    },
+    "signal": {
+        "send_interval_ms": 100,
+        "include_positions": true,
+        "include_orders": true
+    },
+    "logging": {
+        "level": "INFO",
+        "file": "logs/master.log",
+        "max_size_mb": 10,
+        "backup_count": 5
+    }
+}
