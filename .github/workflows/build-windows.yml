@@ -52,103 +52,109 @@ jobs:
           import math
 
           def create_icon(size=256):
-            img = Image.new('RGBA', (size, size), (0, 0, 0, 0))
-            draw = ImageDraw.Draw(img)
-            cx, cy = size // 2, size // 2
+              img = Image.new('RGBA', (size, size), (0, 0, 0, 0))
+              draw = ImageDraw.Draw(img)
+              cx, cy = size // 2, size // 2
 
-            bg_color1 = (75, 0, 130)   
-            bg_color2 = (30, 0, 60)    
-            for r in range(size//2, 0, -1):
-                ratio = r / (size//2)
-                color = tuple(int(bg_color1[i] * ratio + bg_color2[i] * (1-ratio)) for i in range(3))
-                draw.ellipse([(cx-r, cy-r), (cx+r, cy+r)], fill=color + (255,))
+              # 1. Background: purple gradient circle
+              bg_color1 = (75, 0, 130)
+              bg_color2 = (30, 0, 60)
+              for r in range(size//2, 0, -1):
+                  ratio = r / (size//2)
+                  color = tuple(int(bg_color1[i] * ratio + bg_color2[i] * (1-ratio)) for i in range(3))
+                  draw.ellipse([(cx-r, cy-r), (cx+r, cy+r)], fill=color + (255,))
 
-            draw.ellipse([(15, 15), (size-15, size-15)], outline=(255, 215, 0, 220), width=5)
+              # 2. Outer ring: golden halo
+              draw.ellipse([(15, 15), (size-15, size-15)], outline=(255, 215, 0, 220), width=5)
 
-            brain_points = []
-            for angle in range(0, 360, 5):
-                rad = math.radians(angle)
-                
-                base_r = 70
-                wave = 8 * math.sin(angle * 3 * math.pi / 180)
-                r = base_r + wave
-                x = cx + r * math.cos(rad)
-                y = cy + r * math.sin(rad) - 15  
-                brain_points.append((x, y))
-            
-            draw.polygon(brain_points, outline=(255, 215, 0, 200), width=4)
-            
-            brain_inner = []
-            for angle in range(0, 360, 5):
-                rad = math.radians(angle)
-                r = 65 + 6 * math.sin(angle * 3 * math.pi / 180)
-                x = cx + r * math.cos(rad)
-                y = cy + r * math.sin(rad) - 15
-                brain_inner.append((x, y))
-            draw.polygon(brain_inner, fill=(255, 215, 0, 40))
+              # 3. Brain outline (simplified)
+              brain_points = []
+              for angle in range(0, 360, 5):
+                  rad = math.radians(angle)
+                  base_r = 70
+                  wave = 8 * math.sin(angle * 3 * math.pi / 180)
+                  r = base_r + wave
+                  x = cx + r * math.cos(rad)
+                  y = cy + r * math.sin(rad) - 15
+                  brain_points.append((x, y))
+              
+              draw.polygon(brain_points, outline=(255, 215, 0, 200), width=4)
+              
+              brain_inner = []
+              for angle in range(0, 360, 5):
+                  rad = math.radians(angle)
+                  r = 65 + 6 * math.sin(angle * 3 * math.pi / 180)
+                  x = cx + r * math.cos(rad)
+                  y = cy + r * math.sin(rad) - 15
+                  brain_inner.append((x, y))
+              draw.polygon(brain_inner, fill=(255, 215, 0, 40))
 
-            draw.ellipse([(cx-8, cy-23), (cx+8, cy-7)], fill=(255, 215, 0, 255))
-            
-            neuron_lines = [
-                [(cx, cy-15), (cx-30, cy-35)],
-                [(cx, cy-15), (cx+30, cy-35)],
-                [(cx, cy-15), (cx-25, cy+10)],
-                [(cx, cy-15), (cx+25, cy+10)],
-                [(cx, cy-15), (cx, cy+25)],
-                [(cx-30, cy-35), (cx-45, cy-20)],
-                [(cx+30, cy-35), (cx+45, cy-20)],
-            ]
-            for line in neuron_lines:
-                draw.line(line, fill=(255, 215, 0, 150), width=2)
-            
-            node_positions = [(cx-30, cy-35), (cx+30, cy-35), (cx-25, cy+10), 
-                            (cx+25, cy+10), (cx, cy+25), (cx-45, cy-20), (cx+45, cy-20)]
-            for nx, ny in node_positions:
-                draw.ellipse([(nx-4, ny-4), (nx+4, ny+4)], fill=(255, 215, 0, 180))
+              # 4. Neural network texture inside brain
+              draw.ellipse([(cx-8, cy-23), (cx+8, cy-7)], fill=(255, 215, 0, 255))
+              
+              neuron_lines = [
+                  [(cx, cy-15), (cx-30, cy-35)],
+                  [(cx, cy-15), (cx+30, cy-35)],
+                  [(cx, cy-15), (cx-25, cy+10)],
+                  [(cx, cy-15), (cx+25, cy+10)],
+                  [(cx, cy-15), (cx, cy+25)],
+                  [(cx-30, cy-35), (cx-45, cy-20)],
+                  [(cx+30, cy-35), (cx+45, cy-20)],
+              ]
+              for line in neuron_lines:
+                  draw.line(line, fill=(255, 215, 0, 150), width=2)
+              
+              node_positions = [(cx-30, cy-35), (cx+30, cy-35), (cx-25, cy+10), 
+                              (cx+25, cy+10), (cx, cy+25), (cx-45, cy-20), (cx+45, cy-20)]
+              for nx, ny in node_positions:
+                  draw.ellipse([(nx-4, ny-4), (nx+4, ny+4)], fill=(255, 215, 0, 180))
 
-            trend_line = [(cx-50, cy+30), (cx-30, cy+20), (cx-10, cy+25), 
-                          (cx+10, cy+10), (cx+30, cy+15), (cx+50, cy-5)]
-            for i in range(len(trend_line)-1):
-                x1, y1 = trend_line[i]
-                x2, y2 = trend_line[i+1]
-                draw.line([(x1, y1), (x2, y2)], fill=(255, 255, 255, 220), width=4)
-            
-            draw.polygon([(cx+50, cy-15), (cx+60, cy-5), (cx+45, cy-5)], fill=(255, 255, 255, 220))
+              # 5. Upward trend line (overlaid on brain)
+              trend_line = [(cx-50, cy+30), (cx-30, cy+20), (cx-10, cy+25), 
+                            (cx+10, cy+10), (cx+30, cy+15), (cx+50, cy-5)]
+              for i in range(len(trend_line)-1):
+                  x1, y1 = trend_line[i]
+                  x2, y2 = trend_line[i+1]
+                  draw.line([(x1, y1), (x2, y2)], fill=(255, 255, 255, 220), width=4)
+              
+              draw.polygon([(cx+50, cy-15), (cx+60, cy-5), (cx+45, cy-5)], fill=(255, 255, 255, 220))
 
-            try:
-                font = ImageFont.truetype('arialbd.ttf', 48)
-            except:
-                font = ImageFont.load_default()
-            
-            draw.text((cx-32, cy+52), 'TM', fill=(0, 0, 0, 180), font=font)
-            
-            draw.text((cx-30, cy+50), 'TM', fill=(255, 215, 0, 255), font=font)
+              # 6. TM letters (TradeMind abbreviation)
+              try:
+                  font = ImageFont.truetype('arialbd.ttf', 48)
+              except:
+                  font = ImageFont.load_default()
+              
+              draw.text((cx-32, cy+52), 'TM', fill=(0, 0, 0, 180), font=font)
+              draw.text((cx-30, cy+50), 'TM', fill=(255, 215, 0, 255), font=font)
 
+              # 7. Bottom text
+              try:
+                  font_small = ImageFont.truetype('arial.ttf', 18)
+              except:
+                  font_small = ImageFont.load_default()
+              
+              draw.text((cx-55, cy+85), 'TradeMind', fill=(255, 255, 255, 230), font=font_small)
+              draw.text((cx-22, cy+105), 'MT5', fill=(255, 215, 0, 200), font=font_small)
 
-            try:
-                font_small = ImageFont.truetype('arial.ttf', 18)
-            except:
-                font_small = ImageFont.load_default()
-            
-            draw.text((cx-55, cy+85), 'TradeMind', fill=(255, 255, 255, 230), font=font_small)
-            draw.text((cx-22, cy+105), 'MT5', fill=(255, 215, 0, 200), font=font_small)
+              # 8. Decoration: four corner glowing dots
+              for angle in [45, 135, 225, 315]:
+                  rad = math.radians(angle)
+                  dx = int(cx + (size//2 - 20) * math.cos(rad))
+                  dy = int(cy + (size//2 - 20) * math.sin(rad))
+                  draw.ellipse([(dx-4, dy-4), (dx+4, dy+4)], fill=(255, 215, 0, 200))
+                  draw.ellipse([(dx-2, dy-2), (dx+2, dy+2)], fill=(255, 255, 255, 255))
 
+              return img
 
-            for angle in [45, 135, 225, 315]:
-                rad = math.radians(angle)
-                dx = int(cx + (size//2 - 20) * math.cos(rad))
-                dy = int(cy + (size//2 - 20) * math.sin(rad))
-                draw.ellipse([(dx-4, dy-4), (dx+4, dy+4)], fill=(255, 215, 0, 200))
-                draw.ellipse([(dx-2, dy-2), (dx+2, dy+2)], fill=(255, 255, 255, 255))
-
-            return img
-
+          # Generate main icon
           icon = create_icon(256)
           icon.save('icon.ico', format='ICO', sizes=[(256, 256), (128, 128), (64, 64), (48, 48), (32, 32), (16, 16)])
           
+          # Generate preview
           create_icon(512).save('icon_preview.png')
           
-          print('✓ TradeMind MT5 icon generated')
+          print('[OK] TradeMind MT5 icon generated')
           print('  - icon.ico (multi-size)')
           print('  - icon_preview.png (512x512)')
           "
