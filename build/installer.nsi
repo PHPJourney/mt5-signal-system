@@ -39,8 +39,8 @@ Section "Master 信号管理 (主服务器)" SecMaster
     SetOutPath "$INSTDIR"
 
     ; 复制主程序和图标
-    File "dist\MT5_Manager\MT5_Manager.exe"
-    File "dist\MT5_Manager\icon.ico"
+    File "dist\MT5_Manager.exe"
+    File "dist\icon.ico"
 
     ; 标记启用 Master
     StrCpy $EnableMaster "true"
