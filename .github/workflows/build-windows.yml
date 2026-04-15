@@ -178,7 +178,13 @@ jobs:
         run: |
           choco install nsis --yes --no-progress
           Write-Host "✓ NSIS installed at: C:\Program Files (x86)\NSIS"
-          makensis /VERSION
+          
+          # Add to PATH for current session
+          $env:Path += ";C:\Program Files (x86)\NSIS"
+          [Environment]::SetEnvironmentVariable("Path", $env:Path, "Machine")
+          
+          # Verify installation
+          & "C:\Program Files (x86)\NSIS\makensis.exe" /VERSION
         shell: pwsh
 
       - name: Debug file locations
