@@ -174,18 +174,48 @@ jobs:
           name: windows-build
           path: dist
 
-      - name: Install NSIS via Chocolatey
+      - name: Install NSIS
         run: |
-          choco install nsis --yes --no-progress
-          $nsisPath = "C:\Program Files (x86)\NSIS"
-          if (Test-Path $nsisPath) {
-              Write-Host "✓ NSIS installed at: $nsisPath"
-              &"$nsisPath\makensis.exe" /VERSION
-              echo "$nsisPath" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-          } else {
-              Write-Error "NSIS installation failed"
-              exit 1
+          # 尝试使用 Chocolatey 安装
+          $env:chocolateyVersion = '2.7.1'
+          $maxRetries = 3
+          $retryCount = 0
+          $success = $false
+          
+          while ($retryCount -lt $maxRetries -and -not $success) {
+            try {
+              Write-Host "尝试安装 NSIS (第 $($retryCount + 1) 次)..."
+              choco install nsis --yes --no-progress --version 3.10
+              $success = $true
+            } catch {
+              $retryCount++
+              Write-Host "安装失败，等待 10 秒后重试..."
+              Start-Sleep -Seconds 10
+            }
           }
+          
+          if (-not $success) {
+            Write-Host "Chocolatey 安装失败，尝试手动下载..."
+            
+            # 备用方案：手动下载 NSIS
+            $nsisUrl = "https://github.com/nsis/nsis/releases/download/v3.10/nsis-3.10-setup.exe"
+            $nsisInstaller = "$env:TEMP\nsis-3.10-setup.exe"
+            
+            Write-Host "下载 NSIS 3.10..."
+            Invoke-WebRequest -Uri $nsisUrl -OutFile $nsisInstaller -UseBasicParsing
+            
+            Write-Host "安装 NSIS..."
+            Start-Process -FilePath $nsisInstaller -ArgumentList "/S", "/D=C:\Program Files (x86)\NSIS" -Wait -NoNewWindow
+            
+            # 添加到 PATH
+            $env:Path += ";C:\Program Files (x86)\NSIS"
+            [Environment]::SetEnvironmentVariable("Path", $env:Path, "Machine")
+            
+            Write-Host "✓ NSIS 手动安装完成"
+          }
+          
+          # 验证安装
+          makensis /VERSION
         shell: pwsh
 
       - name: Debug file locations
