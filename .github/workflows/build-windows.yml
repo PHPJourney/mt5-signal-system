@@ -179,9 +179,8 @@ jobs:
           choco install nsis --yes --no-progress
           Write-Host "✓ NSIS installed at: C:\Program Files (x86)\NSIS"
           
-          # Add to PATH for current session
-          $env:Path += ";C:\Program Files (x86)\NSIS"
-          [Environment]::SetEnvironmentVariable("Path", $env:Path, "Machine")
+          # Add to PATH for all subsequent steps
+          echo "C:\Program Files (x86)\NSIS" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
           
           # Verify installation
           & "C:\Program Files (x86)\NSIS\makensis.exe" /VERSION
@@ -299,8 +298,9 @@ jobs:
               Write-Host "✗ File missing!" -ForegroundColor Red
               exit 1
           }
+          
           Write-Host "`nRunning: makensis build/installer.nsi"
-          makensis build/installer.nsi
+          & "C:\Program Files (x86)\NSIS\makensis.exe" build/installer.nsi
         shell: pwsh
 
       - name: Verify installer
