@@ -47,7 +47,7 @@ jobs:
 
       - name: Generate icon
         run: |
-          python -c "from PIL import Image, ImageDraw, ImageFont; img = Image.new('RGBA', (256,256), (30,100,200,255)); draw = ImageDraw.Draw(img); draw.ellipse([(20,20),(236,236)], outline=(255,255,255,200), width=8); draw.rectangle([(60,60),(196,196)], outline=(255,255,255,150), width=4); try: font = ImageFont.truetype('arial.ttf', 80); except: font = ImageFont.load_default(); draw.text((60, 70), 'MT5', fill=(255,255,255), font=font); img.save('icon.ico')"
+          python -c "from PIL import Image, ImageDraw, ImageFont; img = Image.new('RGBA', (256,256), (30,100,200,255)); draw = ImageDraw.Draw(img); draw.ellipse([(20,20),(236,236)], outline=(255,255,255,200), width=8); draw.rectangle([(60,60),(196,196)], outline=(255,255,255,150), width=4); font = ImageFont.load_default(); draw.text((60, 70), 'MT5', fill=(255,255,255), font=font); img.save('icon.ico')"
         shell: pwsh
 
       - name: Build MT5 Manager EXE
@@ -131,6 +131,12 @@ jobs:
           }
         shell: pwsh
 
+      - name: Verify downloaded files
+        run: |
+          Write-Host "=== Downloaded files ==="
+          Get-ChildItem -Path "dist" -Recurse | ForEach-Object { Write-Host $_.FullName }
+        shell: pwsh
+
       - name: Get version
         id: version
         run: |
@@ -154,12 +160,6 @@ jobs:
           $content = $content -replace 'OutFile "dist\\MT5_Signal_System_Installer.exe"', "OutFile `"dist\MT5_Signal_System_Installer_v$version.exe`""
           $content = $content -replace 'Name "MT5 Signal System"', "Name `"MT5 Signal System v$version`""
           Set-Content -Path build/installer.nsi -Value $content
-        shell: pwsh
-
-      - name: Verify files before NSIS build
-        run: |
-          Write-Host "=== Contents of dist/MT5_Manager/ ==="
-          Get-ChildItem -Path "dist/MT5_Manager" -Recurse | ForEach-Object { Write-Host $_.FullName }
         shell: pwsh
 
       - name: Build NSIS Installer
