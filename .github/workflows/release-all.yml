@@ -5,6 +5,11 @@ on:
     tags: [ 'v*' ]
   workflow_dispatch:  # Allow manual trigger
 
+permissions:
+  contents: write
+  actions: read
+  packages: write
+
 jobs:
   build-master:
     name: Build Master Server

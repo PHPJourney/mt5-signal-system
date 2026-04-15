@@ -15,6 +15,10 @@ on:
       - 'common/**'
   workflow_dispatch:  # Allow manual trigger
 
+permissions:
+  contents: write
+  actions: read
+
 jobs:
   build-slave-windows:
     name: Build Slave (Windows)
