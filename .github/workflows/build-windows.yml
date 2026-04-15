@@ -124,56 +124,15 @@ jobs:
           name: windows-exes
           path: dist
 
-      - name: Install NSIS
+      - name: Install NSIS via Chocolatey
         run: |
-          $ProgressPreference = 'SilentlyContinue'
-          
-          Write-Host "Downloading NSIS..."
-          
-          # Try multiple download sources for NSIS
-          $nsisUrl = "https://github.com/nsis/nsis/releases/download/v3.10/nsis-3.10-setup.exe"
-          $fallbackUrl = "https://sourceforge.net/projects/nsis/files/NSIS%203/3.10/nsis-3.10-setup.exe/download"
-          
-          $downloaded = $false
-          
-          # Try primary source
-          try {
-              Write-Host "Trying primary source: $nsisUrl"
-              Invoke-WebRequest -Uri $nsisUrl -OutFile "nsis-setup.exe" -TimeoutSec 60 -UseBasicParsing
-              $downloaded = $true
-              Write-Host "✓ Downloaded from primary source"
-          } catch {
-              Write-Host "Primary source failed: $_"
-          }
-          
-          # Try fallback source if primary failed
-          if (-not $downloaded) {
-              try {
-                  Write-Host "Trying fallback source: $fallbackUrl"
-                  Invoke-WebRequest -Uri $fallbackUrl -OutFile "nsis-setup.exe" -TimeoutSec 120 -UseBasicParsing
-                  $downloaded = $true
-                  Write-Host "✓ Downloaded from fallback source"
-              } catch {
-                  Write-Host "Fallback source failed: $_"
-              }
-          }
-          
-          # Check if download succeeded
-          if (-not $downloaded -or -not (Test-Path "nsis-setup.exe")) {
-              Write-Error "Failed to download NSIS from all sources"
-              exit 1
-          }
-          
-          Write-Host "Installing NSIS..."
-          Start-Process -FilePath "nsis-setup.exe" -ArgumentList "/S" -Wait
-          
-          # Add NSIS to PATH
+          choco install nsis --yes --no-progress
           $nsisPath = "C:\Program Files (x86)\NSIS"
           if (Test-Path $nsisPath) {
               Write-Host "✓ NSIS installed at: $nsisPath"
-              echo "$nsisPath" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+              makensis.exe /VERSION
           } else {
-              Write-Error "NSIS installation directory not found"
+              Write-Error "NSIS installation failed"
               exit 1
           }
         shell: pwsh
