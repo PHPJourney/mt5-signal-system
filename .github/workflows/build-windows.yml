@@ -1,147 +1,229 @@
-name: Build Windows EXE
+name: Build Windows Installer
 
 on:
   push:
-    branches: [ main, master ]
-    tags: [ 'v*' ]
+    branches: [main, master]
+    tags: ['v*']
   pull_request:
-    branches: [ main, master ]
-  workflow_dispatch:  # Allow manual trigger
+    branches: [main, master]
+  workflow_dispatch:
+    inputs:
+      release_version:
+        description: 'Release version (e.g., v1.0.0)'
+        required: false
+        type: string
+
+env:
+  PYTHON_VERSION: '3.11'
 
 jobs:
-  build-windows:
+  build-windows-exes:
+    name: Build Windows EXEs
     runs-on: windows-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
 
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install pyinstaller
-        pip install paho-mqtt
-        pip install numpy
-        # Note: MetaTrader5 will be installed but won't work in CI
-        # It's only needed at runtime on Windows with MT5 terminal
-        pip install MetaTrader5
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~\AppData\Local\pip\Cache
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
 
-    - name: Build Master Server EXE
-      run: |
-        pyinstaller --name="MT5_Master_Server" `
-          --onedir `
-          --console `
-          --add-data "config;config" `
-          --hidden-import=paho.mqtt.client `
-          --hidden-import=MetaTrader5 `
-          --hidden-import=numpy `
-          --hidden-import=numpy.core.multiarray `
-          --hidden-import=common `
-          --hidden-import=common.models `
-          --hidden-import=common.utils `
-          --hidden-import=common.mqtt_client `
-          master/signal_sender.py
-      shell: pwsh
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller paho-mqtt psutil ttkbootstrap
 
-    - name: Build Slave Server EXE
-      run: |
-        pyinstaller --name="MT5_Slave_Server" `
-          --onedir `
-          --console `
-          --add-data "config;config" `
-          --hidden-import=paho.mqtt.client `
-          --hidden-import=MetaTrader5 `
-          --hidden-import=numpy `
-          --hidden-import=numpy.core.multiarray `
-          --hidden-import=common `
-          --hidden-import=common.models `
-          --hidden-import=common.utils `
-          --hidden-import=common.mqtt_client `
-          --hidden-import=slave `
-          --hidden-import=slave.symbol_mapper `
-          --hidden-import=slave.risk_manager `
-          slave/signal_receiver.py
-      shell: pwsh
+      - name: Build Master Panel EXE
+        run: |
+          pyinstaller --clean --onefile --windowed `
+            --name "MT5_Master_Panel" `
+            --add-data "config;config" `
+            --add-data "common;common" `
+            --add-data "master;master" `
+            --add-data "slave;slave" `
+            --hidden-import "paho.mqtt.client" `
+            --hidden-import "psutil" `
+            --hidden-import "ttkbootstrap" `
+            --hidden-import "master.signal_sender" `
+            --hidden-import "master.auth_manager" `
+            master_panel.py
+        shell: pwsh
 
-    - name: Create Release Package
-      run: |
-        $RELEASE_DIR = "dist/MT5_Signal_System_Release"
-        New-Item -ItemType Directory -Force -Path $RELEASE_DIR | Out-Null
-        New-Item -ItemType Directory -Force -Path "$RELEASE_DIR/Master_Server" | Out-Null
-        New-Item -ItemType Directory -Force -Path "$RELEASE_DIR/Slave_Server" | Out-Null
-        New-Item -ItemType Directory -Force -Path "$RELEASE_DIR/config" | Out-Null
+      - name: Build Slave Panel EXE
+        run: |
+          pyinstaller --clean --onefile --windowed `
+            --name "MT5_Slave_Panel" `
+            --add-data "config;config" `
+            --add-data "common;common" `
+            --add-data "master;master" `
+            --add-data "slave;slave" `
+            --hidden-import "paho.mqtt.client" `
+            --hidden-import "psutil" `
+            --hidden-import "ttkbootstrap" `
+            --hidden-import "slave.signal_receiver" `
+            --hidden-import "slave.symbol_mapper" `
+            --hidden-import "slave.risk_manager" `
+            slave_panel.py
+        shell: pwsh
 
-        # Copy executables
-        Copy-Item -Recurse -Force "dist/MT5_Master_Server/*" "$RELEASE_DIR/Master_Server/"
-        Copy-Item -Recurse -Force "dist/MT5_Slave_Server/*" "$RELEASE_DIR/Slave_Server/"
-        Copy-Item -Recurse -Force "config/*" "$RELEASE_DIR/config/"
+      - name: Build Unified Manager EXE
+        run: |
+          pyinstaller --clean --onefile --windowed `
+            --name "MT5_Unified_Manager" `
+            --add-data "config;config" `
+            --add-data "common;common" `
+            --add-data "master;master" `
+            --add-data "slave;slave" `
+            --hidden-import "paho.mqtt.client" `
+            --hidden-import "psutil" `
+            --hidden-import "ttkbootstrap" `
+            --hidden-import "master.signal_sender" `
+            --hidden-import "master.auth_manager" `
+            --hidden-import "slave.signal_receiver" `
+            --hidden-import "slave.symbol_mapper" `
+            mt5_unified_manager.py
+        shell: pwsh
 
-        # Copy documentation
-        Copy-Item "README.md" "$RELEASE_DIR/"
-        Copy-Item "WINDOWS_GUIDE.md" "$RELEASE_DIR/"
-        Copy-Item "QUICKSTART.md" "$RELEASE_DIR/"
-        Copy-Item "CHEATSHEET.md" "$RELEASE_DIR/"
+      - name: List built executables
+        run: dir dist\*.exe
 
-        # Create launch scripts
-        @"
-        @echo off
-        title MT5 Master Server
-        cd Master_Server
-        MT5_Master_Server.exe --config ..\config\master_config.json
-        pause
-        "@ | Out-File -FilePath "$RELEASE_DIR/start_master.bat" -Encoding ASCII
+      - name: Upload Windows EXE artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-exes
+          path: |
+            dist/MT5_Master_Panel.exe
+            dist/MT5_Slave_Panel.exe
+            dist/MT5_Unified_Manager.exe
+          retention-days: 30
 
-        @"
-        @echo off
-        title MT5 Slave Server
-        cd Slave_Server
-        MT5_Slave_Server.exe --config ..\config\slave_config.json
-        pause
-        "@ | Out-File -FilePath "$RELEASE_DIR/start_slave.bat" -Encoding ASCII
-      shell: pwsh
+  build-nsis-installer:
+    name: Build NSIS Installer
+    needs: build-windows-exes
+    runs-on: windows-latest
 
-    - name: Upload artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: MT5-Signal-System-Windows
-        path: dist/MT5_Signal_System_Release/
-        retention-days: 90
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Zip Release Package
-      if: startsWith(github.ref, 'refs/tags/')
-      run: |
-        $RELEASE_DIR = "dist/MT5_Signal_System_Release"
-        $ZIP_NAME = "MT5-Signal-System-${{ github.ref_name }}.zip"
-        Compress-Archive -Path "$RELEASE_DIR\*" -DestinationPath "$ZIP_NAME" -Force
-        echo "ZIP_FILE=$ZIP_NAME" >> $env:GITHUB_ENV
-        Write-Host "Zip created: $ZIP_NAME"
-        # Verify file exists
-        if (Test-Path $ZIP_NAME) {
-          $size = (Get-Item $ZIP_NAME).Length
-          Write-Host "Zip size: $size bytes"
-        } else {
-          Write-Error "Zip file not found!"
-          exit 1
-        }
-      shell: pwsh
+      - name: Download Windows EXEs
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-exes
+          path: dist
 
-    - name: Create Release
-      if: startsWith(github.ref, 'refs/tags/')
-      uses: ncipollo/release-action@v1
-      with:
-        artifacts: ${{ env.ZIP_FILE }}
-        tag: ${{ github.ref_name }}
-        name: MT5 Signal System ${{ github.ref_name }}
-        body: |
-          MT5 Signal System ${{ github.ref_name }}
+      - name: Install NSIS
+        run: |
+          $ProgressPreference = 'SilentlyContinue'
+          Invoke-WebRequest -Uri "https://github.com/nsis/nsis/releases/download/v3.08/nsis-3.08-setup.exe" -OutFile "nsis-setup.exe"
+          Start-Process -FilePath "nsis-setup.exe" -ArgumentList "/S" -Wait
+          echo "C:\Program Files (x86)\NSIS" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+        shell: pwsh
 
-          Automated build from GitHub Actions. Includes numpy fix for PyInstaller packaging.
-        token: ${{ secrets.GITHUB_TOKEN }}
-        allowUpdates: true
-        removeArtifacts: false
-        replacesArtifacts: true
+      - name: Get version
+        id: version
+        run: |
+          if ($env:GITHUB_REF_TYPE -eq 'tag') {
+            $version = $env:GITHUB_REF_NAME -replace '^v', ''
+          } elseif ($env:INPUT_RELEASE_VERSION) {
+            $version = $env:INPUT_RELEASE_VERSION -replace '^v', ''
+          } else {
+            $version = "dev-$($env:GITHUB_SHA.Substring(0, 7))"
+          }
+          echo "VERSION=$version" >> $env:GITHUB_ENV
+          echo "version=$version" >> $env:GITHUB_OUTPUT
+        shell: pwsh
+        env:
+          INPUT_RELEASE_VERSION: ${{ github.event.inputs.release_version }}
+
+      - name: Update NSIS script with version
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          $content = Get-Content build/installer.nsi -Raw
+          $content = $content -replace 'OutFile "dist\\MT5_Signal_System_Installer.exe"', "OutFile `"dist\MT5_Signal_System_Installer_v$version.exe`""
+          $content = $content -replace 'Name "MT5 Signal System"', "Name `"MT5 Signal System v$version`""
+          Set-Content -Path build/installer.nsi -Value $content
+        shell: pwsh
+
+      - name: Build NSIS Installer
+        run: makensis build/installer.nsi
+
+      - name: Verify installer
+        run: |
+          Get-ChildItem dist\*.exe | ForEach-Object { Write-Host $_.FullName }
+
+      - name: Upload NSIS Installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: dist/MT5_Signal_System_Installer_v*.exe
+          retention-days: 30
+
+  create-release:
+    name: Create GitHub Release
+    needs: build-nsis-installer
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+
+      - name: List release assets
+        run: find . -type f -name "*.exe" -ls
+
+      - name: Generate release notes
+        run: |
+          cat > RELEASE_NOTES.md << 'NOTESEOF'
+          # MT5 Signal System
+
+          ## What's Included
+
+          ### Windows Installer
+          - **MT5_Signal_System_Installer_v*.exe**: Interactive installer with component selection
+            - Master Panel (主信号管理面板)
+            - Slave Panel (从信号管理面板)
+            - Unified Manager (统一管理平台)
+
+          ### Standalone Executables
+          - **MT5_Master_Panel.exe**: Master signal management only
+          - **MT5_Slave_Panel.exe**: Slave signal management only
+          - **MT5_Unified_Manager.exe**: Full unified management
+
+          ## Installation
+
+          1. Download the installer for your platform
+          2. Run the installer and select desired components
+          3. Launch from Start Menu or Desktop shortcuts
+
+          ## Requirements
+
+          - Windows 10/11
+          - No additional dependencies required (bundled with PyInstaller)
+          NOTESEOF
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            windows-installer/*.exe
+            windows-exes/*.exe
+          body_path: RELEASE_NOTES.md
+          draft: false
+          prerelease: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -432,9 +432,10 @@ def main():
     print("1. 仅创建便携版 (推荐，无需编译，跨平台)")
     print("2. 创建 PyInstaller 可执行文件 (Windows 专用)")
     print("3. 两者都创建 + NSIS 安装脚本")
+    print("4. 统一管理平台 (Unified Manager - 单一 EXE)")
     print()
 
-    choice = input("请输入选项 (1/2/3, 默认1): ").strip() or "1"
+    choice = input("请输入选项 (1/2/3/4, 默认1): ").strip() or "1"
 
     if choice == "1":
         # 仅便携版
@@ -470,6 +471,16 @@ def main():
         print("  makensis build/master_installer.nsi")
         print("  makensis build/slave_installer.nsi")
         print("\nNSIS 下载地址: https://nsis.sourceforge.io/Download")
+
+    elif choice == "4":
+        # 统一管理平台
+        print("\n构建统一管理平台...")
+        try:
+            subprocess.check_call([sys.executable, 'build_unified.py'])
+        except subprocess.CalledProcessError as e:
+            print(f"\n✗ 统一管理平台构建失败: {e}")
+        except Exception as e:
+            print(f"\n✗ 错误: {e}")
 
     else:
         print("无效选项")

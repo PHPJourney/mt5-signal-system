@@ -970,7 +970,6 @@ def main():
     # 尝试使用 ttkbootstrap 主题
     try:
         import ttkbootstrap as ttkb
-        from ttkbootstrap.constants import *
         style = ttkb.Style(theme='cosmo')
         app = MT5ManagerApp(root)
     except ImportError:

@@ -1,27 +1,30 @@
-name: Build Management Panel
+name: Build Unified Management Panel
 
 on:
   push:
     branches: [ main, master ]
     tags: [ 'v*' ]
     paths:
-      - 'mt5_manager.py'
+      - 'mt5_unified_manager.py'
+      - 'mt5_manager*.py'
       - 'config_panel.py'
+      - 'start_manager.bat'
       - '.github/workflows/build-manager.yml'
   pull_request:
     branches: [ main, master ]
     paths:
-      - 'mt5_manager.py'
+      - 'mt5_unified_manager.py'
+      - 'mt5_manager*.py'
       - 'config_panel.py'
-  workflow_dispatch:  # Allow manual trigger
+  workflow_dispatch:
 
 permissions:
   contents: write
   actions: read
 
 jobs:
-  build-manager-windows:
-    name: Build Manager (Windows)
+  build-unified-manager-windows:
+    name: Build Unified Manager (Windows)
     runs-on: windows-latest
 
     steps:
@@ -39,13 +42,13 @@ jobs:
         pip install pyinstaller
         pip install paho-mqtt
         pip install numpy
-        pip install MetaTrader5
         pip install psutil
         pip install ttkbootstrap
+      shell: pwsh
 
-    - name: Build Manager EXE
+    - name: Build Unified Manager EXE
       run: |
-        pyinstaller --name="MT5_Manager" `
+        pyinstaller --name="MT5_Unified_Manager" `
           --onedir `
           --windowed `
           --icon=NONE `
@@ -54,7 +57,6 @@ jobs:
           --add-data "master;master" `
           --add-data "slave;slave" `
           --hidden-import=paho.mqtt.client `
-          --hidden-import=MetaTrader5 `
           --hidden-import=numpy `
           --hidden-import=numpy.core.multiarray `
           --hidden-import=psutil `
@@ -65,73 +67,102 @@ jobs:
           --hidden-import=common.utils `
           --hidden-import=common.mqtt_client `
           --hidden-import=master `
+          --hidden-import=master.signal_sender `
+          --hidden-import=master.auth_manager `
+          --hidden-import=master.mqtt_auth_bridge `
           --hidden-import=slave `
-          mt5_manager.py
+          --hidden-import=slave.signal_receiver `
+          --hidden-import=slave.symbol_mapper `
+          --hidden-import=slave.risk_manager `
+          --hidden-import=slave.authenticated_client `
+          mt5_unified_manager.py
       shell: pwsh
 
-    - name: Create Manager Package
+    - name: Create Unified Manager Package
       run: |
-        $RELEASE_DIR = "dist/MT5_Manager_Package"
+        $RELEASE_DIR = "dist/MT5_Unified_Manager_Package"
         New-Item -ItemType Directory -Force -Path "$RELEASE_DIR" | Out-Null
 
         # Copy executable
-        Copy-Item -Recurse -Force "dist/MT5_Manager/*" "$RELEASE_DIR/"
+        Copy-Item -Recurse -Force "dist/MT5_Unified_Manager/*" "$RELEASE_DIR/"
+
+        # Copy config templates
+        New-Item -ItemType Directory -Force -Path "$RELEASE_DIR\config" | Out-Null
+        if (Test-Path "config\master_config.json") {
+          Copy-Item "config\master_config.json" "$RELEASE_DIR\config\"
+        }
+        if (Test-Path "config\slave_config.json") {
+          Copy-Item "config\slave_config.json" "$RELEASE_DIR\config\"
+        }
 
         # Copy documentation
-        Copy-Item "MANAGER_GUIDE.md" "$RELEASE_DIR/"
-        Copy-Item "QUICK_START_MANAGER.md" "$RELEASE_DIR/"
-        Copy-Item "README.md" "$RELEASE_DIR/"
+        Copy-Item "INSTALL_GUIDE.md" "$RELEASE_DIR/" 2>$null || $true
+        Copy-Item "README.md" "$RELEASE_DIR/" 2>$null || $true
 
         # Create launch script
         @"
         @echo off
         chcp 65001 >nul
-        title MT5 Signal System - Manager
+        title MT5 Signal System - Unified Manager
+        echo.
         echo ========================================
-        echo   MT5 Signal System - Management Panel
+        echo   MT5 Signal System - Unified Manager
+        echo   All-in-One Management Panel v2.0
         echo ========================================
         echo.
-        echo Starting Management Panel...
+        echo Starting Unified Management Panel...
         echo.
-        start MT5_Manager.exe
-        "@ | Out-File -FilePath "$RELEASE_DIR/start_manager.bat" -Encoding ASCII
+        start MT5_Unified_Manager.exe
+        "@ | Out-File -FilePath "$RELEASE_DIR\start_manager.bat" -Encoding ASCII
 
         # Create readme
         @"
-        MT5 Manager - Management Panel
-        ===============================
+        MT5 Signal System - Unified Management Panel v2.0
+        ==================================================
 
-        A comprehensive GUI tool for managing MT5 Signal System.
-
-        Features:
-        - Dashboard with real-time status
-        - Visual configuration editor
-        - Service control (start/stop/restart)
-        - Real-time monitoring
-        - Log viewer with color coding
+        ONE application for EVERYTHING:
+        - Dashboard to control Master & Slave services
+        - Visual configuration editor (no JSON editing needed)
+        - License management (generate, validate, revoke)
+        - Real-time monitoring with live stats
+        - Log viewer with color-coded entries
 
         Quick Start:
-        1. Double-click start_manager.bat or MT5_Manager.exe
-        2. Configure Master/Slave settings
-        3. Start services from the dashboard
+        1. Double-click start_manager.bat or MT5_Unified_Manager.exe
+        2. Use the Dashboard tab to start/stop services
+        3. Configure Master/Slave in their respective tabs
+        4. Manage licenses in the License tab
+        5. Monitor everything in real-time
+
+        Tabs:
+        [Dashboard]     - Main control center, start/stop services
+        [Master Config] - Configure MQTT, signals, logging
+        [Slave Config]  - Configure trading, risk, symbol mapping
+        [License]       - Generate, validate, manage licenses
+        [Monitoring]    - Real-time stats and live output
+        [Logs]          - Color-coded log viewer
 
         Documentation:
-        - MANAGER_GUIDE.md - Complete user guide
-        - QUICK_START_MANAGER.md - Quick start guide
-        "@ | Out-File -FilePath "$RELEASE_DIR/README_Manager.txt" -Encoding UTF8
+        - INSTALL_GUIDE.md - Installation guide
+        - README.md - Project overview
+
+        Note: This is a unified manager. Master and Slave services
+        run as background threads inside this application.
+        No separate command windows needed!
+        "@ | Out-File -FilePath "$RELEASE_DIR\README_Manager.txt" -Encoding UTF8
 
     - name: Upload Manager Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: MT5-Manager-Windows
-        path: dist/MT5_Manager_Package/
+        name: MT5-Unified-Manager-Windows
+        path: dist/MT5_Unified_Manager_Package/
         retention-days: 90
 
     - name: Zip Manager Package
       if: startsWith(github.ref, 'refs/tags/')
       run: |
-        $ZIP_NAME = "MT5-Manager-${{ github.ref_name }}-Windows.zip"
-        Compress-Archive -Path "dist/MT5_Manager_Package\*" -DestinationPath "$ZIP_NAME" -Force
+        $ZIP_NAME = "MT5-Unified-Manager-${{ github.ref_name }}-Windows.zip"
+        Compress-Archive -Path "dist/MT5_Unified_Manager_Package\*" -DestinationPath "$ZIP_NAME" -Force
         echo "MANAGER_ZIP=$ZIP_NAME" >> $env:GITHUB_ENV
       shell: pwsh
 
@@ -141,32 +172,42 @@ jobs:
       with:
         artifacts: ${{ env.MANAGER_ZIP }}
         tag: ${{ github.ref_name }}
-        name: MT5 Manager ${{ github.ref_name }}
+        name: MT5 Unified Manager ${{ github.ref_name }}
         body: |
-          MT5 Management Panel ${{ github.ref_name }}
+          MT5 Unified Management Panel v2.0 - ${{ github.ref_name }}
 
-          **What's Included:**
+          **🎯 All-in-One Application**
+          ONE EXE for EVERYTHING - no separate processes needed!
+
+          **📦 What's Included:**
           - Standalone GUI application (no Python required)
+          - Master Server runs as background thread
+          - Slave Server runs as background thread
+          - License management built-in
           - Complete documentation
-          - All necessary dependencies
 
-          **Features:**
-          - 📊 Dashboard with real-time statistics
-          - ⚙️ Visual configuration editor
-          - 🎮 One-click service control
-          - 📡 Real-time monitoring
-          - 📋 Color-coded log viewer
+          **✨ Features:**
+          - 📊 Dashboard - Start/stop Master & Slave with one click
+          - ⚙️ Master Config - Visual MQTT, signal, logging editor
+          - ⚙️ Slave Config - Trading, risk management, symbol mapping
+          - 🔑 License Manager - Generate, validate, revoke licenses
+          - 📡 Real-time Monitoring - Live stats and output
+          - 📋 Log Viewer - Color-coded logs with auto-refresh
 
-          **Quick Start:**
+          **🚀 Quick Start:**
           1. Extract the zip file
-          2. Run start_manager.bat or MT5_Manager.exe
-          3. Configure your Master/Slave settings
-          4. Start services from the dashboard
+          2. Double-click `MT5_Unified_Manager.exe`
+          3. Go to Dashboard tab → Click "Start Master" → Click "Start Slave"
+          4. Done! Everything runs inside one window.
+
+          **💡 Why Unified?**
+          Old way: Master.exe + Slave.exe + Manager.exe = 3 separate windows
+          New way: ONE window controls everything as background services
         token: ${{ secrets.GITHUB_TOKEN }}
         allowUpdates: true
 
-  build-manager-linux:
-    name: Build Manager (Linux Portable)
+  build-unified-manager-linux:
+    name: Build Unified Manager (Linux)
     runs-on: ubuntu-latest
 
     steps:
@@ -188,17 +229,13 @@ jobs:
 
     - name: Create Portable Package
       run: |
-        RELEASE_DIR="dist/MT5_Manager_Portable_Linux"
+        RELEASE_DIR="dist/MT5_Unified_Manager_Portable_Linux"
         mkdir -p "$RELEASE_DIR"
 
-        # Copy files
-        cp mt5_manager.py "$RELEASE_DIR/"
-        cp MANAGER_GUIDE.md "$RELEASE_DIR/"
-        cp QUICK_START_MANAGER.md "$RELEASE_DIR/"
-        cp README.md "$RELEASE_DIR/"
-        cp requirements.txt "$RELEASE_DIR/" 2>/dev/null || true
+        cp mt5_unified_manager.py "$RELEASE_DIR/"
+        cp INSTALL_GUIDE.md "$RELEASE_DIR/" 2>/dev/null || true
+        cp README.md "$RELEASE_DIR/" 2>/dev/null || true
 
-        # Create requirements file if not exists
         cat > "$RELEASE_DIR/requirements.txt" << 'EOF'
         paho-mqtt>=1.6.1
         numpy>=1.21.0
@@ -206,56 +243,48 @@ jobs:
         ttkbootstrap>=1.10.0
         EOF
 
-        # Create launch script
-        cat > "$RELEASE_DIR/start_manager.sh" << 'EOF'
+        cat > "$RELEASE_DIR/start_manager.sh" << 'SCRIPT'
         #!/bin/bash
         echo "========================================"
-        echo "  MT5 Signal System - Management Panel"
+        echo "  MT5 Signal System - Unified Manager"
         echo "========================================"
-        echo ""
 
-        # Check Python
         if ! command -v python3 &> /dev/null; then
             echo "[Error] Python3 not found. Please install Python 3.8+"
             exit 1
         fi
 
         echo "[Info] Python version: $(python3 --version)"
-        echo ""
 
-        # Install dependencies
         echo "[Info] Installing dependencies..."
         pip3 install -r requirements.txt 2>/dev/null || pip install -r requirements.txt
 
-        echo ""
-        echo "[Info] Starting Management Panel..."
-        echo ""
-
-        python3 mt5_manager.py
-        EOF
+        echo "[Info] Starting Unified Management Panel..."
+        python3 mt5_unified_manager.py
+        SCRIPT
 
         chmod +x "$RELEASE_DIR/start_manager.sh"
 
     - name: Upload Linux Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: MT5-Manager-Linux
-        path: dist/MT5_Manager_Portable_Linux/
+        name: MT5-Unified-Manager-Linux
+        path: dist/MT5_Unified_Manager_Portable_Linux/
         retention-days: 90
 
     - name: Create Tarball
       if: startsWith(github.ref, 'refs/tags/')
       run: |
         cd dist
-        tar -czf "../MT5-Manager-${{ github.ref_name }}-Linux.tar.gz" MT5_Manager_Portable_Linux/
+        tar -czf "../MT5-Unified-Manager-${{ github.ref_name }}-Linux.tar.gz" MT5_Unified_Manager_Portable_Linux/
         cd ..
 
     - name: Upload Linux Release
       if: startsWith(github.ref, 'refs/tags/')
       uses: ncipollo/release-action@v1
       with:
-        artifacts: MT5-Manager-${{ github.ref_name }}-Linux.tar.gz
+        artifacts: MT5-Unified-Manager-${{ github.ref_name }}-Linux.tar.gz
         tag: ${{ github.ref_name }}
-        name: MT5 Manager ${{ github.ref_name }}
+        name: MT5 Unified Manager ${{ github.ref_name }}
         token: ${{ secrets.GITHUB_TOKEN }}
         allowUpdates: true

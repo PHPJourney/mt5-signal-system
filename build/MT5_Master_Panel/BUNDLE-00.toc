@@ -1,0 +1,3 @@
+([('MT5_Master_Panel',
+   '/Users/mac/Downloads/cndnsidc/mt5_signal_system/dist/MT5_Master_Panel',
+   'EXECUTABLE')],)

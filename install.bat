@@ -1,52 +1,84 @@
 @echo off
 chcp 65001 >nul
-title MT5 Signal System - Installation
-color 0F
+:: MT5 Signal System - Windows Installation Script
+:: Supports selecting Master, Slave, or Unified components
+
+setlocal enabledelayedexpansion
+
+echo ============================================
+echo   MT5 Signal System - Installer
+echo ============================================
+echo.
+
+set "INSTALL_DIR=%PROGRAMFILES%\MT5SignalSystem"
+
+net session >nul 2>&1
+if %errorLevel% neq 0 (
+    echo [Warning] Running without admin rights
+    set "INSTALL_DIR=%USERPROFILE%\Applications\MT5SignalSystem"
+)
+
+set /p "user_dir=Installation directory [%INSTALL_DIR%]: "
+if defined user_dir set "INSTALL_DIR=%user_dir%"
+
+if not exist "%INSTALL_DIR%" mkdir "%INSTALL_DIR%"
 
 echo.
-echo ========================================
-echo   MT5 Signal System - Installation
-echo ========================================
-echo.
-echo This script will install all required dependencies.
+echo Select components to install:
+echo   1^) Master Panel
+echo   2^) Slave Panel
+echo   3^) Unified Manager
+echo   4^) All components
 echo.
 
-REM Check Python
-where python >nul 2>&1
-if %errorlevel% neq 0 (
-    echo [ERROR] Python is not installed or not in PATH
-    echo Please install Python 3.7+ from: https://www.python.org/downloads/
-    echo.
-    echo Make sure to check "Add Python to PATH" during installation.
+set /p "choice=Enter choice (1/2/3/4, default 4): "
+if not defined choice set "choice=4"
+
+set "SCRIPT_DIR=%~dp0"
+set "DIST_DIR=%SCRIPT_DIR%dist"
+
+if not exist "%DIST_DIR%" (
+    echo [Error] dist directory not found. Please build first.
     pause
     exit /b 1
 )
 
-echo [OK] Python found
-python --version
-echo.
+call :install_component "Master Panel" "%DIST_DIR%\MT5_Master_Panel.exe" "%INSTALL_DIR%\MT5_Master_Panel.exe"
+call :install_component "Slave Panel" "%DIST_DIR%\MT5_Slave_Panel.exe" "%INSTALL_DIR%\MT5_Slave_Panel.exe"
+call :install_component "Unified Manager" "%DIST_DIR%\MT5_Unified_Manager.exe" "%INSTALL_DIR%\MT5_Unified_Manager.exe"
 
-REM Install dependencies
-echo Installing dependencies...
-echo.
-pip install -r requirements.txt
+if exist "%SCRIPT_DIR%config\" (
+    if not exist "%INSTALL_DIR%\config\" mkdir "%INSTALL_DIR%\config"
+    xcopy "%SCRIPT_DIR%config\*" "%INSTALL_DIR%\config\" /E /Y >nul 2>&1
+    echo [OK] Installed: Configuration files
+)
 
-if %errorlevel% neq 0 (
-    echo.
-    echo [ERROR] Failed to install dependencies
-    echo Please check your internet connection and try again.
-    pause
-    exit /b 1
+for %%f in (README.md QUICKSTART.md) do (
+    if exist "%SCRIPT_DIR%%%f" (
+        copy "%SCRIPT_DIR%%%f" "%INSTALL_DIR%\" >nul 2>&1
+        echo [OK] Installed: %%f
+    )
 )
 
 echo.
-echo ========================================
-echo Installation completed successfully!
-echo ========================================
+echo ============================================
+echo Installation complete!
+echo ============================================
 echo.
-echo Next steps:
-echo 1. Run config_panel.bat to configure the system
-echo 2. Start master server with start_master.bat
-echo 3. Start slave server with start_slave.bat
+echo Installed to: %INSTALL_DIR%
 echo.
+
 pause
+exit /b 0
+
+:install_component
+set "name=%~1"
+set "src=%~2"
+set "dst=%~3"
+if exist "%src%" (
+    copy "%src%" "%dst%" >nul 2>&1
+    echo [OK] Installed: %name%
+) else (
+    echo [SKIP] Not found: %name%
+)
+goto :eof

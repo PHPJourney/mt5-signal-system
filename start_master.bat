@@ -11,25 +11,41 @@ echo.
 echo 正在检查环境...
 echo.
 
-REM 检查Python
-where python >nul 2>&1
-if %errorlevel% neq 0 (
-    echo [错误] Python未安装或未添加到PATH
-    echo 请先安装Python 3.7+: https://www.python.org/downloads/
-    pause
-    exit /b 1
+REM 获取脚本所在目录
+set SCRIPT_DIR=%~dp0
+
+REM 检查内置 Python 运行时
+set PYTHON_RUNTIME=%SCRIPT_DIR%python_runtime
+set PYTHON_EXE=%PYTHON_RUNTIME%\python.exe
+
+if exist "%PYTHON_EXE%" (
+    echo [✓] 使用内置 Python 运行时
+    "%PYTHON_EXE%" --version
+) else (
+    REM 尝试使用系统 Python
+    echo [!] 未找到内置 Python，尝试系统 Python...
+    where python >nul 2>&1
+    if %errorlevel% neq 0 (
+        echo [错误] Python未安装
+        echo.
+        echo 请先安装 Python 3.8+: https://www.python.org/downloads/
+        echo 或者双击 install_python.bat 自动安装
+        pause
+        exit /b 1
+    )
+    echo [✓] 使用系统 Python
+    python --version
+    set PYTHON_EXE=python
 )
 
-echo [✓] Python已安装
-python --version
 echo.
 
 REM 检查配置文件
-if not exist "config\master_config.json" (
+if not exist "%SCRIPT_DIR%config\master_config.json" (
     echo [错误] 配置文件不存在: config\master_config.json
     echo.
-    echo 请先运行配置面板进行配置
-    start config_panel.bat
+    echo 请先运行管理面板进行配置
+    start "" "%SCRIPT_DIR%start_manager.bat"
     pause
     exit /b 1
 )
@@ -38,30 +54,25 @@ echo [✓] 配置文件存在
 echo.
 
 REM 检查依赖
-echo 正在检查依赖...
-python -c "import MetaTrader5" 2>nul
+echo [检查] 正在验证依赖包...
+"%PYTHON_EXE%" -c "import MetaTrader5" 2>nul
 if %errorlevel% neq 0 (
-    echo [警告] MetaTrader5模块未安装
-    echo 正在安装依赖...
-    pip install -r requirements.txt
-    if %errorlevel% neq 0 (
-        echo [错误] 依赖安装失败
-        pause
-        exit /b 1
-    )
+    echo [警告] MetaTrader5 模块未安装
+    echo [提示] 如果只需要测试信号功能，可以跳过
+    echo.
 ) else (
-    echo [✓] 依赖检查通过
+    echo [✓] MetaTrader5 依赖已就绪
+    echo.
 )
 
-echo.
 echo ========================================
 echo 启动主服务器...
 echo ========================================
 echo.
-echo 提示: 按 Ctrl+C 停止服务器
+echo [提示] 按 Ctrl+C 停止服务器
 echo.
 
-python master\signal_sender.py --config config\master_config.json
+"%PYTHON_EXE%" "%SCRIPT_DIR%master\signal_sender.py" --config "%SCRIPT_DIR%config\master_config.json"
 
 if %errorlevel% neq 0 (
     echo.
