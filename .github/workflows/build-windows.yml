@@ -120,21 +120,28 @@ jobs:
         Compress-Archive -Path "$RELEASE_DIR\*" -DestinationPath "$ZIP_NAME" -Force
         echo "ZIP_FILE=$ZIP_NAME" >> $env:GITHUB_ENV
         Write-Host "Zip created: $ZIP_NAME"
+        # Verify file exists
+        if (Test-Path $ZIP_NAME) {
+          $size = (Get-Item $ZIP_NAME).Length
+          Write-Host "Zip size: $size bytes"
+        } else {
+          Write-Error "Zip file not found!"
+          exit 1
+        }
       shell: pwsh
 
     - name: Create Release
       if: startsWith(github.ref, 'refs/tags/')
-      id: create_release
-      uses: softprops/action-gh-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      uses: ncipollo/release-action@v1
       with:
-        tag_name: ${{ github.ref_name }}
+        artifacts: ${{ env.ZIP_FILE }}
+        tag: ${{ github.ref_name }}
         name: MT5 Signal System ${{ github.ref_name }}
         body: |
           MT5 Signal System ${{ github.ref_name }}
 
           Automated build from GitHub Actions. Includes numpy fix for PyInstaller packaging.
-        draft: false
-        prerelease: false
-        files: ${{ env.ZIP_FILE }}
+        token: ${{ secrets.GITHUB_TOKEN }}
+        allowUpdates: true
+        removeArtifacts: false
+        replacesArtifacts: true
