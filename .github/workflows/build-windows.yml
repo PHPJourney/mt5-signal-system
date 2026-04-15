@@ -45,14 +45,13 @@ jobs:
           pip install pyinstaller paho-mqtt numpy psutil ttkbootstrap pillow
         shell: pwsh
 
+      - name: Generate icon
+        run: |
+          python -c "
+          from PIL import Image, ImageDraw, ImageFont
+          import math
 
-    - name: Generate icon
-      run: |
-        python -c "
-        from PIL import Image, ImageDraw, ImageFont
-        import math
-
-        def create_icon(size=256):
+          def create_icon(size=256):
             img = Image.new('RGBA', (size, size), (0, 0, 0, 0))
             draw = ImageDraw.Draw(img)
             cx, cy = size // 2, size // 2
