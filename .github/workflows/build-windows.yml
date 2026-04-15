@@ -129,6 +129,10 @@ jobs:
     name: Build NSIS Installer
     needs: build-windows-exes
     runs-on: windows-latest
+    
+    defaults:
+      run:
+        working-directory: ${{ github.workspace }}
 
     steps:
       - name: Checkout code
@@ -160,7 +164,7 @@ jobs:
           pwd
           
           Write-Host "`n=== Repository root contents ==="
-          Get-ChildItem -Force | ForEach-Object { 
+          Get-ChildItem -Force | Select-Object -First 20 | ForEach-Object { 
               Write-Host "$($_.Name) $($_.Mode)"
           }
           
@@ -169,20 +173,20 @@ jobs:
               Write-Host "$($_.FullName) - $($_.Length) bytes"
           }
           
-          Write-Host "`n=== Absolute paths check ==="
-          $exePath = Join-Path (Get-Location).Path "dist\MT5_Manager.exe"
-          Write-Host "Expected path: $exePath"
-          if (Test-Path $exePath) {
-              Write-Host "✓ File exists at absolute path" -ForegroundColor Green
+          Write-Host "`n=== Checking file existence ==="
+          $testPath = "dist\MT5_Manager.exe"
+          Write-Host "Testing path: $testPath"
+          if (Test-Path $testPath) {
+              Write-Host "✓ File exists!" -ForegroundColor Green
+              $fileInfo = Get-Item $testPath
+              Write-Host "  Full path: $($fileInfo.FullName)"
+              Write-Host "  Size: $($fileInfo.Length) bytes"
           } else {
-              Write-Host "✗ File NOT found at absolute path" -ForegroundColor Red
-          }
-          
-          Write-Host "`n=== Relative path check ==="
-          if (Test-Path "dist\MT5_Manager.exe") {
-              Write-Host "✓ File exists at relative path" -ForegroundColor Green
-          } else {
-              Write-Host "✗ File NOT found at relative path" -ForegroundColor Red
+              Write-Host "✗ File NOT found!" -ForegroundColor Red
+              Write-Host "`nListing all files in workspace:"
+              Get-ChildItem -Recurse -File | Where-Object { $_.Name -like "*MT5*" } | ForEach-Object {
+                  Write-Host "  $($_.FullName)"
+              }
           }
         shell: pwsh
 
@@ -242,7 +246,19 @@ jobs:
         shell: pwsh
 
       - name: Build NSIS Installer
-        run: makensis build/installer.nsi
+        run: |
+          Write-Host "=== Before running makensis ==="
+          Write-Host "Working directory: $(Get-Location)"
+          Write-Host "Checking dist\MT5_Manager.exe..."
+          if (Test-Path "dist\MT5_Manager.exe") {
+              Write-Host "✓ File exists, proceeding with makensis" -ForegroundColor Green
+          } else {
+              Write-Host "✗ File missing!" -ForegroundColor Red
+              exit 1
+          }
+          Write-Host "`nRunning: makensis build/installer.nsi"
+          makensis build/installer.nsi
+        shell: pwsh
 
       - name: Verify installer
         run: |
