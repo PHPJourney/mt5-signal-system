@@ -39,6 +39,8 @@ jobs:
           --add-data "config;config" `
           --hidden-import=paho.mqtt.client `
           --hidden-import=MetaTrader5 `
+          --hidden-import=numpy `
+          --hidden-import=numpy.core.multiarray `
           --hidden-import=common `
           --hidden-import=common.models `
           --hidden-import=common.utils `
@@ -54,6 +56,8 @@ jobs:
           --add-data "config;config" `
           --hidden-import=paho.mqtt.client `
           --hidden-import=MetaTrader5 `
+          --hidden-import=numpy `
+          --hidden-import=numpy.core.multiarray `
           --hidden-import=common `
           --hidden-import=common.models `
           --hidden-import=common.utils `
@@ -108,10 +112,22 @@ jobs:
         path: dist/MT5_Signal_System_Release/
         retention-days: 90
 
-    - name: Create Release (on tag)
+    - name: Zip Release Package
       if: startsWith(github.ref, 'refs/tags/')
-      uses: softprops/action-gh-release@v1
+      run: |
+        $RELEASE_DIR = "dist/MT5_Signal_System_Release"
+        $ZIP_NAME = "MT5-Signal-System-${{ github.ref_name }}.zip"
+        Compress-Archive -Path "$RELEASE_DIR\*" -DestinationPath "$ZIP_NAME" -Force
+        echo "ZIP_FILE=$ZIP_NAME" >> $env:GITHUB_ENV
+      shell: pwsh
+
+    - name: Create Release
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v2
       with:
-        files: dist/MT5_Signal_System_Release/**
+        files: ${{ env.ZIP_FILE }}
+        generate_release_notes: true
+        draft: false
+        prerelease: false
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
