@@ -45,6 +45,20 @@ jobs:
           pip install pyinstaller paho-mqtt numpy psutil ttkbootstrap pillow
         shell: pwsh
 
+      - name: Clean dist directory
+        run: |
+          if (Test-Path "dist") {
+              Write-Host "Cleaning dist directory..."
+              Remove-Item -Path "dist" -Recurse -Force
+          }
+          if (Test-Path "build") {
+              Write-Host "Cleaning build directory..."
+              Remove-Item -Path "build" -Recurse -Force
+          }
+          New-Item -Path "dist" -ItemType Directory -Force
+          Write-Host "✓ dist/ directory cleaned"
+        shell: pwsh
+
       - name: Generate icon
         run: |
           python -c "from PIL import Image, ImageDraw, ImageFont; img = Image.new('RGBA', (256,256), (30,100,200,255)); draw = ImageDraw.Draw(img); draw.ellipse([(20,20),(236,236)], outline=(255,255,255,200), width=8); draw.rectangle([(60,60),(196,196)], outline=(255,255,255,150), width=4); font = ImageFont.load_default(); draw.text((60, 70), 'MT5', fill=(255,255,255), font=font); img.save('icon.ico')"
@@ -74,12 +88,20 @@ jobs:
             mt5_manager.py
         shell: pwsh
 
+      - name: Verify build output
+        run: |
+          Write-Host "=== dist/ directory after build ==="
+          Get-ChildItem -Path "dist" | ForEach-Object { 
+              Write-Host "$($_.Name) - $($_.Length) bytes"
+          }
+        shell: pwsh
+
       - name: Prepare files for upload
         run: |
           # Create a clean directory without path prefixes
           New-Item -Path "artifact" -ItemType Directory -Force
           
-          # Copy only the files we need (no directory structure)
+          # Copy only the files we need
           Copy-Item "dist/MT5_Manager.exe" "artifact/"
           Copy-Item "icon.ico" "artifact/"
           
