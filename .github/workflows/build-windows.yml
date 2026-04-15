@@ -123,11 +123,23 @@ jobs:
 
     - name: Create Release
       if: startsWith(github.ref, 'refs/tags/')
-      uses: softprops/action-gh-release@v2
-      with:
-        files: ${{ env.ZIP_FILE }}
-        generate_release_notes: true
-        draft: false
-        prerelease: false
+      run: |
+        $TAG = "${{ github.ref_name }}"
+        $ZIP = "$env:ZIP_FILE"
+        
+        # Check if release already exists
+        $existing = gh release view "$TAG" 2>&1
+        if ($LASTEXITCODE -eq 0) {
+          Write-Host "Release $TAG already exists, deleting..."
+          gh release delete "$TAG" --yes
+        }
+        
+        # Create new release with zip file
+        gh release create "$TAG" `
+          "$ZIP" `
+          --title "MT5 Signal System $TAG" `
+          --generate-notes `
+          --prerelease
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      shell: pwsh
