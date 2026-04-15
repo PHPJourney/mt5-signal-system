@@ -1,249 +1,266 @@
-; MT5 Signal System - Unified Installer
-; 统一安装器 - 根据安装选择生成对应的配置文件
+name: Build Windows Installer
 
-!include "MUI2.nsh"
-!include "LogicLib.nsh"
-!include "FileFunc.nsh"
+on:
+  push:
+    branches: [main, master]
+    tags: ['v*']
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+    inputs:
+      release_version:
+        description: 'Release version (e.g., v1.0.0)'
+        required: false
+        type: string
 
-; General settings
-Name "MT5 Signal System"
-OutFile "dist\MT5_Signal_System_Installer.exe"
-InstallDir "$PROGRAMFILES\MT5SignalSystem"
-RequestExecutionLevel admin
-ShowInstDetails show
-ShowUninstDetails show
+env:
+  PYTHON_VERSION: '3.11'
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
-; UI settings
-!define MUI_ABORTWARNING
+jobs:
+  build-windows-exes:
+    name: Build Windows EXE
+    runs-on: windows-latest
 
-; Pages
-!insertmacro MUI_PAGE_WELCOME
-!insertmacro MUI_PAGE_COMPONENTS
-!insertmacro MUI_PAGE_DIRECTORY
-!insertmacro MUI_PAGE_INSTFILES
-!insertmacro MUI_PAGE_FINISH
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-!insertmacro MUI_UNPAGE_CONFIRM
-!insertmacro MUI_UNPAGE_INSTFILES
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
 
-; Language
-!insertmacro MUI_LANGUAGE "SimpChinese"
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~\AppData\Local\pip\Cache
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
 
-; Variables
-Var EnableMaster
-Var EnableSlave
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller paho-mqtt numpy psutil ttkbootstrap pillow
+        shell: pwsh
 
-; 组件选择
-Section "Master 信号管理 (主服务器)" SecMaster
-    SectionIn RO
-    SetOutPath "$INSTDIR"
+      - name: Generate icon
+        run: |
+          python -c "from PIL import Image, ImageDraw, ImageFont; img = Image.new('RGBA', (256,256), (30,100,200,255)); draw = ImageDraw.Draw(img); draw.ellipse([(20,20),(236,236)], outline=(255,255,255,200), width=8); draw.rectangle([(60,60),(196,196)], outline=(255,255,255,150), width=4); try: font = ImageFont.truetype('arial.ttf', 80); except: font = ImageFont.load_default(); draw.text((60, 70), 'MT5', fill=(255,255,255), font=font); img.save('icon.ico')"
+        shell: pwsh
 
-    ; 复制主程序和图标
-    File "dist\MT5_Manager\MT5_Manager.exe"
-    File "dist\MT5_Manager\icon.ico"
+      - name: Build MT5 Manager EXE
+        run: |
+          pyinstaller --clean --onefile --windowed `
+            --name "MT5_Manager" `
+            --icon "icon.ico" `
+            --add-data "config;config" `
+            --add-data "common;common" `
+            --add-data "master;master" `
+            --add-data "slave;slave" `
+            --add-data "icon.ico;." `
+            --hidden-import "paho.mqtt.client" `
+            --hidden-import "paho.mqtt" `
+            --hidden-import "numpy" `
+            --hidden-import "psutil" `
+            --hidden-import "ttkbootstrap" `
+            --hidden-import "ttkbootstrap.style" `
+            --hidden-import "master.signal_sender" `
+            --hidden-import "master.auth_manager" `
+            --hidden-import "slave.signal_receiver" `
+            --hidden-import "slave.symbol_mapper" `
+            --hidden-import "slave.risk_manager" `
+            mt5_manager.py
+        shell: pwsh
 
-    ; 标记启用 Master
-    StrCpy $EnableMaster "true"
-SectionEnd
+      - name: Verify build output
+        run: |
+          Write-Host "=== dist/ directory ==="
+          Get-ChildItem -Path "dist" -Recurse | ForEach-Object { Write-Host $_.FullName }
+        shell: pwsh
 
-Section "Slave 信号管理 (从服务器)" SecSlave
-    SetOutPath "$INSTDIR"
+      - name: Prepare artifacts directory
+        run: |
+          New-Item -Path "dist/MT5_Manager" -ItemType Directory -Force
+          Copy-Item "dist/MT5_Manager.exe" "dist/MT5_Manager/"
+          Copy-Item "icon.ico" "dist/MT5_Manager/"
+          if (Test-Path "README.md") {
+            Copy-Item "README.md" "dist/MT5_Manager/"
+          }
+          if (Test-Path "QUICKSTART.md") {
+            Copy-Item "QUICKSTART.md" "dist/MT5_Manager/"
+          }
+          Write-Host "=== Artifacts ready ==="
+          Get-ChildItem -Path "dist/MT5_Manager" | ForEach-Object { Write-Host $_.Name }
+        shell: pwsh
 
-    ; 标记启用 Slave
-    StrCpy $EnableSlave "true"
-SectionEnd
+      - name: Upload Windows EXE artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-exes
+          path: dist/MT5_Manager/
+          retention-days: 30
 
-Section "Python 依赖安装工具" SecDeps
-    SetOutPath "$INSTDIR"
+  build-nsis-installer:
+    name: Build NSIS Installer
+    needs: build-windows-exes
+    runs-on: windows-latest
 
-    ; 创建依赖检查脚本
-    FileOpen $0 "$INSTDIR\安装依赖.bat" w
-    FileWrite $0 "@echo off$\r$\n"
-    FileWrite $0 "chcp 65001 >nul$\r$\n"
-    FileWrite $0 "echo ========================================$\r$\n"
-    FileWrite $0 "echo MT5 Signal System - Python 环境检查$\r$\n"
-    FileWrite $0 "echo ========================================$\r$\n"
-    FileWrite $0 "echo.$\r$\n"
-    FileWrite $0 "echo [1/3] 检查 Python 环境...$\r$\n"
-    FileWrite $0 "echo.$\r$\n"
-    FileWrite $0 "$\r$\n"
-    FileWrite $0 "python --version >nul 2>&1$\r$\n"
-    FileWrite $0 "if %errorlevel% neq 0 ($\r$\n"
-    FileWrite $0 "    echo [错误] 未找到 Python 环境$\r$\n"
-    FileWrite $0 "    echo.$\r$\n"
-    FileWrite $0 "    echo 请按照以下步骤安装 Python:$\r$\n"
-    FileWrite $0 "    echo 1. 访问 https://www.python.org/downloads/$\r$\n"
-    FileWrite $0 "    echo 2. 下载 Python 3.11 或更高版本$\r$\n"
-    FileWrite $0 "    echo 3. 安装时务必勾选 'Add Python to PATH'$\r$\n"
-    FileWrite $0 "    echo 4. 重新运行此脚本$\r$\n"
-    FileWrite $0 "    echo.$\r$\n"
-    FileWrite $0 "    pause$\r$\n"
-    FileWrite $0 "    exit /b 1$\r$\n"
-    FileWrite $0 ")$\r$\n"
-    FileWrite $0 "$\r$\n"
-    FileWrite $0 "python --version$\r$\n"
-    FileWrite $0 "echo ✓ Python 环境正常$\r$\n"
-    FileWrite $0 "echo.$\r$\n"
-    FileWrite $0 "$\r$\n"
-    FileWrite $0 "echo [2/3] 升级 pip...$\r$\n"
-    FileWrite $0 "echo.$\r$\n"
-    FileWrite $0 "python -m pip install --upgrade pip$\r$\n"
-    FileWrite $0 "echo.$\r$\n"
-    FileWrite $0 "$\r$\n"
-    FileWrite $0 "echo [3/3] 安装依赖包...$\r$\n"
-    FileWrite $0 "echo.$\r$\n"
-    FileWrite $0 "$\r$\n"
-    FileWrite $0 "echo 正在安装必需包...$\r$\n"
-    FileWrite $0 "python -m pip install paho-mqtt numpy psutil ttkbootstrap$\r$\n"
-    FileWrite $0 "echo.$\r$\n"
-    FileWrite $0 "$\r$\n"
-    FileWrite $0 "echo 是否安装 MetaTrader5? (仅 Windows，需要 MT5 终端)$\r$\n"
-    FileWrite $0 "echo 如果不需要交易功能，可以跳过$\r$\n"
-    FileWrite $0 "echo.$\r$\n"
-    FileWrite $0 "set /p install_mt5=安装 MetaTrader5? (y/n): $\r$\n"
-    FileWrite $0 "if /i '%install_mt5%'=='y' ($\r$\n"
-    FileWrite $0 "    echo.$\r$\n"
-    FileWrite $0 "    echo 正在安装 MetaTrader5...$\r$\n"
-    FileWrite $0 "    python -m pip install MetaTrader5$\r$\n"
-    FileWrite $0 ") else ($\r$\n"
-    FileWrite $0 "    echo 跳过 MetaTrader5 安装$\r$\n"
-    FileWrite $0 ")$\r$\n"
-    FileWrite $0 "$\r$\n"
-    FileWrite $0 "echo.$\r$\n"
-    FileWrite $0 "echo ========================================$\r$\n"
-    FileWrite $0 "echo 依赖安装完成！$\r$\n"
-    FileWrite $0 "echo ========================================$\r$\n"
-    FileWrite $0 "echo.$\r$\n"
-    FileWrite $0 "echo 现在可以双击桌面图标启动 MT5 Manager 了$\r$\n"
-    FileWrite $0 "echo.$\r$\n"
-    FileWrite $0 "pause$\r$\n"
-    FileClose $0
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    ; 创建依赖检查快捷方式
-    CreateShortCut "$SMPROGRAMS\MT5 Signal System\安装依赖.lnk" "$INSTDIR\安装依赖.bat"
-    CreateShortCut "$DESKTOP\安装依赖.lnk" "$INSTDIR\安装依赖.bat"
-SectionEnd
+      - name: Download Windows EXEs
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-exes
+          path: dist/MT5_Manager
 
-Section "配置文件模板" SecConfig
-    SetOutPath "$INSTDIR\config"
+      - name: Install NSIS via Chocolatey
+        run: |
+          choco install nsis --yes --no-progress
+          $nsisPath = "C:\Program Files (x86)\NSIS"
+          if (Test-Path $nsisPath) {
+              Write-Host "✓ NSIS installed at: $nsisPath"
+              &"$nsisPath\makensis.exe" /VERSION
+              echo "$nsisPath" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          } else {
+              Write-Error "NSIS installation failed"
+              exit 1
+          }
+        shell: pwsh
 
-    IfFileExists "config\*.*" 0 +3
-        File /r "config\*.*"
-    Goto +2
-        CreateDirectory "$INSTDIR\config"
+      - name: Get version
+        id: version
+        run: |
+          if ($env:GITHUB_REF_TYPE -eq 'tag') {
+            $version = $env:GITHUB_REF_NAME -replace '^v', ''
+          } elseif ($env:INPUT_RELEASE_VERSION) {
+            $version = $env:INPUT_RELEASE_VERSION -replace '^v', ''
+          } else {
+            $version = "dev-$($env:GITHUB_SHA.Substring(0, 7))"
+          }
+          echo "VERSION=$version" >> $env:GITHUB_ENV
+          echo "version=$version" >> $env:GITHUB_OUTPUT
+        shell: pwsh
+        env:
+          INPUT_RELEASE_VERSION: ${{ github.event.inputs.release_version }}
 
-    SetOutPath "$INSTDIR"
-SectionEnd
+      - name: Update NSIS script with version
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          $content = Get-Content build/installer.nsi -Raw
+          $content = $content -replace 'OutFile "dist\\MT5_Signal_System_Installer.exe"', "OutFile `"dist\MT5_Signal_System_Installer_v$version.exe`""
+          $content = $content -replace 'Name "MT5 Signal System"', "Name `"MT5 Signal System v$version`""
+          Set-Content -Path build/installer.nsi -Value $content
+        shell: pwsh
 
-Section "文档" SecDocs
-    SetOutPath "$INSTDIR"
+      - name: Verify files before NSIS build
+        run: |
+          Write-Host "=== Contents of dist/MT5_Manager/ ==="
+          Get-ChildItem -Path "dist/MT5_Manager" -Recurse | ForEach-Object { Write-Host $_.FullName }
+        shell: pwsh
 
-    IfFileExists "README.md" 0 +2
-        File "README.md"
-    IfFileExists "QUICKSTART.md" 0 +2
-        File "QUICKSTART.md"
-SectionEnd
+      - name: Build NSIS Installer
+        run: makensis build/installer.nsi
 
-; 生成安装配置文件
-Section -Post
-    SetOutPath "$INSTDIR"
+      - name: Verify installer
+        run: |
+          Write-Host "=== Installer files ==="
+          Get-ChildItem dist\*.exe | ForEach-Object { Write-Host $_.FullName -ForegroundColor Green }
+        shell: pwsh
 
-    ; 生成 install_config.json
-    FileOpen $0 "$INSTDIR\install_config.json" w
-    FileWrite $0 "{$\r$\n"
-    
-    ; Master 配置
-    StrCmp $EnableMaster "true" 0 +3
-    FileWrite $0 '  "enable_master": true,$\r$\n'
-    Goto +2
-    FileWrite $0 '  "enable_master": false,$\r$\n'
-    
-    ; Slave 配置
-    StrCmp $EnableSlave "true" 0 +3
-    FileWrite $0 '  "enable_slave": true,$\r$\n'
-    Goto +2
-    FileWrite $0 '  "enable_slave": false$\r$\n'
-    
-    FileWrite $0 "}$\r$\n"
-    FileClose $0
+      - name: Upload NSIS Installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: dist/MT5_Signal_System_Installer_v*.exe
+          retention-days: 30
 
-    ; 创建桌面快捷方式
-    CreateShortCut "$DESKTOP\MT5 Manager.lnk" "$INSTDIR\MT5_Manager.exe" "" "$INSTDIR\icon.ico"
-    
-    ; 创建开始菜单
-    CreateDirectory "$SMPROGRAMS\MT5 Signal System"
-    CreateShortCut "$SMPROGRAMS\MT5 Signal System\MT5 Manager.lnk" "$INSTDIR\MT5_Manager.exe" "" "$INSTDIR\icon.ico"
-    CreateShortCut "$SMPROGRAMS\MT5 Signal System\卸载.lnk" "$INSTDIR\uninstall.exe"
+  create-release:
+    name: Create GitHub Release
+    needs: build-nsis-installer
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
 
-    ; 写入卸载信息
-    WriteUninstaller "$INSTDIR\uninstall.exe"
-    
-    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\MT5SignalSystem" \
-                     "DisplayName" "MT5 Signal System"
-    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\MT5SignalSystem" \
-                     "UninstallString" "$INSTDIR\uninstall.exe"
-    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\MT5SignalSystem" \
-                     "InstallLocation" "$INSTDIR"
-    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\MT5SignalSystem" \
-                     "DisplayIcon" "$INSTDIR\icon.ico"
-    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\MT5SignalSystem" \
-                     "Publisher" "MT5 Signal System"
-    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\MT5SignalSystem" \
-                     "DisplayVersion" "2.0"
-    
-    SetOutPath "$INSTDIR"
-SectionEnd
+    permissions:
+      contents: write
 
-; 卸载部分
-Section "Uninstall"
-    ; 删除文件
-    Delete "$INSTDIR\MT5_Manager.exe"
-    Delete "$INSTDIR\icon.ico"
-    Delete "$INSTDIR\install_config.json"
-    Delete "$INSTDIR\安装依赖.bat"
-    Delete "$INSTDIR\README.md"
-    Delete "$INSTDIR\QUICKSTART.md"
-    Delete "$INSTDIR\uninstall.exe"
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
 
-    ; 删除快捷方式
-    Delete "$DESKTOP\MT5 Manager.lnk"
-    Delete "$DESKTOP\安装依赖.lnk"
-    Delete "$SMPROGRAMS\MT5 Signal System\MT5 Manager.lnk"
-    Delete "$SMPROGRAMS\MT5 Signal System\安装依赖.lnk"
-    Delete "$SMPROGRAMS\MT5 Signal System\卸载.lnk"
+      - name: List release assets
+        run: |
+          echo "=== Available files ==="
+          find . -type f -name "*.exe" -ls
+          echo ""
+          echo "=== Directory structure ==="
+          find . -type f | head -20
+        shell: bash
 
-    ; 删除目录
-    RMDir "$SMPROGRAMS\MT5 Signal System"
-    RMDir /r "$INSTDIR\config"
-    RMDir /r "$INSTDIR\logs"
-    RMDir "$INSTDIR"
+      - name: Generate release notes
+        run: |
+          cat > RELEASE_NOTES.md << 'NOTESEOF'
+          # MT5 Signal System
 
-    ; 删除注册表
-    DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\MT5SignalSystem"
-SectionEnd
+          ## ✨ 功能特性
 
-; 描述
-!insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
-    !insertmacro MUI_DESCRIPTION_TEXT ${SecMaster} "Master 信号管理功能 - 作为主服务器发送交易信号"
-    !insertmacro MUI_DESCRIPTION_TEXT ${SecSlave} "Slave 信号管理功能 - 作为从服务器接收并执行交易"
-    !insertmacro MUI_DESCRIPTION_TEXT ${SecDeps} "Python 环境检查和依赖自动安装工具"
-    !insertmacro MUI_DESCRIPTION_TEXT ${SecConfig} "配置文件模板和示例"
-    !insertmacro MUI_DESCRIPTION_TEXT ${SecDocs} "用户手册和快速入门指南"
-!insertmacro MUI_FUNCTION_DESCRIPTION_END
+          ### 统一管理面板
+          - 🎯 **一体化客户端**：单个可执行文件，集成所有功能
+          - 🎨 **专业图标**：自定义应用程序图标
+          - 🔧 **Master/Slave 可选**：安装时选择启用 Master 或 Slave 功能
+          - 🔍 **自动环境检测**：启动时自动检查 Python 环境
+          - 📦 **自动依赖安装**：缺失依赖自动安装，无需手动操作
 
-; 自定义函数
-Function .onInit
-    ; 初始化变量
-    StrCpy $EnableMaster "false"
-    StrCpy $EnableSlave "false"
-    
-    ; 设置默认选择（两者都选）
-    SectionSetFlags ${SecMaster} ${SF_SELECTED}
-    SectionSetFlags ${SecSlave} ${SF_SELECTED}
-    SectionSetFlags ${SecDeps} ${SF_SELECTED}
-FunctionEnd
+          ### 自动安装的 Python 依赖
+          安装程序会自动检测并安装以下 Python 包：
+          - ✅ paho-mqtt（MQTT 通信）
+          - ✅ numpy（数据处理）
+          - ✅ psutil（系统监控）
+          - ✅ ttkbootstrap（UI 主题）
+          - ✅ **MetaTrader5**（Python 扩展包，用于调用 MT5 API）
 
-Function un.onInit
-    MessageBox MB_ICONQUESTION|MB_YESNO|MB_DEFBUTTON2 "确定要完全卸载 MT5 Signal System 吗？" IDYES +2
-    Abort
-FunctionEnd
+          ### 需要手动安装的软件
+          如果使用交易功能，还需要安装：
+          - 📥 **MetaTrader 5 终端**：从 https://www.metatrader5.com 下载
+            - MetaTrader5 Python 包需要 MT5 终端运行才能工作
+            - 如果只使用信号管理功能（不执行交易），可以不安装
+
+          ## 📥 安装步骤
+
+          1. 下载 `MT5_Signal_System_Installer_v*.exe`
+          2. 运行安装程序，选择需要的功能（Master/Slave）
+          3. **首次运行前**：双击桌面上的"安装依赖"快捷方式
+          4. 从桌面或开始菜单启动"MT5 Manager"
+          5. 面板会根据安装时的选择自动显示对应的功能
+
+          ## ⚙️ 系统要求
+
+          - Windows 10/11
+          - Python 3.11+（依赖安装工具会自动检测）
+          - MetaTrader 5 终端（可选，仅在使用交易功能时需要）
+
+          ## 📝 使用说明
+
+          安装时可选择：
+          - **仅 Master**：作为主信号服务器，发送交易信号
+          - **仅 Slave**：作为从信号服务器，接收并执行交易
+          - **两者都装**：完整的统一管理模式
+
+          启动 MT5 Manager 后，面板会根据安装时的选择自动显示对应功能。
+          NOTESEOF
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            windows-installer/*.exe
+            windows-exes/*.exe
+          body_path: RELEASE_NOTES.md
+          draft: false
+          prerelease: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
