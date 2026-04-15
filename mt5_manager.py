@@ -24,14 +24,23 @@ class MT5ManagerApp:
         self.root.title("MT5 Signal System - 管理平台")
         self.root.geometry("1200x800")
 
-        # 基础路径
-        self.base_dir = Path(__file__).parent
+        # 基础路径 - 正确处理 PyInstaller 打包后的路径
+        if getattr(sys, 'frozen', False):
+            # PyInstaller 打包后，使用可执行文件所在目录
+            self.base_dir = Path(sys.executable).parent
+        else:
+            # 开发环境，使用脚本所在目录
+            self.base_dir = Path(__file__).parent
+        
         self.config_dir = self.base_dir / "config"
         self.logs_dir = self.base_dir / "logs"
 
         # 确保目录存在
         self.config_dir.mkdir(exist_ok=True)
         self.logs_dir.mkdir(exist_ok=True)
+
+        # 加载安装配置
+        self.install_config = self.load_install_config()
 
         # 配置文件路径
         self.master_config_path = self.config_dir / "master_config.json"
@@ -47,7 +56,7 @@ class MT5ManagerApp:
         self.master_running = False
         self.slave_running = False
 
-        # 监控数据
+        # 监控数据（从日志文件读取）
         self.signal_stats = {
             'sent': 0,
             'received': 0,
@@ -58,6 +67,22 @@ class MT5ManagerApp:
         # 创建界面
         self.create_main_ui()
         self.start_monitoring()
+
+    def load_install_config(self):
+        """加载安装配置文件"""
+        install_config_path = self.base_dir / "install_config.json"
+        try:
+            if install_config_path.exists():
+                with open(install_config_path, 'r', encoding='utf-8') as f:
+                    config = json.load(f)
+                    print(f"✓ 加载安装配置: {config}")
+                    return config
+            else:
+                print("⚠ 未找到 install_config.json，默认启用所有功能")
+                return {"enable_master": True, "enable_slave": True}
+        except Exception as e:
+            print(f"⚠ 加载安装配置失败: {e}，使用默认配置")
+            return {"enable_master": True, "enable_slave": True}
 
     def load_config(self, config_path):
         """加载配置文件"""
@@ -136,11 +161,26 @@ class MT5ManagerApp:
         self.notebook = ttk.Notebook(self.root)
         self.notebook.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
-        # 创建各个选项卡
+        # 根据安装配置创建选项卡
+        enable_master = self.install_config.get('enable_master', True)
+        enable_slave = self.install_config.get('enable_slave', True)
+
+        # 仪表板（始终显示）
         self.create_dashboard_tab()
-        self.create_master_config_tab()
-        self.create_slave_config_tab()
-        self.create_monitoring_tab()
+
+        # Master 配置（根据配置显示）
+        if enable_master:
+            self.create_master_config_tab()
+
+        # Slave 配置（根据配置显示）
+        if enable_slave:
+            self.create_slave_config_tab()
+
+        # 监控（如果至少有一个启用）
+        if enable_master or enable_slave:
+            self.create_monitoring_tab()
+
+        # 日志（始终显示）
         self.create_logs_tab()
 
         # 底部状态栏
@@ -159,61 +199,78 @@ class MT5ManagerApp:
         )
         title_label.pack(pady=20)
 
+        # 显示安装模式
+        mode_text = []
+        if self.install_config.get('enable_master', True):
+            mode_text.append("Master")
+        if self.install_config.get('enable_slave', True):
+            mode_text.append("Slave")
+        
+        mode_label = ttk.Label(
+            dashboard_frame,
+            text=f"运行模式: {' + '.join(mode_text)}",
+            font=("Microsoft YaHei", 12),
+            foreground="blue"
+        )
+        mode_label.pack(pady=5)
+
         # 状态卡片容器
         status_frame = ttk.Frame(dashboard_frame)
         status_frame.pack(fill=tk.X, padx=20, pady=10)
 
-        # Master 状态卡片
-        master_card = ttk.LabelFrame(status_frame, text="Master Server", padding=15)
-        master_card.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=5)
+        # Master 状态卡片（根据配置显示）
+        if self.install_config.get('enable_master', True):
+            master_card = ttk.LabelFrame(status_frame, text="Master Server", padding=15)
+            master_card.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=5)
 
-        self.master_status_label = ttk.Label(
-            master_card,
-            text="● 已停止",
-            font=("Microsoft YaHei", 12),
-            foreground="red"
-        )
-        self.master_status_label.pack(pady=5)
+            self.master_status_label = ttk.Label(
+                master_card,
+                text="● 已停止",
+                font=("Microsoft YaHei", 12),
+                foreground="red"
+            )
+            self.master_status_label.pack(pady=5)
 
-        ttk.Button(
-            master_card,
-            text="启动 Master",
-            command=self.start_master,
-            width=15
-        ).pack(pady=5)
+            ttk.Button(
+                master_card,
+                text="启动 Master",
+                command=self.start_master,
+                width=15
+            ).pack(pady=5)
 
-        ttk.Button(
-            master_card,
-            text="停止 Master",
-            command=self.stop_master,
-            width=15
-        ).pack(pady=5)
+            ttk.Button(
+                master_card,
+                text="停止 Master",
+                command=self.stop_master,
+                width=15
+            ).pack(pady=5)
 
-        # Slave 状态卡片
-        slave_card = ttk.LabelFrame(status_frame, text="Slave Server", padding=15)
-        slave_card.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=5)
+        # Slave 状态卡片（根据配置显示）
+        if self.install_config.get('enable_slave', True):
+            slave_card = ttk.LabelFrame(status_frame, text="Slave Server", padding=15)
+            slave_card.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=5)
 
-        self.slave_status_label = ttk.Label(
-            slave_card,
-            text="● 已停止",
-            font=("Microsoft YaHei", 12),
-            foreground="red"
-        )
-        self.slave_status_label.pack(pady=5)
+            self.slave_status_label = ttk.Label(
+                slave_card,
+                text="● 已停止",
+                font=("Microsoft YaHei", 12),
+                foreground="red"
+            )
+            self.slave_status_label.pack(pady=5)
 
-        ttk.Button(
-            slave_card,
-            text="启动 Slave",
-            command=self.start_slave,
-            width=15
-        ).pack(pady=5)
+            ttk.Button(
+                slave_card,
+                text="启动 Slave",
+                command=self.start_slave,
+                width=15
+            ).pack(pady=5)
 
-        ttk.Button(
-            slave_card,
-            text="停止 Slave",
-            command=self.stop_slave,
-            width=15
-        ).pack(pady=5)
+            ttk.Button(
+                slave_card,
+                text="停止 Slave",
+                command=self.stop_slave,
+                width=15
+            ).pack(pady=5)
 
         # 统计信息卡片
         stats_frame = ttk.LabelFrame(dashboard_frame, text="实时统计", padding=15)
@@ -548,19 +605,21 @@ class MT5ManagerApp:
         self.mqtt_status_label = ttk.Label(mqtt_status_frame, text="● 未连接", foreground="gray")
         self.mqtt_status_label.pack(anchor=tk.W)
 
-        # Master 连接状态
-        master_conn_frame = ttk.Frame(conn_inner)
-        master_conn_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
-        ttk.Label(master_conn_frame, text="Master:", font=("Microsoft YaHei", 10, "bold")).pack(anchor=tk.W)
-        self.master_conn_label = ttk.Label(master_conn_frame, text="● 离线", foreground="gray")
-        self.master_conn_label.pack(anchor=tk.W)
+        # Master 连接状态（根据配置显示）
+        if self.install_config.get('enable_master', True):
+            master_conn_frame = ttk.Frame(conn_inner)
+            master_conn_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+            ttk.Label(master_conn_frame, text="Master:", font=("Microsoft YaHei", 10, "bold")).pack(anchor=tk.W)
+            self.master_conn_label = ttk.Label(master_conn_frame, text="● 离线", foreground="gray")
+            self.master_conn_label.pack(anchor=tk.W)
 
-        # Slave 连接状态
-        slave_conn_frame = ttk.Frame(conn_inner)
-        slave_conn_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
-        ttk.Label(slave_conn_frame, text="Slave:", font=("Microsoft YaHei", 10, "bold")).pack(anchor=tk.W)
-        self.slave_conn_label = ttk.Label(slave_conn_frame, text="● 离线", foreground="gray")
-        self.slave_conn_label.pack(anchor=tk.W)
+        # Slave 连接状态（根据配置显示）
+        if self.install_config.get('enable_slave', True):
+            slave_conn_frame = ttk.Frame(conn_inner)
+            slave_conn_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+            ttk.Label(slave_conn_frame, text="Slave:", font=("Microsoft YaHei", 10, "bold")).pack(anchor=tk.W)
+            self.slave_conn_label = ttk.Label(slave_conn_frame, text="● 离线", foreground="gray")
+            self.slave_conn_label.pack(anchor=tk.W)
 
         # 信号历史
         history_frame = ttk.LabelFrame(monitor_frame, text="信号历史", padding=10)
@@ -580,20 +639,107 @@ class MT5ManagerApp:
         self.signal_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
-        # 添加示例数据
-        self.add_sample_signals()
+        # 加载真实信号数据
+        self.load_signal_history()
 
-    def add_sample_signals(self):
-        """添加示例信号数据"""
-        sample_data = [
-            ("14:30:25", "BUY", "EURUSD", "开仓", "1.0850", "0.01", "成功"),
-            ("14:28:12", "SELL", "GBPUSD", "平仓", "1.2650", "0.01", "成功"),
-            ("14:25:45", "BUY", "USDJPY", "开仓", "151.20", "0.01", "成功"),
-            ("14:20:30", "SELL", "EURUSD", "平仓", "1.0845", "0.01", "失败"),
-        ]
+    def load_signal_history(self):
+        """从日志文件加载真实的信号历史"""
+        try:
+            # 清空现有数据
+            for item in self.signal_tree.get_children():
+                self.signal_tree.delete(item)
+            
+            # 查找日志文件
+            log_files = []
+            if self.install_config.get('enable_master', True):
+                master_log = self.logs_dir / "master.log"
+                if master_log.exists():
+                    log_files.append(master_log)
+            
+            if self.install_config.get('enable_slave', True):
+                slave_log = self.logs_dir / "slave.log"
+                if slave_log.exists():
+                    log_files.append(slave_log)
+            
+            # 解析日志文件
+            signals = []
+            for log_file in log_files:
+                signals.extend(self.parse_log_file(log_file))
+            
+            # 按时间排序（最新的在前）
+            signals.sort(key=lambda x: x[0], reverse=True)
+            
+            # 添加到表格（最多显示100条）
+            for signal in signals[:100]:
+                self.signal_tree.insert("", tk.END, values=signal)
+            
+            print(f"✓ 加载了 {len(signals)} 条信号记录")
+        except Exception as e:
+            print(f"⚠ 加载信号历史失败: {e}")
+            # 如果加载失败，显示提示信息
+            self.signal_tree.insert("", tk.END, values=("无数据", "-", "-", "-", "-", "-", "请启动服务"))
 
-        for data in sample_data:
-            self.signal_tree.insert("", tk.END, values=data)
+    def parse_log_file(self, log_file):
+        """解析日志文件提取信号信息"""
+        signals = []
+        try:
+            with open(log_file, 'r', encoding='utf-8') as f:
+                for line in f:
+                    # 尝试解析信号相关的日志行
+                    if 'signal' in line.lower() or 'order' in line.lower():
+                        signal_data = self.extract_signal_from_log(line)
+                        if signal_data:
+                            signals.append(signal_data)
+        except Exception as e:
+            print(f"解析日志文件失败 {log_file}: {e}")
+        
+        return signals
+
+    def extract_signal_from_log(self, log_line):
+        """从日志行中提取信号信息"""
+        try:
+            # 这里需要根据实际的日志格式来解析
+            # 示例格式: 2024-01-15 14:30:25 [INFO] Signal sent: BUY EURUSD @ 1.0850, lot=0.01
+            import re
+            
+            # 提取时间
+            time_match = re.search(r'(\d{2}:\d{2}:\d{2})', log_line)
+            if not time_match:
+                return None
+            time_str = time_match.group(1)
+            
+            # 提取信号类型
+            signal_type = "UNKNOWN"
+            if 'BUY' in log_line.upper():
+                signal_type = "BUY"
+            elif 'SELL' in log_line.upper():
+                signal_type = "SELL"
+            
+            # 提取品种
+            symbol_match = re.search(r'(EURUSD|GBPUSD|USDJPY|XAUUSD|BTCUSD)', log_line, re.IGNORECASE)
+            symbol = symbol_match.group(1).upper() if symbol_match else "-"
+            
+            # 提取方向
+            direction = "-"
+            if '开仓' in log_line or 'open' in log_line.lower():
+                direction = "开仓"
+            elif '平仓' in log_line or 'close' in log_line.lower():
+                direction = "平仓"
+            
+            # 提取价格
+            price_match = re.search(r'@\s*([\d.]+)', log_line)
+            price = price_match.group(1) if price_match else "-"
+            
+            # 提取手数
+            lot_match = re.search(r'lot[=:]\s*([\d.]+)', log_line, re.IGNORECASE)
+            lot = lot_match.group(1) if lot_match else "-"
+            
+            # 状态
+            status = "成功" if 'success' in log_line.lower() or 'sent' in log_line.lower() else "未知"
+            
+            return (time_str, signal_type, symbol, direction, price, lot, status)
+        except Exception as e:
+            return None
 
     def create_logs_tab(self):
         """创建日志查看选项卡"""
@@ -669,12 +815,32 @@ class MT5ManagerApp:
             return
 
         try:
-            # 启动 Master 进程
-            script_path = self.base_dir / "master" / "signal_sender.py"
-            config_path = self.master_config_path
+            # 检查 Master exe 是否存在
+            master_exe = self.base_dir / "MT5_Master.exe"
+            
+            if not master_exe.exists():
+                # 尝试查找其他可能的位置
+                alt_paths = [
+                    self.base_dir / "MT5_Master",  # 无扩展名
+                    self.base_dir / "master" / "MT5_Master.exe",
+                ]
+                
+                for alt_path in alt_paths:
+                    if alt_path.exists():
+                        master_exe = alt_path
+                        break
+                else:
+                    messagebox.showerror("错误", f"找不到 Master 可执行文件\n\n已搜索路径:\n- {self.base_dir / 'MT5_Master.exe'}\n\n请重新安装程序")
+                    return
 
+            config_path = self.master_config_path
+            
+            print(f"启动 Master: {master_exe}")
+            print(f"配置文件: {config_path}")
+            
+            # 启动 Master 进程（独立的 exe）
             self.master_process = subprocess.Popen(
-                [sys.executable, str(script_path), "--config", str(config_path)],
+                [str(master_exe), '--config', str(config_path)],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 creationflags=subprocess.CREATE_NEW_CONSOLE if sys.platform == 'win32' else 0
@@ -682,7 +848,8 @@ class MT5ManagerApp:
 
             self.master_running = True
             self.master_status_label.config(text="● 运行中", foreground="green")
-            self.master_conn_label.config(text="● 在线", foreground="green")
+            if hasattr(self, 'master_conn_label'):
+                self.master_conn_label.config(text="● 在线", foreground="green")
             self.update_status("Master 服务已启动")
 
             messagebox.showinfo("成功", "Master 服务已启动")
@@ -704,7 +871,8 @@ class MT5ManagerApp:
 
             self.master_running = False
             self.master_status_label.config(text="● 已停止", foreground="red")
-            self.master_conn_label.config(text="● 离线", foreground="gray")
+            if hasattr(self, 'master_conn_label'):
+                self.master_conn_label.config(text="● 离线", foreground="gray")
             self.update_status("Master 服务已停止")
 
             messagebox.showinfo("成功", "Master 服务已停止")
@@ -719,12 +887,32 @@ class MT5ManagerApp:
             return
 
         try:
-            # 启动 Slave 进程
-            script_path = self.base_dir / "slave" / "signal_receiver.py"
-            config_path = self.slave_config_path
+            # 检查 Slave exe 是否存在
+            slave_exe = self.base_dir / "MT5_Slave.exe"
+            
+            if not slave_exe.exists():
+                # 尝试查找其他可能的位置
+                alt_paths = [
+                    self.base_dir / "MT5_Slave",  # 无扩展名
+                    self.base_dir / "slave" / "MT5_Slave.exe",
+                ]
+                
+                for alt_path in alt_paths:
+                    if alt_path.exists():
+                        slave_exe = alt_path
+                        break
+                else:
+                    messagebox.showerror("错误", f"找不到 Slave 可执行文件\n\n已搜索路径:\n- {self.base_dir / 'MT5_Slave.exe'}\n\n请重新安装程序")
+                    return
 
+            config_path = self.slave_config_path
+            
+            print(f"启动 Slave: {slave_exe}")
+            print(f"配置文件: {config_path}")
+            
+            # 启动 Slave 进程（独立的 exe）
             self.slave_process = subprocess.Popen(
-                [sys.executable, str(script_path), "--config", str(config_path)],
+                [str(slave_exe), '--config', str(config_path)],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 creationflags=subprocess.CREATE_NEW_CONSOLE if sys.platform == 'win32' else 0
@@ -732,7 +920,8 @@ class MT5ManagerApp:
 
             self.slave_running = True
             self.slave_status_label.config(text="● 运行中", foreground="green")
-            self.slave_conn_label.config(text="● 在线", foreground="green")
+            if hasattr(self, 'slave_conn_label'):
+                self.slave_conn_label.config(text="● 在线", foreground="green")
             self.update_status("Slave 服务已启动")
 
             messagebox.showinfo("成功", "Slave 服务已启动")
@@ -754,7 +943,8 @@ class MT5ManagerApp:
 
             self.slave_running = False
             self.slave_status_label.config(text="● 已停止", foreground="red")
-            self.slave_conn_label.config(text="● 离线", foreground="gray")
+            if hasattr(self, 'slave_conn_label'):
+                self.slave_conn_label.config(text="● 离线", foreground="gray")
             self.update_status("Slave 服务已停止")
 
             messagebox.showinfo("成功", "Slave 服务已停止")

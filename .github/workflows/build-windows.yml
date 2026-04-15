@@ -19,7 +19,7 @@ env:
 
 jobs:
   build-windows-exes:
-    name: Build Windows EXE
+    name: Build Windows EXEs
     runs-on: windows-latest
 
     steps:
@@ -64,34 +64,52 @@ jobs:
           Write-Host "✓ dist/ directory cleaned"
         shell: pwsh
 
-      - name: Build MT5 Manager EXE
+      - name: Build MT5 Manager EXE (Panel)
         run: |
           pyinstaller --clean --onefile --windowed `
             --name "MT5_Manager" `
             --icon "icon.ico" `
             --add-data "config;config" `
             --add-data "common;common" `
-            --add-data "master;master" `
-            --add-data "slave;slave" `
-            --add-data "icon.ico;." `
             --hidden-import "paho.mqtt.client" `
             --hidden-import "paho.mqtt" `
             --hidden-import "numpy" `
             --hidden-import "psutil" `
             --hidden-import "ttkbootstrap" `
             --hidden-import "ttkbootstrap.style" `
-            --hidden-import "master.signal_sender" `
-            --hidden-import "master.auth_manager" `
-            --hidden-import "slave.signal_receiver" `
-            --hidden-import "slave.symbol_mapper" `
-            --hidden-import "slave.risk_manager" `
             mt5_manager.py
+        shell: pwsh
+
+      - name: Build MT5 Master EXE (Service)
+        run: |
+          pyinstaller --clean --onefile --console `
+            --name "MT5_Master" `
+            --icon "icon.ico" `
+            --add-data "config;config" `
+            --add-data "common;common" `
+            --hidden-import "paho.mqtt.client" `
+            --hidden-import "paho.mqtt" `
+            --hidden-import "numpy" `
+            master/signal_sender.py
+        shell: pwsh
+
+      - name: Build MT5 Slave EXE (Service)
+        run: |
+          pyinstaller --clean --onefile --console `
+            --name "MT5_Slave" `
+            --icon "icon.ico" `
+            --add-data "config;config" `
+            --add-data "common;common" `
+            --hidden-import "paho.mqtt.client" `
+            --hidden-import "paho.mqtt" `
+            --hidden-import "numpy" `
+            slave/signal_receiver.py
         shell: pwsh
 
       - name: Verify build output
         run: |
           Write-Host "=== dist/ directory after build ==="
-          Get-ChildItem -Path "dist" | ForEach-Object { 
+          Get-ChildItem -Path "dist" -File | ForEach-Object { 
               Write-Host "$($_.Name) - $($_.Length) bytes"
           }
         shell: pwsh
@@ -101,8 +119,10 @@ jobs:
           # Create a clean directory without path prefixes
           New-Item -Path "artifact" -ItemType Directory -Force
           
-          # Copy only the files we need
+          # Copy all three EXEs
           Copy-Item "dist/MT5_Manager.exe" "artifact/"
+          Copy-Item "dist/MT5_Master.exe" "artifact/"
+          Copy-Item "dist/MT5_Slave.exe" "artifact/"
           Copy-Item "icon.ico" "artifact/"
           
           if (Test-Path "README.md") {
@@ -204,6 +224,20 @@ jobs:
               Write-Host "✓ MT5_Manager.exe found" -ForegroundColor Green
           } else {
               Write-Host "✗ MT5_Manager.exe NOT found" -ForegroundColor Red
+              $success = $false
+          }
+          
+          if (Test-Path "dist\MT5_Master.exe") {
+              Write-Host "✓ MT5_Master.exe found" -ForegroundColor Green
+          } else {
+              Write-Host "✗ MT5_Master.exe NOT found" -ForegroundColor Red
+              $success = $false
+          }
+          
+          if (Test-Path "dist\MT5_Slave.exe") {
+              Write-Host "✓ MT5_Slave.exe found" -ForegroundColor Green
+          } else {
+              Write-Host "✗ MT5_Slave.exe NOT found" -ForegroundColor Red
               $success = $false
           }
           
@@ -309,32 +343,26 @@ jobs:
           - 🔍 **自动环境检测**：启动时自动检查 Python 环境
           - 📦 **自动依赖安装**：缺失依赖自动安装，无需手动操作
 
-          ### 自动安装的 Python 依赖
-          安装程序会自动检测并安装以下 Python 包：
-          - ✅ paho-mqtt（MQTT 通信）
-          - ✅ numpy（数据处理）
-          - ✅ psutil（系统监控）
-          - ✅ ttkbootstrap（UI 主题）
-          - ✅ **MetaTrader5**（Python 扩展包，用于调用 MT5 API）
-
-          ### 需要手动安装的软件
-          如果使用交易功能，还需要安装：
-          - 📥 **MetaTrader 5 终端**：从 https://www.metatrader5.com 下载
-            - MetaTrader5 Python 包需要 MT5 终端运行才能工作
-            - 如果只使用信号管理功能（不执行交易），可以不安装
+          ### 完全独立的 EXE 文件
+          所有组件都已编译为独立的 Windows 可执行文件：
+          - ✅ **MT5_Manager.exe** - 管理面板（GUI）
+          - ✅ **MT5_Master.exe** - Master 信号服务（控制台）
+          - ✅ **MT5_Slave.exe** - Slave 信号服务（控制台）
+          
+          **无需安装 Python！** 所有依赖已内置。
 
           ## 📥 安装步骤
 
           1. 下载 `MT5_Signal_System_Installer_v*.exe`
           2. 运行安装程序，选择需要的功能（Master/Slave）
-          3. **首次运行前**：双击桌面上的"安装依赖"快捷方式
-          4. 从桌面或开始菜单启动"MT5 Manager"
-          5. 面板会根据安装时的选择自动显示对应的功能
+          3. 从桌面或开始菜单启动"MT5 Manager"
+          4. 面板会根据安装时的选择自动显示对应的功能
+          5. 点击"启动 Master/Slave"按钮即可运行服务
 
           ## ⚙️ 系统要求
 
           - Windows 10/11
-          - Python 3.11+（依赖安装工具会自动检测）
+          - **无需 Python 环境**（已内置）
           - MetaTrader 5 终端（可选，仅在使用交易功能时需要）
 
           ## 📝 使用说明
