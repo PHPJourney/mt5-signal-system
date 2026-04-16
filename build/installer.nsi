@@ -80,7 +80,6 @@ Section "管理面板 (必选)" SecPanel
     SetOutPath "$INSTDIR"
     
     File "..\dist\MT5_Manager.exe"
-    File "..\dist\icon.png"
     
     SectionSetSize ${SecPanel} 15360
 SectionEnd
