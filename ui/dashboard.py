@@ -1,15 +1,16 @@
 # ui/dashboard.py
 """仪表板模块"""
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, messagebox
 
 
 class DashboardTab:
     """仪表板选项卡"""
     
-    def __init__(self, parent, app):
-        super().__init__(parent)
+    def __init__(self, notebook, app):
         self.app = app
+        self.frame = ttk.Frame(notebook)
+        notebook.add(self.frame, text="📊 仪表板")
         
         # 读取配置中的 enabled 状态
         master_config = app.config_manager.load_config("master_config")
@@ -22,7 +23,7 @@ class DashboardTab:
     def create_ui(self):
         """创建仪表板界面"""
         # 主框架
-        main_frame = ttk.Frame(self, padding="10")
+        main_frame = ttk.Frame(self.frame, padding="10")
         main_frame.pack(fill=tk.BOTH, expand=True)
 
         # 标题栏
