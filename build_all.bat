@@ -148,6 +148,13 @@ xcopy /E /I /Y "common" "dist\MT5_%COMPONENT:_=_%_Portable\common" >nul
 xcopy /E /I /Y "%COMPONENT%" "dist\MT5_%COMPONENT:_=_%_Portable\%COMPONENT%" >nul
 if not exist "dist\MT5_%COMPONENT:_=_%_Portable\config" mkdir "dist\MT5_%COMPONENT:_=_%_Portable\config"
 copy "config\%COMPONENT%_config.json" "dist\MT5_%COMPONENT:_=_%_Portable\config\" >nul 2>&1
+
+REM 复制语言文件
+if exist "lang" (
+    if not exist "dist\MT5_%COMPONENT:_=_%_Portable\lang" mkdir "dist\MT5_%COMPONENT:_=_%_Portable\lang"
+    xcopy /E /I /Y "lang\*.json" "dist\MT5_%COMPONENT:_=_%_Portable\lang\" >nul 2>&1
+)
+
 copy "README.md" "dist\MT5_%COMPONENT:_=_%_Portable\" >nul 2>&1
 copy "requirements.txt" "dist\MT5_%COMPONENT:_=_%_Portable\" >nul 2>&1
 

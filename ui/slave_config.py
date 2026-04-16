@@ -1,6 +1,7 @@
 """Slave 配置模块 - 增强版"""
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
+from common.i18n import _
 
 
 class SlaveConfigTab:
@@ -9,7 +10,7 @@ class SlaveConfigTab:
     def __init__(self, notebook, app):
         self.app = app
         self.frame = ttk.Frame(notebook)
-        notebook.add(self.frame, text="⚙️ Slave 配置")
+        notebook.add(self.frame, text=_("TAB_SLAVE_CONFIG"))
         
         # 创建变量
         self._create_variables()
@@ -180,135 +181,135 @@ class SlaveConfigTab:
 
         ttk.Button(
             btn_frame,
-            text="🔄 重新加载",
+            text=_("BTN_REFRESH"),
             command=self.reload_config,
             width=15
         ).pack(side=tk.LEFT, padx=5)
 
         ttk.Button(
             btn_frame,
-            text="💾 保存 Slave 配置",
+            text=_("BTN_SAVE"),
             command=self.save_config,
             width=20
         ).pack(side=tk.RIGHT, padx=5)
     
     def _create_common_section(self, parent):
         """创建常用设置区域"""
-        common_frame = ttk.LabelFrame(parent, text="常用设置", padding=10)
+        common_frame = ttk.LabelFrame(parent, text=_("CONFIG_COMMON_SETTINGS"), padding=10)
         common_frame.pack(fill=tk.X, padx=10, pady=5)
 
         row = 0
-        ttk.Label(common_frame, text="多空仓位:").grid(row=row, column=0, sticky=tk.W, pady=2)
+        ttk.Label(common_frame, text=_("CONFIG_FOLLOW_MODE")).grid(row=row, column=0, sticky=tk.W, pady=2)
         mode_combo = ttk.Combobox(common_frame, textvariable=self.follow_mode_var, 
                                  values=["both", "long_only", "short_only"], width=38, state="readonly")
         mode_combo.grid(row=row, column=1, padx=5)
         ttk.Label(common_frame, text="(both=多空都跟, long_only=只跟多, short_only=只跟空)").grid(row=row, column=2, sticky=tk.W)
         row += 1
 
-        ttk.Checkbutton(common_frame, text="启用警报", variable=self.enable_alerts_var).grid(row=row, column=0, columnspan=2, sticky=tk.W, pady=2)
+        ttk.Checkbutton(common_frame, text=_("CONFIG_ENABLE_ALERTS"), variable=self.enable_alerts_var).grid(row=row, column=0, columnspan=2, sticky=tk.W, pady=2)
         row += 1
 
     def _create_security_section(self, parent):
         """创建安全性设置区域"""
-        security_frame = ttk.LabelFrame(parent, text="安全性", padding=10)
+        security_frame = ttk.LabelFrame(parent, text=_("CONFIG_SECURITY_SETTINGS"), padding=10)
         security_frame.pack(fill=tk.X, padx=10, pady=5)
 
-        ttk.Checkbutton(security_frame, text="允许实时自动交易", variable=self.allow_auto_trading_var).pack(anchor=tk.W, pady=2)
+        ttk.Checkbutton(security_frame, text=_("CONFIG_ALLOW_AUTO_TRADING"), variable=self.allow_auto_trading_var).pack(anchor=tk.W, pady=2)
 
     def _create_mt5_terminal_section(self, parent):
         """创建 MT5 终端选择区域"""
-        mt5_terminal_frame = ttk.LabelFrame(parent, text="MT5 终端选择", padding=10)
+        mt5_terminal_frame = ttk.LabelFrame(parent, text=_("CONFIG_MT5_SETTINGS"), padding=10)
         mt5_terminal_frame.pack(fill=tk.X, padx=10, pady=5)
 
         path_frame = ttk.Frame(mt5_terminal_frame)
         path_frame.pack(fill=tk.X, pady=5)
         
-        ttk.Label(path_frame, text="终端路径:").pack(side=tk.LEFT, padx=5)
+        ttk.Label(path_frame, text=_("CONFIG_TERMINAL_PATH")).pack(side=tk.LEFT, padx=5)
         ttk.Entry(path_frame, textvariable=self.mt5_path_var, width=50).pack(side=tk.LEFT, padx=5)
         ttk.Button(
             path_frame,
-            text="浏览...",
+            text=_("BTN_BROWSE"),
             command=lambda: self.browse_folder(self.mt5_path_var)
         ).pack(side=tk.LEFT, padx=5)
     
     def _create_mqtt_section(self, parent):
         """创建 MQTT 配置区域"""
-        mqtt_frame = ttk.LabelFrame(parent, text="MQTT 配置", padding=10)
+        mqtt_frame = ttk.LabelFrame(parent, text=_("CONFIG_MQTT_SETTINGS"), padding=10)
         mqtt_frame.pack(fill=tk.X, padx=10, pady=5)
 
         row = 0
-        ttk.Label(mqtt_frame, text="Broker 地址:").grid(row=row, column=0, sticky=tk.W, pady=2)
+        ttk.Label(mqtt_frame, text=_("CONFIG_BROKER")).grid(row=row, column=0, sticky=tk.W, pady=2)
         ttk.Entry(mqtt_frame, textvariable=self.broker_var, width=40).grid(row=row, column=1, padx=5)
         row += 1
 
-        ttk.Label(mqtt_frame, text="端口:").grid(row=row, column=0, sticky=tk.W, pady=2)
+        ttk.Label(mqtt_frame, text=_("CONFIG_PORT")).grid(row=row, column=0, sticky=tk.W, pady=2)
         ttk.Spinbox(mqtt_frame, from_=1, to=65535, textvariable=self.port_var, width=38).grid(row=row, column=1, padx=5)
         row += 1
 
-        ttk.Label(mqtt_frame, text="用户名:").grid(row=row, column=0, sticky=tk.W, pady=2)
+        ttk.Label(mqtt_frame, text=_("CONFIG_USERNAME")).grid(row=row, column=0, sticky=tk.W, pady=2)
         ttk.Entry(mqtt_frame, textvariable=self.mqtt_user_var, width=40).grid(row=row, column=1, padx=5)
         row += 1
 
-        ttk.Label(mqtt_frame, text="密码:").grid(row=row, column=0, sticky=tk.W, pady=2)
+        ttk.Label(mqtt_frame, text=_("CONFIG_PASSWORD")).grid(row=row, column=0, sticky=tk.W, pady=2)
         ttk.Entry(mqtt_frame, textvariable=self.mqtt_pass_var, show="*", width=40).grid(row=row, column=1, padx=5)
         row += 1
 
-        ttk.Label(mqtt_frame, text="Client ID:").grid(row=row, column=0, sticky=tk.W, pady=2)
+        ttk.Label(mqtt_frame, text=_("CONFIG_CLIENT_ID")).grid(row=row, column=0, sticky=tk.W, pady=2)
         ttk.Entry(mqtt_frame, textvariable=self.client_id_var, width=40).grid(row=row, column=1, padx=5)
     
     def _create_subscription_section(self, parent):
         """创建订阅配置区域"""
-        sub_frame = ttk.LabelFrame(parent, text="订阅配置", padding=10)
+        sub_frame = ttk.LabelFrame(parent, text=_("CONFIG_SUBSCRIPTION_SETTINGS"), padding=10)
         sub_frame.pack(fill=tk.X, padx=10, pady=5)
 
         row = 0
-        ttk.Label(sub_frame, text="Master ID:").grid(row=row, column=0, sticky=tk.W, pady=2)
+        ttk.Label(sub_frame, text=_("CONFIG_MASTER_ID")).grid(row=row, column=0, sticky=tk.W, pady=2)
         ttk.Entry(sub_frame, textvariable=self.master_id_var, width=40).grid(row=row, column=1, padx=5)
     
     def _create_risk_section(self, parent):
         """创建风险管理区域"""
-        risk_frame = ttk.LabelFrame(parent, text="风险管理", padding=10)
+        risk_frame = ttk.LabelFrame(parent, text=_("CONFIG_RISK_SETTINGS"), padding=10)
         risk_frame.pack(fill=tk.X, padx=10, pady=5)
 
         row = 0
-        ttk.Label(risk_frame, text="最大回撤 (%):").grid(row=row, column=0, sticky=tk.W, pady=2)
+        ttk.Label(risk_frame, text=_("CONFIG_MAX_DRAWDOWN_PERCENT")).grid(row=row, column=0, sticky=tk.W, pady=2)
         ttk.Spinbox(risk_frame, from_=1, to=100, increment=0.1, textvariable=self.max_dd_percent_var, width=38).grid(row=row, column=1, padx=5)
         row += 1
 
-        ttk.Label(risk_frame, text="最大回撤 (USD):").grid(row=row, column=0, sticky=tk.W, pady=2)
+        ttk.Label(risk_frame, text=_("CONFIG_MAX_DRAWDOWN_USD")).grid(row=row, column=0, sticky=tk.W, pady=2)
         ttk.Spinbox(risk_frame, from_=0, to=100000, increment=100, textvariable=self.max_dd_usd_var, width=38).grid(row=row, column=1, padx=5)
         row += 1
 
-        ttk.Label(risk_frame, text="最大盈利 (%):").grid(row=row, column=0, sticky=tk.W, pady=2)
+        ttk.Label(risk_frame, text=_("CONFIG_MAX_PROFIT_PERCENT")).grid(row=row, column=0, sticky=tk.W, pady=2)
         ttk.Spinbox(risk_frame, from_=0, to=100, increment=0.1, textvariable=self.max_profit_percent_var, width=38).grid(row=row, column=1, padx=5)
         row += 1
 
-        ttk.Label(risk_frame, text="最大盈利 (USD):").grid(row=row, column=0, sticky=tk.W, pady=2)
+        ttk.Label(risk_frame, text=_("CONFIG_MAX_PROFIT_USD")).grid(row=row, column=0, sticky=tk.W, pady=2)
         ttk.Spinbox(risk_frame, from_=0, to=100000, increment=100, textvariable=self.max_profit_usd_var, width=38).grid(row=row, column=1, padx=5)
         row += 1
 
-        ttk.Label(risk_frame, text="会话亏损限制 (USD):").grid(row=row, column=0, sticky=tk.W, pady=2)
+        ttk.Label(risk_frame, text=_("CONFIG_SESSION_LOSS_USD")).grid(row=row, column=0, sticky=tk.W, pady=2)
         ttk.Spinbox(risk_frame, from_=0, to=100000, increment=100, textvariable=self.session_loss_var, width=38).grid(row=row, column=1, padx=5)
         row += 1
 
-        ttk.Label(risk_frame, text="风控冷却期 (分钟):").grid(row=row, column=0, sticky=tk.W, pady=2)
+        ttk.Label(risk_frame, text=_("CONFIG_COOLDOWN_MINUTES")).grid(row=row, column=0, sticky=tk.W, pady=2)
         ttk.Spinbox(risk_frame, from_=0, to=1440, textvariable=self.cooldown_var, width=38).grid(row=row, column=1, padx=5)
         row += 1
 
-        ttk.Label(risk_frame, text="最大持仓数:").grid(row=row, column=0, sticky=tk.W, pady=2)
+        ttk.Label(risk_frame, text=_("CONFIG_MAX_POSITIONS")).grid(row=row, column=0, sticky=tk.W, pady=2)
         ttk.Spinbox(risk_frame, from_=0, to=100, textvariable=self.max_positions_var, width=38).grid(row=row, column=1, padx=5)
         row += 1
 
-        ttk.Label(risk_frame, text="最大总手数:").grid(row=row, column=0, sticky=tk.W, pady=2)
+        ttk.Label(risk_frame, text=_("CONFIG_MAX_TOTAL_LOTS")).grid(row=row, column=0, sticky=tk.W, pady=2)
         ttk.Spinbox(risk_frame, from_=0, to=1000, increment=0.1, textvariable=self.max_total_lots_var, width=38).grid(row=row, column=1, padx=5)
     
     def _create_lot_section(self, parent):
         """创建手数配置区域"""
-        lot_frame = ttk.LabelFrame(parent, text="手数配置 (5种模式)", padding=10)
+        lot_frame = ttk.LabelFrame(parent, text=_("CONFIG_LOT_SETTINGS"), padding=10)
         lot_frame.pack(fill=tk.X, padx=10, pady=5)
 
         row = 0
-        ttk.Label(lot_frame, text="手数模式:").grid(row=row, column=0, sticky=tk.W, pady=2)
+        ttk.Label(lot_frame, text=_("CONFIG_LOT_MODE")).grid(row=row, column=0, sticky=tk.W, pady=2)
         mode_combo = ttk.Combobox(lot_frame, textvariable=self.lot_mode_var, 
                                  values=["multiplier", "balance_ratio", "fixed", "fixed_per_usd", "incremental"], 
                                  width=38, state="readonly")
@@ -316,96 +317,96 @@ class SlaveConfigTab:
         ttk.Label(lot_frame, text="(multiplier=倍数, balance_ratio=余额倍率, fixed=固定, fixed_per_usd=余额大小, incremental=递增)").grid(row=row, column=2, sticky=tk.W, columnspan=2)
         row += 1
 
-        ttk.Label(lot_frame, text="倍数 (L1):").grid(row=row, column=0, sticky=tk.W, pady=2)
+        ttk.Label(lot_frame, text=_("CONFIG_LOT_MULTIPLIER")).grid(row=row, column=0, sticky=tk.W, pady=2)
         ttk.Spinbox(lot_frame, from_=0.1, to=10, increment=0.1, textvariable=self.lot_multiplier_var, width=38).grid(row=row, column=1, padx=5)
         row += 1
 
-        ttk.Label(lot_frame, text="固定手数 (L3):").grid(row=row, column=0, sticky=tk.W, pady=2)
+        ttk.Label(lot_frame, text=_("CONFIG_FIXED_LOT")).grid(row=row, column=0, sticky=tk.W, pady=2)
         ttk.Spinbox(lot_frame, from_=0.01, to=100, increment=0.01, textvariable=self.fixed_lot_var, width=38).grid(row=row, column=1, padx=5)
         row += 1
 
-        ttk.Label(lot_frame, text="余额倍率 (L2):").grid(row=row, column=0, sticky=tk.W, pady=2)
+        ttk.Label(lot_frame, text=_("CONFIG_BALANCE_RATIO")).grid(row=row, column=0, sticky=tk.W, pady=2)
         ttk.Spinbox(lot_frame, from_=0.1, to=10, increment=0.1, textvariable=self.balance_ratio_var, width=38).grid(row=row, column=1, padx=5)
         row += 1
 
-        ttk.Label(lot_frame, text="每N美元0.01手 (L4):").grid(row=row, column=0, sticky=tk.W, pady=2)
+        ttk.Label(lot_frame, text=_("CONFIG_USD_PER_LOT")).grid(row=row, column=0, sticky=tk.W, pady=2)
         ttk.Spinbox(lot_frame, from_=100, to=100000, increment=100, textvariable=self.usd_per_lot_var, width=38).grid(row=row, column=1, padx=5)
         row += 1
 
-        ttk.Label(lot_frame, text="递增基数 (L5):").grid(row=row, column=0, sticky=tk.W, pady=2)
+        ttk.Label(lot_frame, text=_("CONFIG_INCREMENTAL_BASE")).grid(row=row, column=0, sticky=tk.W, pady=2)
         ttk.Spinbox(lot_frame, from_=0.01, to=10, increment=0.01, textvariable=self.incremental_base_var, width=38).grid(row=row, column=1, padx=5)
         row += 1
 
-        ttk.Label(lot_frame, text="递增步长 (L5):").grid(row=row, column=0, sticky=tk.W, pady=2)
+        ttk.Label(lot_frame, text=_("CONFIG_INCREMENTAL_STEP")).grid(row=row, column=0, sticky=tk.W, pady=2)
         ttk.Spinbox(lot_frame, from_=0.01, to=10, increment=0.01, textvariable=self.incremental_step_var, width=38).grid(row=row, column=1, padx=5)
         row += 1
 
-        ttk.Label(lot_frame, text="最小手数:").grid(row=row, column=0, sticky=tk.W, pady=2)
+        ttk.Label(lot_frame, text=_("CONFIG_MIN_LOT")).grid(row=row, column=0, sticky=tk.W, pady=2)
         ttk.Spinbox(lot_frame, from_=0.01, to=100, increment=0.01, textvariable=self.min_lot_var, width=38).grid(row=row, column=1, padx=5)
         row += 1
 
-        ttk.Label(lot_frame, text="最大手数:").grid(row=row, column=0, sticky=tk.W, pady=2)
+        ttk.Label(lot_frame, text=_("CONFIG_MAX_LOT")).grid(row=row, column=0, sticky=tk.W, pady=2)
         ttk.Spinbox(lot_frame, from_=0.01, to=1000, increment=0.01, textvariable=self.max_lot_var, width=38).grid(row=row, column=1, padx=5)
         row += 1
 
-        ttk.Label(lot_frame, text="不跟小于N手:").grid(row=row, column=0, sticky=tk.W, pady=2)
+        ttk.Label(lot_frame, text=_("CONFIG_SKIP_LOT_LESS")).grid(row=row, column=0, sticky=tk.W, pady=2)
         ttk.Spinbox(lot_frame, from_=0, to=100, increment=0.01, textvariable=self.skip_lot_less_var, width=38).grid(row=row, column=1, padx=5)
         row += 1
 
-        ttk.Label(lot_frame, text="不跟大于N手:").grid(row=row, column=0, sticky=tk.W, pady=2)
+        ttk.Label(lot_frame, text=_("CONFIG_SKIP_LOT_GREATER")).grid(row=row, column=0, sticky=tk.W, pady=2)
         ttk.Spinbox(lot_frame, from_=0, to=1000, increment=0.01, textvariable=self.skip_lot_greater_var, width=38).grid(row=row, column=1, padx=5)
     
     def _create_filter_section(self, parent):
         """创建过滤配置区域"""
-        filter_frame = ttk.LabelFrame(parent, text="订单过滤", padding=10)
+        filter_frame = ttk.LabelFrame(parent, text=_("CONFIG_FILTER_SETTINGS"), padding=10)
         filter_frame.pack(fill=tk.X, padx=10, pady=5)
 
         row = 0
-        ttk.Checkbutton(filter_frame, text="跟多单", variable=self.follow_buy_var).grid(row=row, column=0, sticky=tk.W, pady=2)
-        ttk.Checkbutton(filter_frame, text="跟空单", variable=self.follow_sell_var).grid(row=row, column=1, sticky=tk.W, pady=2)
+        ttk.Checkbutton(filter_frame, text=_("CONFIG_FOLLOW_BUY"), variable=self.follow_buy_var).grid(row=row, column=0, sticky=tk.W, pady=2)
+        ttk.Checkbutton(filter_frame, text=_("CONFIG_FOLLOW_SELL"), variable=self.follow_sell_var).grid(row=row, column=1, sticky=tk.W, pady=2)
         row += 1
 
-        ttk.Checkbutton(filter_frame, text="跟市价单", variable=self.follow_market_var).grid(row=row, column=0, sticky=tk.W, pady=2)
-        ttk.Checkbutton(filter_frame, text="跟挂单", variable=self.follow_pending_var).grid(row=row, column=1, sticky=tk.W, pady=2)
+        ttk.Checkbutton(filter_frame, text=_("CONFIG_FOLLOW_MARKET"), variable=self.follow_market_var).grid(row=row, column=0, sticky=tk.W, pady=2)
+        ttk.Checkbutton(filter_frame, text=_("CONFIG_FOLLOW_PENDING"), variable=self.follow_pending_var).grid(row=row, column=1, sticky=tk.W, pady=2)
         row += 1
 
-        ttk.Checkbutton(filter_frame, text="跟平仓", variable=self.follow_close_var).grid(row=row, column=0, sticky=tk.W, pady=2)
+        ttk.Checkbutton(filter_frame, text=_("CONFIG_FOLLOW_CLOSE"), variable=self.follow_close_var).grid(row=row, column=0, sticky=tk.W, pady=2)
         row += 1
 
-        ttk.Label(filter_frame, text="只跟N分钟内订单:").grid(row=row, column=0, sticky=tk.W, pady=2)
+        ttk.Label(filter_frame, text=_("CONFIG_MAX_ORDER_AGE")).grid(row=row, column=0, sticky=tk.W, pady=2)
         ttk.Spinbox(filter_frame, from_=0, to=1440, increment=0.1, textvariable=self.max_order_age_var, width=38).grid(row=row, column=1, padx=5)
         row += 1
 
-        ttk.Label(filter_frame, text="货币白名单:").grid(row=row, column=0, sticky=tk.W, pady=2)
+        ttk.Label(filter_frame, text=_("CONFIG_WHITELIST_SYMBOLS")).grid(row=row, column=0, sticky=tk.W, pady=2)
         ttk.Entry(filter_frame, textvariable=self.whitelist_symbols_var, width=40).grid(row=row, column=1, padx=5)
         ttk.Label(filter_frame, text="(逗号分隔，如: EURUSD,GBPUSD)").grid(row=row, column=2, sticky=tk.W)
         row += 1
 
-        ttk.Label(filter_frame, text="货币黑名单:").grid(row=row, column=0, sticky=tk.W, pady=2)
+        ttk.Label(filter_frame, text=_("CONFIG_BLACKLIST_SYMBOLS")).grid(row=row, column=0, sticky=tk.W, pady=2)
         ttk.Entry(filter_frame, textvariable=self.blacklist_symbols_var, width=40).grid(row=row, column=1, padx=5)
         ttk.Label(filter_frame, text="(逗号分隔)").grid(row=row, column=2, sticky=tk.W)
     
     def _create_trailing_section(self, parent):
         """创建追踪止损区域"""
-        trailing_frame = ttk.LabelFrame(parent, text="追踪止损", padding=10)
+        trailing_frame = ttk.LabelFrame(parent, text=_("CONFIG_TRAILING_STOP"), padding=10)
         trailing_frame.pack(fill=tk.X, padx=10, pady=5)
 
         row = 0
-        ttk.Checkbutton(trailing_frame, text="启用追踪止损", variable=self.trailing_enabled_var).grid(row=row, column=0, sticky=tk.W, pady=2)
+        ttk.Checkbutton(trailing_frame, text=_("CONFIG_TRAILING_ENABLED"), variable=self.trailing_enabled_var).grid(row=row, column=0, sticky=tk.W, pady=2)
         row += 1
 
-        ttk.Label(trailing_frame, text="盈利N微点后启用:").grid(row=row, column=0, sticky=tk.W, pady=2)
+        ttk.Label(trailing_frame, text=_("CONFIG_TRAILING_PROFIT")).grid(row=row, column=0, sticky=tk.W, pady=2)
         ttk.Spinbox(trailing_frame, from_=0, to=10000, textvariable=self.trailing_profit_var, width=38).grid(row=row, column=1, padx=5)
         row += 1
 
-        ttk.Label(trailing_frame, text="回撤N微点平仓:").grid(row=row, column=0, sticky=tk.W, pady=2)
+        ttk.Label(trailing_frame, text=_("CONFIG_TRAILING_TRAIL")).grid(row=row, column=0, sticky=tk.W, pady=2)
         ttk.Spinbox(trailing_frame, from_=0, to=10000, textvariable=self.trailing_trail_var, width=38).grid(row=row, column=1, padx=5)
     
     def reload_config(self):
         """重新加载配置"""
         self.load_config_to_ui()
-        messagebox.showinfo("成功", "配置已重新加载")
-        self.app.update_status("Slave 配置已重新加载")
+        messagebox.showinfo(_("MSG_INFO"), _("MSG_CONFIG_LOADED"))
+        self.app.update_status(_("MSG_CONFIG_LOADED"))
     
     def browse_folder(self, string_var):
         """浏览文件夹"""
@@ -500,7 +501,7 @@ class SlaveConfigTab:
 
         if self.app.config_manager.save_config("slave_config", config):
             self.app.slave_config = config
-            messagebox.showinfo("成功", "Slave 配置已保存")
-            self.app.update_status("Slave 配置已保存")
+            messagebox.showinfo(_("MSG_SUCCESS"), _("MSG_CONFIG_SAVED"))
+            self.app.update_status(_("MSG_CONFIG_SAVED"))
         else:
-            messagebox.showerror("错误", "保存配置失败")
+            messagebox.showerror(_("MSG_ERROR"), f"{_('CONFIG_ERROR')}: {_('MSG_CONFIG_SAVE_FAILED')}")

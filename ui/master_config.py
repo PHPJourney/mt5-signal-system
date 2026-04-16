@@ -1,6 +1,7 @@
 """Master 配置模块"""
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
+from common.i18n import _
 
 
 class MasterConfigTab:
@@ -9,7 +10,7 @@ class MasterConfigTab:
     def __init__(self, notebook, app):
         self.app = app
         self.frame = ttk.Frame(notebook)
-        notebook.add(self.frame, text="⚙️ Master 配置")
+        notebook.add(self.frame, text=_("TAB_MASTER_CONFIG"))
         
         # 创建变量（先创建空变量）
         self._create_variables()
@@ -93,7 +94,7 @@ class MasterConfigTab:
         # 重新加载按钮
         ttk.Button(
             btn_frame,
-            text="🔄 重新加载",
+            text=_("BTN_REFRESH"),
             command=self.reload_config,
             width=15
         ).pack(side=tk.LEFT, padx=5)
@@ -101,7 +102,7 @@ class MasterConfigTab:
         # 保存按钮
         ttk.Button(
             btn_frame,
-            text="💾 保存 Master 配置",
+            text=_("BTN_SAVE"),
             command=self.save_config,
             width=20
         ).pack(side=tk.RIGHT, padx=5)
@@ -109,19 +110,19 @@ class MasterConfigTab:
     def reload_config(self):
         """重新加载配置"""
         self.load_config_to_ui()
-        messagebox.showinfo("成功", "配置已重新加载")
-        self.app.update_status("Master 配置已重新加载")
+        messagebox.showinfo(_("MSG_INFO"), _("MSG_CONFIG_LOADED"))
+        self.app.update_status(_("MSG_CONFIG_LOADED"))
     
     def _create_mt5_terminal_section(self, parent):
         """创建 MT5 终端选择区域"""
-        mt5_terminal_frame = ttk.LabelFrame(parent, text="MT5 终端选择", padding=10)
+        mt5_terminal_frame = ttk.LabelFrame(parent, text=_("CONFIG_MT5_SETTINGS"), padding=10)
         mt5_terminal_frame.pack(fill=tk.X, padx=10, pady=5)
 
         # 终端列表框架
         terminal_list_frame = ttk.Frame(mt5_terminal_frame)
         terminal_list_frame.pack(fill=tk.X, pady=5)
 
-        ttk.Label(terminal_list_frame, text="检测到").pack(side=tk.LEFT, padx=5)
+        ttk.Label(terminal_list_frame, text=_("CONFIG_TERMINAL_PATH")).pack(side=tk.LEFT, padx=5)
         
         # MT5 终端下拉框
         self.mt5_terminal_combo = ttk.Combobox(
@@ -135,7 +136,7 @@ class MasterConfigTab:
         # 刷新按钮
         ttk.Button(
             terminal_list_frame,
-            text="🔄 刷新",
+            text=_("BTN_REFRESH"),
             command=self.refresh_terminals,
             width=10
         ).pack(side=tk.LEFT, padx=5)
@@ -143,7 +144,7 @@ class MasterConfigTab:
         # 显示终端详细信息
         self.terminal_info_label = ttk.Label(
             mt5_terminal_frame,
-            text="点击'刷新'按钮检测系统中的 MT5 终端",
+            text=_("BTN_DETECT_MT5"),
             foreground="gray",
             wraplength=600,
             justify=tk.LEFT
@@ -154,54 +155,54 @@ class MasterConfigTab:
         path_frame = ttk.Frame(mt5_terminal_frame)
         path_frame.pack(fill=tk.X, pady=5)
         
-        ttk.Label(path_frame, text="或手动指定路径:").pack(side=tk.LEFT, padx=5)
+        ttk.Label(path_frame, text=_("CONFIG_TERMINAL_PATH")).pack(side=tk.LEFT, padx=5)
         ttk.Entry(path_frame, textvariable=self.mt5_path_var, width=50).pack(side=tk.LEFT, padx=5)
         ttk.Button(
             path_frame,
-            text="浏览...",
+            text=_("BTN_BROWSE"),
             command=lambda: self.browse_folder(self.mt5_path_var)
         ).pack(side=tk.LEFT, padx=5)
     
     def _create_mqtt_section(self, parent):
         """创建 MQTT 配置区域"""
-        mqtt_frame = ttk.LabelFrame(parent, text="MQTT 配置", padding=10)
+        mqtt_frame = ttk.LabelFrame(parent, text=_("CONFIG_MQTT_SETTINGS"), padding=10)
         mqtt_frame.pack(fill=tk.X, padx=10, pady=5)
 
         row = 0
-        ttk.Label(mqtt_frame, text="Broker 地址:").grid(row=row, column=0, sticky=tk.W, pady=2)
+        ttk.Label(mqtt_frame, text=_("CONFIG_BROKER")).grid(row=row, column=0, sticky=tk.W, pady=2)
         ttk.Entry(mqtt_frame, textvariable=self.broker_var, width=40).grid(row=row, column=1, padx=5)
         row += 1
 
-        ttk.Label(mqtt_frame, text="端口:").grid(row=row, column=0, sticky=tk.W, pady=2)
+        ttk.Label(mqtt_frame, text=_("CONFIG_PORT")).grid(row=row, column=0, sticky=tk.W, pady=2)
         ttk.Spinbox(mqtt_frame, from_=1, to=65535, textvariable=self.port_var, width=38).grid(row=row, column=1, padx=5)
         row += 1
 
-        ttk.Label(mqtt_frame, text="用户名:").grid(row=row, column=0, sticky=tk.W, pady=2)
+        ttk.Label(mqtt_frame, text=_("CONFIG_USERNAME")).grid(row=row, column=0, sticky=tk.W, pady=2)
         ttk.Entry(mqtt_frame, textvariable=self.mqtt_user_var, width=40).grid(row=row, column=1, padx=5)
         row += 1
 
-        ttk.Label(mqtt_frame, text="密码:").grid(row=row, column=0, sticky=tk.W, pady=2)
+        ttk.Label(mqtt_frame, text=_("CONFIG_PASSWORD")).grid(row=row, column=0, sticky=tk.W, pady=2)
         ttk.Entry(mqtt_frame, textvariable=self.mqtt_pass_var, show="*", width=40).grid(row=row, column=1, padx=5)
         row += 1
 
-        ttk.Label(mqtt_frame, text="Client ID:").grid(row=row, column=0, sticky=tk.W, pady=2)
+        ttk.Label(mqtt_frame, text=_("CONFIG_CLIENT_ID")).grid(row=row, column=0, sticky=tk.W, pady=2)
         ttk.Entry(mqtt_frame, textvariable=self.client_id_var, width=40).grid(row=row, column=1, padx=5)
     
     def _create_signal_section(self, parent):
         """创建信号配置区域"""
-        signal_frame = ttk.LabelFrame(parent, text="信号配置", padding=10)
+        signal_frame = ttk.LabelFrame(parent, text=_("CONFIG_SIGNAL_SETTINGS"), padding=10)
         signal_frame.pack(fill=tk.X, padx=10, pady=5)
 
         row = 0
-        ttk.Label(signal_frame, text="交易品种 (逗号分隔):").grid(row=row, column=0, sticky=tk.W, pady=2)
+        ttk.Label(signal_frame, text=_("CONFIG_SYMBOLS")).grid(row=row, column=0, sticky=tk.W, pady=2)
         ttk.Entry(signal_frame, textvariable=self.symbols_var, width=40).grid(row=row, column=1, padx=5)
         row += 1
 
-        ttk.Label(signal_frame, text="最大持仓数:").grid(row=row, column=0, sticky=tk.W, pady=2)
+        ttk.Label(signal_frame, text=_("CONFIG_MAX_POSITIONS")).grid(row=row, column=0, sticky=tk.W, pady=2)
         ttk.Spinbox(signal_frame, from_=1, to=100, textvariable=self.max_pos_var, width=38).grid(row=row, column=1, padx=5)
         row += 1
 
-        ttk.Label(signal_frame, text="手数:").grid(row=row, column=0, sticky=tk.W, pady=2)
+        ttk.Label(signal_frame, text=_("CONFIG_LOT_SIZE")).grid(row=row, column=0, sticky=tk.W, pady=2)
         ttk.Spinbox(signal_frame, from_=0.01, to=100, increment=0.01, textvariable=self.lot_size_var, width=38).grid(row=row, column=1, padx=5)
     
     def refresh_terminals(self):
@@ -209,7 +210,7 @@ class MasterConfigTab:
         terminals = self.app.mt5_detector.detect_terminals()
         
         if not terminals:
-            messagebox.showwarning("警告", "未检测到正在运行的 MT5 终端")
+            messagebox.showwarning(_("MSG_WARNING"), _("NO_MT5_DETECTED"))
             return
         
         # 格式化终端信息
@@ -229,7 +230,7 @@ class MasterConfigTab:
         # 绑定选择事件
         self.mt5_terminal_combo.bind('<<ComboboxSelected>>', self.on_terminal_selected)
         
-        messagebox.showinfo("成功", f"检测到 {len(terminals)} 个 MT5 终端")
+        messagebox.showinfo(_("MSG_SUCCESS"), f"{_('BTN_DETECT_MT5')}: {len(terminals)}")
     
     def on_terminal_selected(self, event):
         """当用户选择终端时"""
@@ -241,7 +242,7 @@ class MasterConfigTab:
                 path = path_match.group(1)
                 self.mt5_path_var.set(path)
                 self.terminal_info_label.config(
-                    text=f"已选择: {selection}",
+                    text=f"{_('STATUS_RUNNING')}: {selection}",
                     foreground="green"
                 )
     
@@ -275,7 +276,7 @@ class MasterConfigTab:
         if self.app.config_manager.save_config("master_config", config):
             # 更新 app 中的配置
             self.app.master_config = config
-            messagebox.showinfo("成功", "Master 配置已保存")
-            self.app.update_status("Master 配置已保存")
+            messagebox.showinfo(_("MSG_SUCCESS"), _("MSG_CONFIG_SAVED"))
+            self.app.update_status(_("MSG_CONFIG_SAVED"))
         else:
-            messagebox.showerror("错误", "保存配置失败")
+            messagebox.showerror(_("MSG_ERROR"), f"{_('CONFIG_ERROR')}: {_('MSG_CONFIG_SAVE_FAILED')}")

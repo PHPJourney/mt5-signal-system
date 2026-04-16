@@ -3,6 +3,7 @@
 import tkinter as tk
 from tkinter import ttk, scrolledtext
 from pathlib import Path
+from common.i18n import _
 
 
 class LogsTab:
@@ -11,7 +12,7 @@ class LogsTab:
     def __init__(self, notebook, app):
         self.app = app
         self.frame = ttk.Frame(notebook)
-        notebook.add(self.frame, text="📋 日志")
+        notebook.add(self.frame, text=_("TAB_LOGS"))
         
         self.create_ui()
     
@@ -21,7 +22,7 @@ class LogsTab:
         log_select_frame = ttk.Frame(self.frame)
         log_select_frame.pack(fill=tk.X, padx=10, pady=5)
 
-        ttk.Label(log_select_frame, text="日志文件:").pack(side=tk.LEFT, padx=5)
+        ttk.Label(log_select_frame, text=_("LOGS_SELECT_FILE")).pack(side=tk.LEFT, padx=5)
         
         self.log_file_var = tk.StringVar(value="master.log")
         log_files = ["master.log", "slave.log"]
@@ -35,12 +36,12 @@ class LogsTab:
         
         ttk.Button(
             log_select_frame,
-            text="🔄 刷新",
+            text=_("BTN_REFRESH"),
             command=self.refresh_logs
         ).pack(side=tk.LEFT, padx=5)
 
         # 日志内容
-        log_frame = ttk.LabelFrame(self.frame, text="日志内容", padding=10)
+        log_frame = ttk.LabelFrame(self.frame, text=_("LOGS_CONTENT"), padding=10)
         log_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
 
         self.log_text = scrolledtext.ScrolledText(
@@ -67,9 +68,9 @@ class LogsTab:
                     content = f.read()
                     self.log_text.insert(tk.END, content)
             except Exception as e:
-                self.log_text.insert(tk.END, f"读取日志失败: {e}")
+                self.log_text.insert(tk.END, f"{_('LOGS_READ_FAILED')}: {e}")
         else:
-            self.log_text.insert(tk.END, "日志文件不存在")
+            self.log_text.insert(tk.END, _("LOGS_FILE_NOT_EXIST"))
         
         self.log_text.config(state=tk.DISABLED)
     

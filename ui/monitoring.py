@@ -2,6 +2,7 @@
 """监控模块"""
 import tkinter as tk
 from tkinter import ttk
+from common.i18n import _
 
 
 class MonitoringTab:
@@ -10,7 +11,7 @@ class MonitoringTab:
     def __init__(self, notebook, app):
         self.app = app
         self.frame = ttk.Frame(notebook)
-        notebook.add(self.frame, text="📡 实时监控")
+        notebook.add(self.frame, text=_("TAB_MONITORING"))
         
         # 读取配置中的 enabled 状态
         master_config = app.config_manager.load_config("master_config")
@@ -23,7 +24,7 @@ class MonitoringTab:
     def create_ui(self):
         """创建监控界面"""
         # 连接状态
-        conn_frame = ttk.LabelFrame(self.frame, text="连接状态", padding=10)
+        conn_frame = ttk.LabelFrame(self.frame, text=_("MONITORING_CONNECTION_STATUS"), padding=10)
         conn_frame.pack(fill=tk.X, padx=10, pady=5)
 
         conn_inner = ttk.Frame(conn_frame)
@@ -33,7 +34,7 @@ class MonitoringTab:
         mqtt_status_frame = ttk.Frame(conn_inner)
         mqtt_status_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
         ttk.Label(mqtt_status_frame, text="MQTT Broker:", font=("Microsoft YaHei", 10, "bold")).pack(anchor=tk.W)
-        self.mqtt_status_label = ttk.Label(mqtt_status_frame, text="● 未连接", foreground="gray")
+        self.mqtt_status_label = ttk.Label(mqtt_status_frame, text=_("MONITORING_DISCONNECTED"), foreground="gray")
         self.mqtt_status_label.pack(anchor=tk.W)
 
         # Master 连接状态
@@ -41,7 +42,7 @@ class MonitoringTab:
             master_conn_frame = ttk.Frame(conn_inner)
             master_conn_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
             ttk.Label(master_conn_frame, text="Master:", font=("Microsoft YaHei", 10, "bold")).pack(anchor=tk.W)
-            self.master_conn_label = ttk.Label(master_conn_frame, text="● 离线", foreground="gray")
+            self.master_conn_label = ttk.Label(master_conn_frame, text=_("MONITORING_OFFLINE"), foreground="gray")
             self.master_conn_label.pack(anchor=tk.W)
 
         # Slave 连接状态
@@ -49,11 +50,11 @@ class MonitoringTab:
             slave_conn_frame = ttk.Frame(conn_inner)
             slave_conn_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
             ttk.Label(slave_conn_frame, text="Slave:", font=("Microsoft YaHei", 10, "bold")).pack(anchor=tk.W)
-            self.slave_conn_label = ttk.Label(slave_conn_frame, text="● 离线", foreground="gray")
+            self.slave_conn_label = ttk.Label(slave_conn_frame, text=_("MONITORING_OFFLINE"), foreground="gray")
             self.slave_conn_label.pack(anchor=tk.W)
 
         # 信号历史
-        history_frame = ttk.LabelFrame(self.frame, text="信号历史", padding=10)
+        history_frame = ttk.LabelFrame(self.frame, text=_("MONITORING_SIGNAL_HISTORY"), padding=10)
         history_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
 
         # 创建表格

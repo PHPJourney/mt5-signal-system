@@ -24,7 +24,7 @@ from slave.risk_manager import RiskManager
 
 
 def get_default_slave_config() -> dict:
-    """获取默认 Slave 配置 - 对标言成EA 71个参数"""
+    """获取默认 Slave 配置 - 完整覆盖所有代码使用的配置字段"""
     return {
         # 基础开关
         'enabled': True,
@@ -35,7 +35,8 @@ def get_default_slave_config() -> dict:
             'port': 1883,
             'username': 'slave',
             'password': '',
-            'client_id': 'slave_001'
+            'client_id': 'slave_001',
+            'topic_prefix': 'mt5/signal'
         },
         
         # MT5 配置
@@ -164,17 +165,20 @@ class SlaveSignalReceiver:
         self.config = load_config(config_path)
         
         # 如果配置为空或不完整，使用默认配置
-        if not self.config or 'logging' not in self.config:
-            if not self.config:
-                print(f"Warning: Config file not found: {config_path}")
-            else:
-                print(f"Warning: Config file is incomplete, using defaults for missing fields")
-            
-            # 合并默认配置（保留用户已有的配置）
+        if not self.config:
+            print(f"Warning: Config file not found: {config_path}")
+            self.config = {}
+            use_defaults = True
+        else:
+            # 检查配置是否完整（递归检查）
+            use_defaults = not self._is_config_complete(self.config, get_default_slave_config())
+            if use_defaults:
+                print(f"Warning: Config file is incomplete, merging defaults for missing fields")
+        
+        if use_defaults:
+            # 合并默认配置（递归合并嵌套字典）
             default_config = get_default_slave_config()
-            for key, value in default_config.items():
-                if key not in self.config:
-                    self.config[key] = value
+            self._merge_config(self.config, default_config)
             
             # 确保日志目录存在
             log_dir = base_dir / 'logs'
@@ -185,7 +189,28 @@ class SlaveSignalReceiver:
             log_file = self.config['logging']['file']
             if not os.path.isabs(log_file):
                 self.config['logging']['file'] = str(base_dir / log_file)
-        
+    
+    def _is_config_complete(self, config: dict, template: dict) -> bool:
+        """递归检查配置是否完整"""
+        for key, value in template.items():
+            if key not in config:
+                return False
+            if isinstance(value, dict):
+                if not isinstance(config[key], dict):
+                    return False
+                if not self._is_config_complete(config[key], value):
+                    return False
+        return True
+    
+    def _merge_config(self, target: dict, source: dict):
+        """递归合并配置字典"""
+        for key, value in source.items():
+            if key not in target:
+                target[key] = value
+            elif isinstance(value, dict) and isinstance(target.get(key), dict):
+                # 递归合并嵌套字典
+                self._merge_config(target[key], value)
+
         self.logger = setup_logger(
             "slave_server",
             self.config['logging']['file'],

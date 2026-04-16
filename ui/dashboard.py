@@ -2,6 +2,7 @@
 """仪表板模块"""
 import tkinter as tk
 from tkinter import ttk, messagebox
+from common.i18n import _
 
 
 class DashboardTab:
@@ -10,7 +11,7 @@ class DashboardTab:
     def __init__(self, notebook, app):
         self.app = app
         self.frame = ttk.Frame(notebook)
-        notebook.add(self.frame, text="📊 仪表板")
+        notebook.add(self.frame, text=_("TAB_DASHBOARD"))
         
         # 读取配置中的 enabled 状态
         master_config = app.config_manager.load_config("master_config")
@@ -30,18 +31,18 @@ class DashboardTab:
         title_frame = ttk.Frame(main_frame)
         title_frame.pack(fill=tk.X, pady=(0, 10))
         
-        title_label = ttk.Label(title_frame, text="TradeMind MT5 - 控制面板", 
+        title_label = ttk.Label(title_frame, text=_("DASHBOARD_TITLE"), 
                                font=('Arial', 16, 'bold'))
         title_label.pack(side=tk.LEFT)
         
         # 系统状态（exe 独立运行，无需外部 Python）
         env_label = ttk.Label(title_frame, 
-                             text="✓ 独立运行模式",
+                             text=_("STANDALONE_MODE"),
                              foreground="green")
         env_label.pack(side=tk.RIGHT)
 
         # 系统状态
-        status_frame = ttk.LabelFrame(main_frame, text="系统状态", padding="10")
+        status_frame = ttk.LabelFrame(main_frame, text=_("SYSTEM_STATUS"), padding="10")
         status_frame.pack(fill=tk.X, pady=(0, 10))
 
         # Master 状态
@@ -49,10 +50,10 @@ class DashboardTab:
             self.master_status_frame = ttk.Frame(status_frame)
             self.master_status_frame.pack(fill=tk.X, pady=5)
             
-            ttk.Label(self.master_status_frame, text="Master 策略引擎:", 
-                     width=15).pack(side=tk.LEFT, padx=5)
+            ttk.Label(self.master_status_frame, text=_("MASTER_ENGINE"), 
+                     width=20).pack(side=tk.LEFT, padx=5)
             self.master_status_label = ttk.Label(self.master_status_frame, 
-                                                text="未启动", foreground="red")
+                                                text=_("STATUS_STOPPED"), foreground="red")
             self.master_status_label.pack(side=tk.LEFT, padx=5)
             
             # 按钮框架
@@ -60,12 +61,12 @@ class DashboardTab:
             master_btn_frame.pack(side=tk.RIGHT)
             
             self.master_start_btn = ttk.Button(master_btn_frame, 
-                                               text="启动", 
+                                               text=_("BTN_START"), 
                                                command=self.start_master)
             self.master_start_btn.pack(side=tk.LEFT, padx=2)
             
             self.master_stop_btn = ttk.Button(master_btn_frame, 
-                                              text="停止", 
+                                              text=_("BTN_STOP"), 
                                               command=self.stop_master,
                                               state=tk.DISABLED)
             self.master_stop_btn.pack(side=tk.LEFT, padx=2)
@@ -75,10 +76,10 @@ class DashboardTab:
             self.slave_status_frame = ttk.Frame(status_frame)
             self.slave_status_frame.pack(fill=tk.X, pady=5)
             
-            ttk.Label(self.slave_status_frame, text="Slave 执行节点:", 
-                     width=15).pack(side=tk.LEFT, padx=5)
+            ttk.Label(self.slave_status_frame, text=_("SLAVE_NODE"), 
+                     width=20).pack(side=tk.LEFT, padx=5)
             self.slave_status_label = ttk.Label(self.slave_status_frame, 
-                                               text="未启动", foreground="red")
+                                               text=_("STATUS_STOPPED"), foreground="red")
             self.slave_status_label.pack(side=tk.LEFT, padx=5)
             
             # 按钮框架
@@ -86,12 +87,12 @@ class DashboardTab:
             slave_btn_frame.pack(side=tk.RIGHT)
             
             self.slave_start_btn = ttk.Button(slave_btn_frame, 
-                                              text="启动", 
+                                              text=_("BTN_START"), 
                                               command=self.start_slave)
             self.slave_start_btn.pack(side=tk.LEFT, padx=2)
             
             self.slave_stop_btn = ttk.Button(slave_btn_frame, 
-                                             text="停止", 
+                                             text=_("BTN_STOP"), 
                                              command=self.stop_slave,
                                              state=tk.DISABLED)
             self.slave_stop_btn.pack(side=tk.LEFT, padx=2)
@@ -103,7 +104,7 @@ class DashboardTab:
         refresh_frame = ttk.Frame(main_frame)
         refresh_frame.pack(fill=tk.X, pady=10)
         
-        ttk.Button(refresh_frame, text="刷新状态", 
+        ttk.Button(refresh_frame, text=_("BTN_REFRESH"), 
                   command=self.refresh_status).pack(side=tk.RIGHT)
 
         # 初始刷新
@@ -111,13 +112,13 @@ class DashboardTab:
     
     def create_mt5_section(self, parent):
         """创建 MT5 终端检测区域"""
-        mt5_frame = ttk.LabelFrame(parent, text="MT5 终端", padding="10")
+        mt5_frame = ttk.LabelFrame(parent, text=_("MT5_TERMINAL"), padding="10")
         mt5_frame.pack(fill=tk.X, pady=(0, 10))
         
         self.mt5_listbox = tk.Listbox(mt5_frame, height=5)
         self.mt5_listbox.pack(fill=tk.X, pady=5)
         
-        ttk.Button(mt5_frame, text="检测 MT5 终端", 
+        ttk.Button(mt5_frame, text=_("BTN_DETECT_MT5"), 
                   command=self.detect_mt5).pack()
 
     def detect_mt5(self):
@@ -130,7 +131,7 @@ class DashboardTab:
                 display = f"{terminal.get('broker', 'Unknown')} - {terminal.get('login', 'N/A')} ({terminal.get('path', 'N/A')})"
                 self.mt5_listbox.insert(tk.END, display)
         else:
-            self.mt5_listbox.insert(tk.END, "未检测到 MT5 终端")
+            self.mt5_listbox.insert(tk.END, _("NO_MT5_DETECTED"))
 
     def refresh_status(self):
         """刷新状态"""
@@ -139,22 +140,22 @@ class DashboardTab:
         # 更新 Master 状态
         if hasattr(self, 'master_status_label'):
             if self.app.process_manager.master_running:
-                self.master_status_label.config(text="● 运行中", foreground="green")
+                self.master_status_label.config(text=_("STATUS_RUNNING"), foreground="green")
                 self.master_start_btn.config(state=tk.DISABLED)
                 self.master_stop_btn.config(state=tk.NORMAL)
             else:
-                self.master_status_label.config(text="● 已停止", foreground="red")
+                self.master_status_label.config(text=_("STATUS_STOPPED"), foreground="red")
                 self.master_start_btn.config(state=tk.NORMAL)
                 self.master_stop_btn.config(state=tk.DISABLED)
         
         # 更新 Slave 状态
         if hasattr(self, 'slave_status_label'):
             if self.app.process_manager.slave_running:
-                self.slave_status_label.config(text="● 运行中", foreground="green")
+                self.slave_status_label.config(text=_("STATUS_RUNNING"), foreground="green")
                 self.slave_start_btn.config(state=tk.DISABLED)
                 self.slave_stop_btn.config(state=tk.NORMAL)
             else:
-                self.slave_status_label.config(text="● 已停止", foreground="red")
+                self.slave_status_label.config(text=_("STATUS_STOPPED"), foreground="red")
                 self.slave_start_btn.config(state=tk.NORMAL)
                 self.slave_stop_btn.config(state=tk.DISABLED)
 
@@ -164,24 +165,24 @@ class DashboardTab:
         result = self.app.process_manager.start_master(config_path)
         
         if result['success']:
-            self.master_status_label.config(text="● 运行中", foreground="green")
+            self.master_status_label.config(text=_("STATUS_RUNNING"), foreground="green")
             self.master_start_btn.config(state=tk.DISABLED)
             self.master_stop_btn.config(state=tk.NORMAL)
-            self.app.update_status("Master 服务已启动")
+            self.app.update_status(_("MSG_MASTER_STARTED"))
         else:
-            messagebox.showerror("错误", result['error'])
+            messagebox.showerror(_("MSG_ERROR"), result['error'])
     
     def stop_master(self):
         """停止 Master"""
         result = self.app.process_manager.stop_master()
         
         if result['success']:
-            self.master_status_label.config(text="● 已停止", foreground="red")
+            self.master_status_label.config(text=_("STATUS_STOPPED"), foreground="red")
             self.master_start_btn.config(state=tk.NORMAL)
             self.master_stop_btn.config(state=tk.DISABLED)
-            self.app.update_status("Master 服务已停止")
+            self.app.update_status(_("MSG_MASTER_STOPPED"))
         else:
-            messagebox.showwarning("警告", result['error'])
+            messagebox.showwarning(_("MSG_WARNING"), result['error'])
     
     def start_slave(self):
         """启动 Slave"""
@@ -189,21 +190,21 @@ class DashboardTab:
         result = self.app.process_manager.start_slave(config_path)
         
         if result['success']:
-            self.slave_status_label.config(text="● 运行中", foreground="green")
+            self.slave_status_label.config(text=_("STATUS_RUNNING"), foreground="green")
             self.slave_start_btn.config(state=tk.DISABLED)
             self.slave_stop_btn.config(state=tk.NORMAL)
-            self.app.update_status("Slave 服务已启动")
+            self.app.update_status(_("MSG_SLAVE_STARTED"))
         else:
-            messagebox.showerror("错误", result['error'])
+            messagebox.showerror(_("MSG_ERROR"), result['error'])
     
     def stop_slave(self):
         """停止 Slave"""
         result = self.app.process_manager.stop_slave()
         
         if result['success']:
-            self.slave_status_label.config(text="● 已停止", foreground="red")
+            self.slave_status_label.config(text=_("STATUS_STOPPED"), foreground="red")
             self.slave_start_btn.config(state=tk.NORMAL)
             self.slave_stop_btn.config(state=tk.DISABLED)
-            self.app.update_status("Slave 服务已停止")
+            self.app.update_status(_("MSG_SLAVE_STOPPED"))
         else:
-            messagebox.showwarning("警告", result['error'])
+            messagebox.showwarning(_("MSG_WARNING"), result['error'])

@@ -35,7 +35,7 @@ class MQTTClient:
         self.username = config['mqtt'].get('username', '')
         self.password = config['mqtt'].get('password', '')
         self.client_id = config['mqtt']['client_id']
-        self.topic_prefix = config['mqtt']['topic_prefix']
+        self.topic_prefix = config['mqtt'].get('topic_prefix', 'mt5/signal')
 
         # 创建MQTT客户端
         self.client = mqtt.Client(client_id=self.client_id)

@@ -17,6 +17,9 @@ if getattr(sys, 'frozen', False):
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
+# 导入国际化模块
+from common.i18n import init_i18n, _
+
 # 导入服务层
 from services.mt5_detector import MT5Detector
 from services.process_manager import ProcessManager
@@ -34,8 +37,15 @@ class MT5ManagerApp:
     """TradeMind MT5 智能交易策略管理系统主应用"""
 
     def __init__(self, root):
+        # 初始化国际化
+        if getattr(sys, 'frozen', False):
+            base_dir = Path(sys.executable).parent
+        else:
+            base_dir = Path(__file__).parent
+        init_i18n(base_dir)
+        
         self.root = root
-        self.root.title("TradeMind MT5 - 智能交易策略管理")
+        self.root.title(_("APP_TITLE"))
         self.root.geometry("1200x800")
         self.root.minsize(1000, 700)
         
@@ -43,10 +53,7 @@ class MT5ManagerApp:
         self.setup_icon()
 
         # 基础路径（兼容 PyInstaller）
-        if getattr(sys, 'frozen', False):
-            self.base_dir = Path(sys.executable).parent
-        else:
-            self.base_dir = Path(__file__).parent
+        self.base_dir = base_dir
 
         # 目录
         self.config_dir = self.base_dir / "config"
@@ -90,21 +97,21 @@ class MT5ManagerApp:
 
         # 文件菜单
         file_menu = tk.Menu(menubar, tearoff=0)
-        menubar.add_cascade(label="文件", menu=file_menu)
-        file_menu.add_command(label="打开配置文件夹", command=self.open_config_folder)
-        file_menu.add_command(label="打开日志文件夹", command=self.open_logs_folder)
+        menubar.add_cascade(label=_("MENU_FILE"), menu=file_menu)
+        file_menu.add_command(label=_("MENU_OPEN_CONFIG_FOLDER"), command=self.open_config_folder)
+        file_menu.add_command(label=_("MENU_OPEN_LOGS_FOLDER"), command=self.open_logs_folder)
         file_menu.add_separator()
-        file_menu.add_command(label="退出", command=self.root.quit)
+        file_menu.add_command(label=_("MENU_EXIT"), command=self.root.quit)
 
         # 工具菜单（移除 Python 安装选项，exe 已包含运行时）
         tools_menu = tk.Menu(menubar, tearoff=0)
-        menubar.add_cascade(label="工具", menu=tools_menu)
-        tools_menu.add_command(label="清理日志", command=self.clear_logs)
+        menubar.add_cascade(label=_("MENU_TOOLS"), menu=tools_menu)
+        tools_menu.add_command(label=_("MENU_CLEAR_LOGS"), command=self.clear_logs)
 
         # 帮助菜单
         help_menu = tk.Menu(menubar, tearoff=0)
-        menubar.add_cascade(label="帮助", menu=help_menu)
-        help_menu.add_command(label="关于", command=self.show_about)
+        menubar.add_cascade(label=_("MENU_HELP"), menu=help_menu)
+        help_menu.add_command(label=_("MENU_ABOUT"), command=self.show_about)
 
     def create_main_ui(self):
         """创建主界面"""
@@ -146,28 +153,21 @@ class MT5ManagerApp:
     def clear_logs(self):
         """清理日志文件"""
         if not self.logs_dir.exists():
-            messagebox.showinfo("提示", "日志文件夹不存在")
+            messagebox.showinfo(_("MSG_INFO"), _("LOGS_NO_LOGS"))
             return
         
         try:
             for log_file in self.logs_dir.glob("*.log"):
                 log_file.unlink()
-            messagebox.showinfo("成功", "日志文件已清理")
+            messagebox.showinfo(_("MSG_SUCCESS"), _("MSG_LOGS_CLEARED"))
         except Exception as e:
-            messagebox.showerror("错误", f"清理失败: {e}")
+            messagebox.showerror(_("MSG_ERROR"), f"{_('CONFIG_ERROR')}: {e}")
 
     def show_about(self):
         """显示关于对话框"""
         messagebox.showinfo(
-            "关于 TradeMind MT5",
-            "TradeMind MT5 v1.0\n\n"
-            "智能交易策略管理平台\n\n"
-            "功能：\n"
-            "- Master 策略引擎管理\n"
-            "- Slave 执行节点管理\n"
-            "- MQTT 信号分发\n"
-            "- 实时监控和日志\n\n"
-            "© 2024 TradeMind"
+            _("ABOUT_TITLE"),
+            _("ABOUT_TEXT")
         )
 
 

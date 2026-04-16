@@ -314,6 +314,19 @@ jobs:
           Copy-Item "icon.ico" "artifact/"
           Copy-Item "icon.png" "artifact/"
           
+          # Copy language files
+          if (Test-Path "lang") {
+            New-Item -Path "artifact/lang" -ItemType Directory -Force
+            Copy-Item "lang/*.json" "artifact/lang/"
+            Write-Host "✓ Language files copied"
+          }
+          
+          # Copy common module (includes i18n)
+          if (Test-Path "common") {
+            Copy-Item -Recurse "common" "artifact/common"
+            Write-Host "✓ Common module copied"
+          }
+          
           if (Test-Path "README.md") {
             Copy-Item "README.md" "artifact/"
           }
@@ -322,8 +335,8 @@ jobs:
           }
           
           Write-Host "=== Files ready for upload ==="
-          Get-ChildItem -Path "artifact" | ForEach-Object { 
-              Write-Host "$($_.Name) - $($_.Length) bytes"
+          Get-ChildItem -Path "artifact" -Recurse | Where-Object {!$_.PSIsContainer} | ForEach-Object { 
+              Write-Host "$($_.FullName.Replace((Get-Location).Path + '\artifact\', '')) - $($_.Length) bytes"
           }
         shell: pwsh
 
