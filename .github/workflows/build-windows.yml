@@ -41,7 +41,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pyinstaller paho-mqtt numpy psutil ttkbootstrap pillow
+          pip install pyinstaller paho-mqtt numpy psutil ttkbootstrap pillow MetaTrader5
         shell: pwsh
 
       - name: Generate icon
@@ -235,10 +235,12 @@ jobs:
             --icon "icon.ico" `
             --add-data "config;config" `
             --add-data "common;common" `
+            --add-data "master;master" `
             --hidden-import "MetaTrader5" `
             --hidden-import "paho.mqtt.client" `
             --hidden-import "paho.mqtt" `
             --hidden-import "numpy" `
+            --hidden-import "datetime" `
             master/signal_sender.py
           
           Write-Host "Verifying MT5_Master.exe..."
@@ -267,10 +269,12 @@ jobs:
             --icon "icon.ico" `
             --add-data "config;config" `
             --add-data "common;common" `
+            --add-data "slave;slave" `
             --hidden-import "MetaTrader5" `
             --hidden-import "paho.mqtt.client" `
             --hidden-import "paho.mqtt" `
             --hidden-import "numpy" `
+            --hidden-import "datetime" `
             slave/signal_receiver.py
           
           Write-Host "Verifying MT5_Slave.exe..."

@@ -7,6 +7,7 @@ import sys
 import os
 import time
 import json
+import MetaTrader5 as mt5
 from typing import Dict, Optional, List
 from datetime import datetime
 
@@ -63,7 +64,6 @@ class SlaveSignalReceiver:
 
         # MT5连接状态
         self.mt5_initialized = False
-        self.mt5 = None  # 存储 MetaTrader5 模块引用
 
         self.logger.info("Slave Signal Receiver initialized")
         self.logger.info(f"Multiplier: {self.multiplier}x, "
@@ -72,16 +72,12 @@ class SlaveSignalReceiver:
 
     def initialize_mt5(self) -> bool:
         """
-        初始化MT5连接（延迟导入）
+        初始化MT5连接
 
         Returns:
             是否成功初始化
         """
         try:
-            # 延迟导入 MetaTrader5（避免 PyInstaller 打包时报错）
-            import MetaTrader5 as mt5
-            self.mt5 = mt5  # 保存模块引用
-            
             if not mt5.initialize():
                 self.logger.error(f"MT5 initialization failed: {mt5.last_error()}")
                 return False
@@ -97,13 +93,6 @@ class SlaveSignalReceiver:
             self.mt5_initialized = True
             return True
 
-        except ImportError:
-            self.logger.error("=" * 60)
-            self.logger.error("MetaTrader5 模块未找到！")
-            self.logger.error("请在已安装 MT5 终端的电脑上运行:")
-            self.logger.error("  pip install MetaTrader5")
-            self.logger.error("=" * 60)
-            return False
         except Exception as e:
             self.logger.error(f"Error initializing MT5: {e}")
             return False

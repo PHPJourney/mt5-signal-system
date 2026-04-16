@@ -30,7 +30,15 @@ class RiskManager:
         )
 
         # 记录初始余额
-        self.initial_balance = self._get_account_balance()
+        try:
+            account_info = mt5.account_info()
+            if account_info:
+                self.initial_balance = account_info.balance
+            else:
+                self.initial_balance = 0.0
+        except:
+            self.initial_balance = 0.0
+        
         self.daily_start_balance = self.initial_balance
 
         self.logger.info(f"Risk Manager initialized - Max daily loss: "
