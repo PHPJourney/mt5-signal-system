@@ -339,102 +339,36 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v5
 
-      - name: Download Windows build
+      - name: Download Windows EXEs
         uses: actions/download-artifact@v4
         with:
           name: windows-build
-          path: dist
+          path: dist/
 
       - name: Install NSIS
         run: |
-          choco install nsis --yes --no-progress
+          choco install nsis --version=3.10 -y
           Write-Host "✓ NSIS installed at: C:\Program Files (x86)\NSIS"
           
-          # Add to PATH for all subsequent steps
+          # Add NSIS to PATH
           echo "C:\Program Files (x86)\NSIS" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
           
-          # Verify installation
+          # Verify NSIS installation
           & "C:\Program Files (x86)\NSIS\makensis.exe" /VERSION
-        shell: pwsh
 
-      - name: Debug file locations
+      - name: Fix NSI file encoding to UTF-8 BOM
         run: |
-          Write-Host "=== Current working directory ==="
-          pwd
+          # Read the NSI file content
+          $content = Get-Content build/installer.nsi -Raw -Encoding UTF8
           
-          Write-Host "`n=== Repository root contents ==="
-          Get-ChildItem -Force | Select-Object -First 20 | ForEach-Object { 
-              Write-Host "$($_.Name) $($_.Mode)"
-          }
+          # Write it back with UTF-8 BOM
+          $utf8BOM = New-Object System.Text.UTF8Encoding $true
+          [System.IO.File]::WriteAllText("$PWD/build/installer.nsi", $content, $utf8BOM)
           
-          Write-Host "`n=== dist/ directory contents ==="
-          Get-ChildItem -Path "dist" -File | ForEach-Object { 
-              Write-Host "$($_.FullName) - $($_.Length) bytes"
-          }
-          
-          Write-Host "`n=== Checking file existence ==="
-          $testPath = "dist\MT5_Manager.exe"
-          Write-Host "Testing path: $testPath"
-          if (Test-Path $testPath) {
-              Write-Host "✓ File exists!" -ForegroundColor Green
-              $fileInfo = Get-Item $testPath
-              Write-Host "  Full path: $($fileInfo.FullName)"
-              Write-Host "  Size: $($fileInfo.Length) bytes"
-          } else {
-              Write-Host "✗ File NOT found!" -ForegroundColor Red
-              Write-Host "`nListing all files in workspace:"
-              Get-ChildItem -Recurse -File | Where-Object { $_.Name -like "*MT5*" } | ForEach-Object {
-                  Write-Host "  $($_.FullName)"
-              }
-          }
+          Write-Host "✓ NSI file converted to UTF-8 BOM encoding"
         shell: pwsh
 
-      - name: Verify downloaded files
-        run: |
-          Write-Host "=== Files in dist/ directory ==="
-          Get-ChildItem -Path "dist" -File | ForEach-Object { 
-              Write-Host "$($_.Name) - $($_.Length) bytes"
-          }
-          
-          Write-Host "`n=== Checking for required files ==="
-          $success = $true
-          
-          if (Test-Path "dist\MT5_Manager.exe") {
-              Write-Host "✓ MT5_Manager.exe found" -ForegroundColor Green
-          } else {
-              Write-Host "✗ MT5_Manager.exe NOT found" -ForegroundColor Red
-              $success = $false
-          }
-          
-          if (Test-Path "dist\MT5_Master.exe") {
-              Write-Host "✓ MT5_Master.exe found" -ForegroundColor Green
-          } else {
-              Write-Host "✗ MT5_Master.exe NOT found" -ForegroundColor Red
-              $success = $false
-          }
-          
-          if (Test-Path "dist\MT5_Slave.exe") {
-              Write-Host "✓ MT5_Slave.exe found" -ForegroundColor Green
-          } else {
-              Write-Host "✗ MT5_Slave.exe NOT found" -ForegroundColor Red
-              $success = $false
-          }
-          
-          if (Test-Path "dist\icon.ico") {
-              Write-Host "✓ icon.ico found" -ForegroundColor Green
-          } else {
-              Write-Host "✗ icon.ico NOT found" -ForegroundColor Yellow
-          }
-          
-          if (-not $success) {
-              Write-Host "`n=== Full directory tree ===" -ForegroundColor Red
-              Get-ChildItem -Path "dist" -Recurse | ForEach-Object { Write-Host $_.FullName }
-              exit 1
-          }
-        shell: pwsh
-
-      - name: Get version
-        id: version
+      - name: Update NSIS script with version
         run: |
           if ($env:GITHUB_REF_TYPE -eq 'tag') {
             $version = $env:GITHUB_REF_NAME -replace '^v', ''
@@ -469,30 +403,30 @@ jobs:
       - name: Build NSIS Installer
         run: |
           Write-Host "=== Before running makensis ==="
-          Write-Host "Working directory: $(Get-Location)"
-          Write-Host "Checking dist\MT5_Manager.exe..."
-          if (Test-Path "dist\MT5_Manager.exe") {
+          
+          if (Test-Path "build/installer.nsi") {
               Write-Host "✓ File exists, proceeding with makensis" -ForegroundColor Green
           } else {
-              Write-Host "✗ File missing!" -ForegroundColor Red
+              Write-Host "✗ File not found!" -ForegroundColor Red
               exit 1
           }
           
           Write-Host "`nRunning: makensis build/installer.nsi"
           & "C:\Program Files (x86)\NSIS\makensis.exe" build/installer.nsi
-        shell: pwsh
-
-      - name: Verify installer
-        run: |
-          Write-Host "=== Installer files ==="
-          Get-ChildItem dist\*.exe | ForEach-Object { Write-Host $_.FullName -ForegroundColor Green }
+          
+          if ($LASTEXITCODE -eq 0) {
+              Write-Host "✓ NSIS build successful!" -ForegroundColor Green
+          } else {
+              Write-Host "✗ NSIS build failed!" -ForegroundColor Red
+              exit 1
+          }
         shell: pwsh
 
       - name: Upload NSIS Installer artifact
         uses: actions/upload-artifact@v4
         with:
-          name: nsis-installer
-          path: dist/TradeMind_MT5_Installer_v*.exe
+          name: windows-installer
+          path: dist/TradeMind_MT5_Installer.exe
           retention-days: 30
 
   create-release:
