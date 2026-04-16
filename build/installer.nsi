@@ -69,6 +69,9 @@ VIAddVersionKey "FileDescription" "Intelligent Trading Strategy Platform"
 !insertmacro MUI_LANGUAGE "English"
 !insertmacro MUI_RESERVEFILE_LANGDLL
 
+; Include custom language strings
+!include "SimpChinese.nsh"
+
 ; Variables
 Var EnableMaster
 Var EnableSlave
@@ -316,7 +319,7 @@ Function un.onInit
     !insertmacro MUI_UNGETLANGUAGE
     
     MessageBox MB_ICONQUESTION|MB_YESNO|MB_DEFBUTTON2 \
-        "您确定要完全卸载 TradeMind MT5 吗？$\n$\n此操作将删除所有文件。" \
+        "$(TEXT_UNINSTALL_CONFIRM)" \
         /SD IDNO \
         IDYES +2
     Abort

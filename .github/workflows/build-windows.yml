@@ -345,6 +345,7 @@ jobs:
           name: windows-build
           path: dist/
 
+      
       - name: Install NSIS
         run: |
           choco install nsis --version=3.10 -y
@@ -368,7 +369,8 @@ jobs:
           Write-Host "✓ NSI file converted to UTF-8 BOM encoding"
         shell: pwsh
 
-      - name: Update NSIS script with version
+      - name: Calculate version
+        id: version
         run: |
           if ($env:GITHUB_REF_TYPE -eq 'tag') {
             $version = $env:GITHUB_REF_NAME -replace '^v', ''
@@ -399,7 +401,7 @@ jobs:
           Write-Host "Updated installer.nsi:"
           Write-Host ($content | Select-String "OutFile|Name" | Select-Object -First 4)
         shell: pwsh
-
+        
       - name: Build NSIS Installer
         run: |
           Write-Host "=== Before running makensis ==="
@@ -426,7 +428,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: windows-installer
-          path: dist/TradeMind_MT5_Installer.exe
+          path: dist/TradeMind_MT5_Installer*.exe
           retention-days: 30
 
   create-release:
