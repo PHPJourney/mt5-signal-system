@@ -11,18 +11,6 @@ class ConfigManager:
         self.config_dir = self.base_dir / "config"
         self.config_dir.mkdir(exist_ok=True)
     
-    def load_install_config(self):
-        """加载安装配置"""
-        install_config_path = self.base_dir / "install_config.json"
-        try:
-            if install_config_path.exists():
-                with open(install_config_path, 'r', encoding='utf-8') as f:
-                    return json.load(f)
-            return {"enable_master": True, "enable_slave": True}
-        except Exception as e:
-            print(f"加载安装配置失败: {e}")
-            return {"enable_master": True, "enable_slave": True}
-    
     def load_config(self, config_name):
         """加载配置文件"""
         config_path = self.config_dir / f"{config_name}.json"
@@ -51,6 +39,7 @@ class ConfigManager:
         """获取默认配置"""
         if config_name == "master_config":
             return {
+                "enabled": True,
                 "mqtt": {
                     "broker": "localhost",
                     "port": 1883,
@@ -70,6 +59,7 @@ class ConfigManager:
             }
         elif config_name == "slave_config":
             return {
+                "enabled": True,
                 "mqtt": {
                     "broker": "localhost",
                     "port": 1883,

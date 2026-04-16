@@ -123,82 +123,84 @@ SectionEnd
 Section -Post
     SetOutPath "$INSTDIR"
 
-    ; Generate install_config.json
-    FileOpen $0 "$INSTDIR\install_config.json" w
+    ; Create directories
+    CreateDirectory "$INSTDIR\config"
+    CreateDirectory "$INSTDIR\logs"
+
+    ; Generate default master_config.json if not exists
+    IfFileExists "$INSTDIR\config\master_config.json" 0 gen_master
+    Goto check_slave
+    
+    gen_master:
+    FileOpen $0 "$INSTDIR\config\master_config.json" w
     FileWrite $0 "{$\r$\n"
-    
-    StrCmp $EnableMaster "true" 0 +3
-    FileWrite $0 '  "enable_master": true,$\r$\n'
-    Goto +2
-    FileWrite $0 '  "enable_master": false,$\r$\n'
-    
-    StrCmp $EnableSlave "true" 0 +3
-    FileWrite $0 '  "enable_slave": true,$\r$\n'
-    Goto +2
-    FileWrite $0 '  "enable_slave": false$\r$\n'
-    
+    FileWrite $0 '  "enabled": true,$\r$\n'
+    FileWrite $0 '  "mqtt": {$\r$\n'
+    FileWrite $0 '    "broker": "localhost",$\r$\n'
+    FileWrite $0 '    "port": 1883,$\r$\n'
+    FileWrite $0 '    "username": "master",$\r$\n'
+    FileWrite $0 '    "password": "",$\r$\n'
+    FileWrite $0 '    "client_id": "master_001"$\r$\n'
+    FileWrite $0 '  },$\r$\n'
+    FileWrite $0 '  "mt5": {$\r$\n'
+    FileWrite $0 '    "terminal_path": "",$\r$\n'
+    FileWrite $0 '    "auto_select": true$\r$\n'
+    FileWrite $0 '  },$\r$\n'
+    FileWrite $0 '  "signal": {$\r$\n'
+    FileWrite $0 '    "symbols": ["EURUSD", "GBPUSD", "USDJPY"],$\r$\n'
+    FileWrite $0 '    "max_positions": 5,$\r$\n'
+    FileWrite $0 '    "lot_size": 0.01$\r$\n'
+    FileWrite $0 '  }$\r$\n'
     FileWrite $0 "}$\r$\n"
     FileClose $0
-
-    ; Copy files from dist/ directory
-    File "..\dist\MT5_Manager.exe"
-    File "..\dist\icon.ico"
-
-    ; Copy Master if selected
-    StrCmp $EnableMaster "true" 0 +2
-        File "..\dist\MT5_Master.exe"
-
-    ; Copy Slave if selected
-    StrCmp $EnableSlave "true" 0 +2
-        File "..\dist\MT5_Slave.exe"
-
-    ; Create README (English to avoid encoding issues)
-    FileOpen $0 "$INSTDIR\README.txt" w
-    FileWriteUTF16LE $0 "========================================$\r$\n"
-    FileWriteUTF16LE $0 "TradeMind MT5 - Intelligent Trading Platform$\r$\n"
-    FileWriteUTF16LE $0 "========================================$\r$\n"
-    FileWriteUTF16LE $0 "This system provides intelligent trading strategies.$\r$\n"
-    FileWriteUTF16LE $0 "Signals are distributed via MQTT to execution nodes.$\r$\n"
-    FileWriteUTF16LE $0 "$\r$\n"
-    FileWriteUTF16LE $0 "Components installed:$\r$\n"
     
-    StrCmp $EnableMaster "true" 0 +2
-        FileWriteUTF16LE $0 "  - Master Strategy Engine$\r$\n"
-    StrCmp $EnableSlave "true" 0 +2
-        FileWriteUTF16LE $0 "  - Slave Execution Node$\r$\n"
+    check_slave:
+    IfFileExists "$INSTDIR\config\slave_config.json" 0 gen_slave
+    Goto create_links
     
-    FileWriteUTF16LE $0 "$\r$\n"
-    FileWriteUTF16LE $0 "Getting Started:$\r$\n"
-    FileWriteUTF16LE $0 "1. Launch TradeMind Manager from Desktop$\r$\n"
-    FileWriteUTF16LE $0 "2. Configure MT5 terminal and MQTT settings$\r$\n"
-    FileWriteUTF16LE $0 "3. Start Master/Slave services$\r$\n"
+    gen_slave:
+    FileOpen $0 "$INSTDIR\config\slave_config.json" w
+    FileWrite $0 "{$\r$\n"
+    FileWrite $0 '  "enabled": true,$\r$\n'
+    FileWrite $0 '  "mqtt": {$\r$\n'
+    FileWrite $0 '    "broker": "localhost",$\r$\n'
+    FileWrite $0 '    "port": 1883,$\r$\n'
+    FileWrite $0 '    "username": "slave",$\r$\n'
+    FileWrite $0 '    "password": "",$\r$\n'
+    FileWrite $0 '    "client_id": "slave_001"$\r$\n'
+    FileWrite $0 '  },$\r$\n'
+    FileWrite $0 '  "mt5": {$\r$\n'
+    FileWrite $0 '    "terminal_path": "",$\r$\n'
+    FileWrite $0 '    "auto_select": true$\r$\n'
+    FileWrite $0 '  },$\r$\n'
+    FileWrite $0 '  "subscription": {$\r$\n'
+    FileWrite $0 '    "master_id": "master_001"$\r$\n'
+    FileWrite $0 '  },$\r$\n'
+    FileWrite $0 '  "risk": {$\r$\n'
+    FileWrite $0 '    "max_drawdown": 10,$\r$\n'
+    FileWrite $0 '    "max_positions": 3,$\r$\n'
+    FileWrite $0 '    "lot_multiplier": 1.0$\r$\n'
+    FileWrite $0 '  }$\r$\n'
+    FileWrite $0 "}$\r$\n"
     FileClose $0
-
-    ; Create shortcuts
-    CreateShortCut "$DESKTOP\TradeMind Manager.lnk" "$INSTDIR\MT5_Manager.exe" "" "$INSTDIR\icon.ico"
     
+    create_links:
+    ; Create shortcuts
     CreateDirectory "$SMPROGRAMS\TradeMind MT5"
-    CreateShortCut "$SMPROGRAMS\TradeMind MT5\TradeMind Manager.lnk" "$INSTDIR\MT5_Manager.exe" "" "$INSTDIR\icon.ico"
-    CreateShortCut "$SMPROGRAMS\TradeMind MT5\README.lnk" "$INSTDIR\README.txt"
+    CreateShortCut "$SMPROGRAMS\TradeMind MT5\TradeMind Manager.lnk" "$INSTDIR\MT5_Manager.exe"
+    CreateShortCut "$DESKTOP\TradeMind Manager.lnk" "$INSTDIR\MT5_Manager.exe"
+    CreateShortCut "$SMPROGRAMS\TradeMind MT5\README.lnk" "$INSTDIR\README.md"
     CreateShortCut "$SMPROGRAMS\TradeMind MT5\Uninstall.lnk" "$INSTDIR\uninstall.exe"
 
-    ; Write uninstall info
+    ; Write uninstall information
+    WriteRegStr HKLM "${PRODUCT_UNINST_KEY}" "DisplayName" "${PRODUCT_NAME}"
+    WriteRegStr HKLM "${PRODUCT_UNINST_KEY}" "UninstallString" "$INSTDIR\uninstall.exe"
+    WriteRegStr HKLM "${PRODUCT_UNINST_KEY}" "DisplayIcon" "$INSTDIR\MT5_Manager.exe"
+    WriteRegStr HKLM "${PRODUCT_UNINST_KEY}" "Publisher" "${PRODUCT_PUBLISHER}"
+    WriteRegStr HKLM "${PRODUCT_UNINST_KEY}" "DisplayVersion" "${PRODUCT_VERSION}"
+
+    ; Create uninstaller
     WriteUninstaller "$INSTDIR\uninstall.exe"
-    
-    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\TradeMindMT5" \
-                     "DisplayName" "TradeMind MT5"
-    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\TradeMindMT5" \
-                     "UninstallString" "$INSTDIR\uninstall.exe"
-    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\TradeMindMT5" \
-                     "InstallLocation" "$INSTDIR"
-    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\TradeMindMT5" \
-                     "DisplayIcon" "$INSTDIR\icon.ico"
-    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\TradeMindMT5" \
-                     "Publisher" "TradeMind MT5"
-    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\TradeMindMT5" \
-                     "DisplayVersion" "${VERSION}"
-    
-    SetOutPath "$INSTDIR"
 SectionEnd
 
 ; Uninstall section
@@ -206,11 +208,6 @@ Section "Uninstall"
     Delete "$INSTDIR\MT5_Manager.exe"
     Delete "$INSTDIR\MT5_Master.exe"
     Delete "$INSTDIR\MT5_Slave.exe"
-    Delete "$INSTDIR\icon.ico"
-    Delete "$INSTDIR\install_config.json"
-    Delete "$INSTDIR\README.txt"
-    Delete "$INSTDIR\README.md"
-    Delete "$INSTDIR\QUICKSTART.md"
     Delete "$INSTDIR\uninstall.exe"
 
     Delete "$DESKTOP\TradeMind Manager.lnk"

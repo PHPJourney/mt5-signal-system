@@ -58,24 +58,18 @@ class MT5ManagerApp:
         self.notebook = ttk.Notebook(self.root)
         self.notebook.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
-        # 根据安装配置创建选项卡
-        enable_master = self.install_config.get('enable_master', True)
-        enable_slave = self.install_config.get('enable_slave', True)
-
+        # 始终显示所有选项卡，通过配置文件的 enabled 字段控制
         # 仪表板
         DashboardTab(self.notebook, self)
 
         # Master 配置
-        if enable_master:
-            MasterConfigTab(self.notebook, self)
+        MasterConfigTab(self.notebook, self)
 
         # Slave 配置
-        if enable_slave:
-            SlaveConfigTab(self.notebook, self)
+        SlaveConfigTab(self.notebook, self)
 
         # 监控
-        if enable_master or enable_slave:
-            MonitoringTab(self.notebook, self)
+        MonitoringTab(self.notebook, self)
 
         # 日志
         LogsTab(self.notebook, self)

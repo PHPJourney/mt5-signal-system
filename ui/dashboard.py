@@ -7,95 +7,77 @@ from tkinter import ttk
 class DashboardTab:
     """仪表板选项卡"""
     
-    def __init__(self, notebook, app):
+    def __init__(self, parent, app):
+        super().__init__(parent)
         self.app = app
-        self.frame = ttk.Frame(notebook)
-        notebook.add(self.frame, text="📊 仪表板")
+        
+        # 读取配置中的 enabled 状态
+        master_config = app.config_manager.load_config("master_config")
+        slave_config = app.config_manager.load_config("slave_config")
+        self.enable_master = master_config.get('enabled', True)
+        self.enable_slave = slave_config.get('enabled', True)
         
         self.create_ui()
-    
+
     def create_ui(self):
         """创建仪表板界面"""
+        # 主框架
+        main_frame = ttk.Frame(self, padding="10")
+        main_frame.pack(fill=tk.BOTH, expand=True)
+
         # 标题
-        title_label = ttk.Label(
-            self.frame,
-            text="MT5 信号管理系统",
-            font=("Microsoft YaHei", 18, "bold")
-        )
-        title_label.pack(pady=20)
+        title_label = ttk.Label(main_frame, text="TradeMind MT5 - 控制面板", 
+                               font=('Arial', 16, 'bold'))
+        title_label.pack(pady=(0, 20))
 
-        # 显示安装模式
-        mode_text = []
-        if self.app.install_config.get('enable_master', True):
-            mode_text.append("Master")
-        if self.app.install_config.get('enable_slave', True):
-            mode_text.append("Slave")
+        # 系统状态
+        status_frame = ttk.LabelFrame(main_frame, text="系统状态", padding="10")
+        status_frame.pack(fill=tk.X, pady=(0, 10))
+
+        # Master 状态
+        if self.enable_master:
+            self.master_status_frame = ttk.Frame(status_frame)
+            self.master_status_frame.pack(fill=tk.X, pady=5)
+            
+            ttk.Label(self.master_status_frame, text="Master 策略引擎:", 
+                     width=15).pack(side=tk.LEFT, padx=5)
+            self.master_status_label = ttk.Label(self.master_status_frame, 
+                                                text="未启动", foreground="red")
+            self.master_status_label.pack(side=tk.LEFT, padx=5)
+            
+            self.master_start_btn = ttk.Button(self.master_status_frame, 
+                                               text="启动", 
+                                               command=self.start_master)
+            self.master_start_btn.pack(side=tk.RIGHT, padx=5)
+
+        # Slave 状态
+        if self.enable_slave:
+            self.slave_status_frame = ttk.Frame(status_frame)
+            self.slave_status_frame.pack(fill=tk.X, pady=5)
+            
+            ttk.Label(self.slave_status_frame, text="Slave 执行节点:", 
+                     width=15).pack(side=tk.LEFT, padx=5)
+            self.slave_status_label = ttk.Label(self.slave_status_frame, 
+                                               text="未启动", foreground="red")
+            self.slave_status_label.pack(side=tk.LEFT, padx=5)
+            
+            self.slave_start_btn = ttk.Button(self.slave_status_frame, 
+                                              text="启动", 
+                                              command=self.start_slave)
+            self.slave_start_btn.pack(side=tk.RIGHT, padx=5)
+
+        # MT5 终端检测
+        self.create_mt5_section(main_frame)
+
+        # 刷新按钮
+        refresh_frame = ttk.Frame(main_frame)
+        refresh_frame.pack(fill=tk.X, pady=10)
         
-        mode_label = ttk.Label(
-            self.frame,
-            text=f"运行模式: {' + '.join(mode_text)}",
-            font=("Microsoft YaHei", 12),
-            foreground="blue"
-        )
-        mode_label.pack(pady=5)
+        ttk.Button(refresh_frame, text="刷新状态", 
+                  command=self.refresh_status).pack(side=tk.RIGHT)
 
-        # 状态卡片容器
-        status_frame = ttk.Frame(self.frame)
-        status_frame.pack(fill=tk.X, padx=20, pady=10)
-
-        # Master 状态卡片
-        if self.app.install_config.get('enable_master', True):
-            master_card = ttk.LabelFrame(status_frame, text="Master Server", padding=15)
-            master_card.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=5)
-
-            self.master_status_label = ttk.Label(
-                master_card,
-                text="● 已停止",
-                font=("Microsoft YaHei", 12),
-                foreground="red"
-            )
-            self.master_status_label.pack(pady=5)
-
-            ttk.Button(
-                master_card,
-                text="启动 Master",
-                command=self.start_master,
-                width=15
-            ).pack(pady=5)
-
-            ttk.Button(
-                master_card,
-                text="停止 Master",
-                command=self.stop_master,
-                width=15
-            ).pack(pady=5)
-
-        # Slave 状态卡片
-        if self.app.install_config.get('enable_slave', True):
-            slave_card = ttk.LabelFrame(status_frame, text="Slave Server", padding=15)
-            slave_card.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=5)
-
-            self.slave_status_label = ttk.Label(
-                slave_card,
-                text="● 已停止",
-                font=("Microsoft YaHei", 12),
-                foreground="red"
-            )
-            self.slave_status_label.pack(pady=5)
-
-            ttk.Button(
-                slave_card,
-                text="启动 Slave",
-                command=self.start_slave,
-                width=15
-            ).pack(pady=5)
-
-            ttk.Button(
-                slave_card,
-                text="停止 Slave",
-                command=self.stop_slave,
-                width=15
-            ).pack(pady=5)
+        # 初始刷新
+        self.refresh_status()
     
     def start_master(self):
         """启动 Master"""
