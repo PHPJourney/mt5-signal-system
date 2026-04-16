@@ -51,9 +51,9 @@ VIAddVersionKey "FileDescription" "Intelligent Trading Strategy Platform"
 !define MUI_LANGDLL_REGISTRY_KEY "Software\TradeMindMT5"
 !define MUI_LANGDLL_REGISTRY_VALUENAME "Installer Language"
 
-; Include language packs
-!include "lang\Chinese.nsh"
-!include "lang\English.nsh"
+; Include language packs (relative to build/ directory)
+!include "..\lang\Chinese.nsh"
+!include "..\lang\English.nsh"
 
 ; Pages
 !insertmacro MUI_PAGE_WELCOME
