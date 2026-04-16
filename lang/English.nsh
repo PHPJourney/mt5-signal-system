@@ -1,8 +1,6 @@
 ; TradeMind MT5 - English Language Pack
 ; File encoding: UTF-8 with BOM
 
-!insertmacro MUI_LANGUAGE "English"
-
 ; Installation UI text
 LangString ^SetupCaption ${LANG_ENGLISH} "TradeMind MT5 Setup"
 LangString ^SetupSubCaption ${LANG_ENGLISH} "Setup Wizard"

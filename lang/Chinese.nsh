@@ -1,8 +1,6 @@
 ; TradeMind MT5 - 简体中文语言包
 ; 文件编码：UTF-8 with BOM
 
-!insertmacro MUI_LANGUAGE "SimpChinese"
-
 ; 安装界面文本
 LangString ^SetupCaption ${LANG_SIMPCHINESE} "TradeMind MT5 安装程序"
 LangString ^SetupSubCaption ${LANG_SIMPCHINESE} "安装向导"
