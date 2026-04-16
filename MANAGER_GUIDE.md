@@ -1,4 +1,4 @@
-# MT5 Signal System - 管理面板使用指南
+# TradeMind MT5 - 管理面板使用指南
 
 ## 📋 概述
 

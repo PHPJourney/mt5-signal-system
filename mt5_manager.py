@@ -1,5 +1,5 @@
 """
-MT5 Signal System - 综合管理面板
+TradeMind MT5 - 智能交易策略管理平台
 模块化版本
 """
 
@@ -27,11 +27,11 @@ from ui.logs import LogsTab
 
 
 class MT5ManagerApp:
-    """MT5 信号管理系统主应用"""
+    """TradeMind MT5 智能交易策略管理系统主应用"""
 
     def __init__(self, root):
         self.root = root
-        self.root.title("MT5 Signal System - 管理平台")
+        self.root.title("TradeMind MT5 - 智能交易策略管理")
         self.root.geometry("1200x800")
 
         # 基础路径

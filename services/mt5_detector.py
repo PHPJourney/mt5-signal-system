@@ -2,6 +2,7 @@
 """MT5 终端检测服务"""
 import psutil
 import re
+import os
 from pathlib import Path
 
 
@@ -17,13 +18,13 @@ class MT5Detector:
             for proc in psutil.process_iter(['pid', 'name', 'exe', 'cmdline']):
                 try:
                     proc_name = proc.info['name']
-                    if proc_name and 'terminal' in proc_name.lower() and proc_name.endswith('.exe'):
+                    if proc_name and 'terminal64.exe' in proc_name.lower():
                         exe_path = proc.info['exe']
-                        if exe_path and 'metatrader' in exe_path.lower():
+                        if exe_path:
                             terminal_info = MT5Detector._get_terminal_info(proc)
                             if terminal_info:
                                 terminals.append(terminal_info)
-                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
                     continue
             
             # 去重
@@ -38,6 +39,8 @@ class MT5Detector:
             
         except Exception as e:
             print(f"检测 MT5 终端失败: {e}")
+            import traceback
+            traceback.print_exc()
             return []
     
     @staticmethod
@@ -52,35 +55,62 @@ class MT5Detector:
             login = "未知"
             server = "未知"
             
-            # 从配置文件获取信息
+            # 方法1: 从命令行参数获取
+            try:
+                cmdline = proc.info.get('cmdline', [])
+                if not cmdline:
+                    cmdline = proc.cmdline()
+                if cmdline:
+                    cmd_str = ' '.join(cmdline)
+                    # 查找 server 参数
+                    server_match = re.search(r'/server:([^\s]+)', cmd_str)
+                    if server_match:
+                        server = server_match.group(1)
+            except:
+                pass
+            
+            # 方法2: 从配置文件获取信息
             config_dir = Path(exe_path).parent / "config"
             if config_dir.exists():
-                # 读取 common.ini
+                # 读取 common.ini (MT5 使用 UTF-16 LE 编码)
                 common_ini = config_dir / "common.ini"
                 if common_ini.exists():
                     try:
-                        with open(common_ini, 'r', encoding='utf-16') as f:
-                            content = f.read()
+                        with open(common_ini, 'rb') as f:
+                            raw_content = f.read()
+                            # 尝试 UTF-16 LE
+                            try:
+                                content = raw_content.decode('utf-16-le')
+                            except:
+                                content = raw_content.decode('utf-8', errors='ignore')
+                            
                             name_match = re.search(r'Company\s*=\s*(.+)', content)
                             if name_match:
                                 broker_name = name_match.group(1).strip()
-                    except:
-                        pass
+                    except Exception as e:
+                        print(f"读取 common.ini 失败: {e}")
                 
                 # 读取 accounts.dat
                 accounts_dat = config_dir / "accounts.dat"
                 if accounts_dat.exists():
                     try:
-                        with open(accounts_dat, 'r', encoding='utf-16') as f:
-                            content = f.read()
+                        with open(accounts_dat, 'rb') as f:
+                            raw_content = f.read()
+                            try:
+                                content = raw_content.decode('utf-16-le')
+                            except:
+                                content = raw_content.decode('utf-8', errors='ignore')
+                            
                             login_match = re.search(r'Login\s*=\s*(\d+)', content)
-                            server_match = re.search(r'Server\s*=\s*(.+)', content)
+                            server_match = re.search(r'Server\s*=\s*(.+?)(?:\r?\n|$)', content)
                             if login_match:
                                 login = login_match.group(1)
                             if server_match:
-                                server = server_match.group(1).strip()
-                    except:
-                        pass
+                                srv = server_match.group(1).strip()
+                                if srv and srv != "未知":
+                                    server = srv
+                    except Exception as e:
+                        print(f"读取 accounts.dat 失败: {e}")
             
             return {
                 'pid': proc.pid,
@@ -93,6 +123,8 @@ class MT5Detector:
             
         except Exception as e:
             print(f"获取终端信息失败: {e}")
+            import traceback
+            traceback.print_exc()
             return None
     
     @staticmethod
@@ -116,18 +148,18 @@ class MT5Detector:
             # 获取账户信息
             account_info = mt5.account_info()
             if account_info:
-                print(f"✓ 已连接到 MT5")
+                print(f"[OK] 已连接到 MT5")
                 print(f"  账号: {account_info.login}")
                 print(f"  券商: {account_info.company}")
                 print(f"  服务器: {account_info.server}")
                 print(f"  余额: {account_info.balance}")
                 return True
             else:
-                print("✗ 未检测到登录的账户")
+                print("[FAIL] 未检测到登录的账户")
                 return False
                 
         except ImportError:
-            print("✗ 未安装 MetaTrader5 包")
+            print("[FAIL] 未安装 MetaTrader5 包")
             print("  运行: pip install MetaTrader5")
             return False
         except Exception as e:

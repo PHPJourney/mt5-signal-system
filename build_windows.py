@@ -1,5 +1,5 @@
 """
-Windows Packaging Script for MT5 Signal System
+Windows Packaging Script for TradeMind MT5
 Creates standalone executable using PyInstaller
 """
 
@@ -177,9 +177,9 @@ def create_windows_launchers(target_dir):
     # 主服务器启动脚本
     master_bat = """@echo off
 chcp 65001 >nul
-title MT5 Signal System - Master Server
+title TradeMind MT5 - Master Server
 echo ========================================
-echo   MT5 Signal System - Master Server
+echo   TradeMind MT5 - Master Server
 echo ========================================
 echo.
 
@@ -200,9 +200,9 @@ pause
     # 从服务器启动脚本
     slave_bat = """@echo off
 chcp 65001 >nul
-title MT5 Signal System - Slave Server
+title TradeMind MT5 - Slave Server
 echo ========================================
-echo   MT5 Signal System - Slave Server
+echo   TradeMind MT5 - Slave Server
 echo ========================================
 echo.
 
@@ -223,7 +223,7 @@ pause
     # 配置面板启动脚本
     config_bat = """@echo off
 chcp 65001 >nul
-title MT5 Signal System - Configuration Panel
+title TradeMind MT5 - Configuration Panel
 echo ========================================
 echo   MT5 Configuration Panel
 echo ========================================
@@ -252,7 +252,7 @@ def create_installer():
     nsis_script = """
 !include "MUI2.nsh"
 
-Name "MT5 Signal System"
+Name "TradeMind MT5"
 OutFile "MT5_Signal_System_Installer.exe"
 InstallDir "$PROGRAMFILES\\MT5SignalSystem"
 RequestExecutionLevel admin
@@ -270,21 +270,21 @@ Section "MainSection" SEC01
 
     File /r "dist\\MT5_Signal_System_Portable\\*.*"
 
-    CreateDirectory "$SMPROGRAMS\\MT5 Signal System"
-    CreateShortCut "$SMPROGRAMS\\MT5 Signal System\\Master Server.lnk" "$INSTDIR\\start_master.bat"
-    CreateShortCut "$SMPROGRAMS\\MT5 Signal System\\Slave Server.lnk" "$INSTDIR\\start_slave.bat"
-    CreateShortCut "$SMPROGRAMS\\MT5 Signal System\\Configuration Panel.lnk" "$INSTDIR\\config_panel.bat"
+    CreateDirectory "$SMPROGRAMS\\TradeMind MT5"
+    CreateShortCut "$SMPROGRAMS\\TradeMind MT5\\Master Server.lnk" "$INSTDIR\\start_master.bat"
+    CreateShortCut "$SMPROGRAMS\\TradeMind MT5\\Slave Server.lnk" "$INSTDIR\\start_slave.bat"
+    CreateShortCut "$SMPROGRAMS\\TradeMind MT5\\Configuration Panel.lnk" "$INSTDIR\\config_panel.bat"
     CreateShortCut "$DESKTOP\\MT5 Master Server.lnk" "$INSTDIR\\start_master.bat"
     CreateShortCut "$DESKTOP\\MT5 Slave Server.lnk" "$INSTDIR\\start_slave.bat"
 
     WriteUninstaller "$INSTDIR\\uninstall.exe"
-    WriteRegStr HKLM "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\MT5SignalSystem" "DisplayName" "MT5 Signal System"
+    WriteRegStr HKLM "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\MT5SignalSystem" "DisplayName" "TradeMind MT5"
     WriteRegStr HKLM "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\MT5SignalSystem" "UninstallString" "$INSTDIR\\uninstall.exe"
 SectionEnd
 
 Section "Uninstall"
     RMDir /r "$INSTDIR"
-    RMDir /r "$SMPROGRAMS\\MT5 Signal System"
+    RMDir /r "$SMPROGRAMS\\TradeMind MT5"
     Delete "$DESKTOP\\MT5 Master Server.lnk"
     Delete "$DESKTOP\\MT5 Slave Server.lnk"
     DeleteRegKey HKLM "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\MT5SignalSystem"
@@ -302,7 +302,7 @@ SectionEnd
 def main():
     """主函数"""
     print("=" * 60)
-    print("MT5 Signal System - Windows Packaging Tool")
+    print("TradeMind MT5 - Windows Packaging Tool")
     print("=" * 60)
     print()
 

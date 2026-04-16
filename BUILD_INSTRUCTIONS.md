@@ -1,4 +1,4 @@
-# MT5 Signal System - 打包指南
+# TradeMind MT5 - 打包指南
 
 本指南介绍如何将 Master 和 Slave 分开打包，生成独立的安装包。
 

@@ -1,4 +1,4 @@
-# MT5 Signal System - Windows版
+# TradeMind MT5 - Windows版
 
 > 完整的MT5信号跟单系统,支持实时复制交易信号
 

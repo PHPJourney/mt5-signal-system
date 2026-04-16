@@ -1,5 +1,5 @@
 """
-Symbol Mapping Module for MT5 Signal System
+Symbol Mapping Module for TradeMind MT5
 Handles mapping between different broker symbol names
 """
 

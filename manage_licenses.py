@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-License Management Tool for MT5 Signal System
+License Management Tool for TradeMind MT5
 Generate, validate, and manage client licenses
 """
 
@@ -154,7 +154,7 @@ def export_licenses(args):
 
 def print_usage():
     """打印使用说明"""
-    print_header("MT5 Signal System - License Manager")
+    print_header("TradeMind MT5 - License Manager")
     print("用法: python manage_licenses.py <命令> [参数]\n")
     print("可用命令:")
     print("  generate [名称] [天数] [连接数]  - 生成新许可证")

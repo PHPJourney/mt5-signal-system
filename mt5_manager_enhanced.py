@@ -1,5 +1,5 @@
 """
-MT5 Signal System - 增强版综合管理面板
+TradeMind MT5 - 增强版综合管理面板
 包含配置管理、实时监控、服务控制和日志查看功能
 支持自动检测和配置 Python 运行时
 """
@@ -22,7 +22,7 @@ class MT5ManagerApp:
 
     def __init__(self, root):
         self.root = root
-        self.root.title("MT5 Signal System - 管理平台 v1.0")
+        self.root.title("TradeMind MT5 - 管理平台 v1.0")
         self.root.geometry("1200x800")
 
         # 设置最小窗口大小
@@ -1142,7 +1142,7 @@ class MT5ManagerApp:
 
         # 说明文字
         info_text = """
-MT5 Signal System 需要 Python 3.8+ 运行环境。
+TradeMind MT5 需要 Python 3.8+ 运行环境。
 
 您可以选择：
 1. 使用内置的 Python 运行时（便携版）
@@ -1247,8 +1247,8 @@ MT5 Signal System 需要 Python 3.8+ 运行环境。
     def show_about(self):
         """显示关于对话框"""
         messagebox.showinfo(
-            "关于 MT5 Signal System",
-            "MT5 Signal System v1.0\n\n"
+            "关于 TradeMind MT5",
+            "TradeMind MT5 v1.0\n\n"
             "一个专业的 MT5 信号跟单系统\n"
             "支持主从架构，MQTT 通信\n\n"
             "© 2026 All Rights Reserved"

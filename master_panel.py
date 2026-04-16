@@ -1,5 +1,5 @@
 """
-MT5 Signal System - Master Management Panel Entry Point
+TradeMind MT5 - Master Management Panel Entry Point
 
 This script launches the management panel in Master mode,
 showing only Master-related features.

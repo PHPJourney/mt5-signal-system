@@ -1,5 +1,5 @@
 """
-Risk Management Module for MT5 Signal System
+Risk Management Module for TradeMind MT5
 Implements various risk control mechanisms
 """
 

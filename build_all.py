@@ -1,5 +1,5 @@
 """
-MT5 Signal System - 一键打包脚本
+TradeMind MT5 - 一键打包脚本
 同时打包 Master 和 Slave，生成独立的安装包
 """
 
@@ -218,7 +218,7 @@ def create_portable(component):
 chcp 65001 >nul
 title MT5 {component.capitalize()} Server
 echo ========================================
-echo   MT5 Signal System - {component.capitalize()} Server
+echo   TradeMind MT5 - {component.capitalize()} Server
 echo ========================================
 echo.
 
@@ -307,7 +307,7 @@ Section "MainSection" SEC01
     WriteRegStr HKLM "Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\MT5{component.capitalize()}Server" "DisplayName" "MT5 {component.capitalize()} Server"
     WriteRegStr HKLM "Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\MT5{component.capitalize()}Server" "UninstallString" "$INSTDIR\\\\uninstall.exe"
     WriteRegStr HKLM "Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\MT5{component.capitalize()}Server" "DisplayIcon" "$INSTDIR\\\\start_{component}.bat"
-    WriteRegStr HKLM "Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\MT5{component.capitalize()}Server" "Publisher" "MT5 Signal System"
+    WriteRegStr HKLM "Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\MT5{component.capitalize()}Server" "Publisher" "TradeMind MT5"
 SectionEnd
 
 Section "Uninstall"
@@ -326,10 +326,10 @@ SectionEnd
 
 def create_readme():
     """创建发布说明"""
-    readme = """MT5 Signal System - 发布包说明
+    readme = """TradeMind MT5 - 发布包说明
 ================================
 
-本目录包含 MT5 Signal System 的独立安装包：
+本目录包含 TradeMind MT5 的独立安装包：
 
 📦 可用版本
 -----------
@@ -409,7 +409,7 @@ Slave 配置: config/slave_config.json
 def main():
     """主函数"""
     print("=" * 60)
-    print("MT5 Signal System - 一键打包工具")
+    print("TradeMind MT5 - 一键打包工具")
     print("=" * 60)
     print()
 

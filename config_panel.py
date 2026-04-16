@@ -1,5 +1,5 @@
 """
-Configuration Panel for MT5 Signal System
+Configuration Panel for TradeMind MT5
 GUI-based configuration management tool
 """
 
@@ -16,7 +16,7 @@ class ConfigPanel:
 
     def __init__(self, root):
         self.root = root
-        self.root.title("MT5 Signal System - Configuration Panel")
+        self.root.title("TradeMind MT5 - Configuration Panel")
         self.root.geometry("900x700")
 
         # 配置文件路径

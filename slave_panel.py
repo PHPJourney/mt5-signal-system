@@ -1,5 +1,5 @@
 """
-MT5 Signal System - Slave Management Panel Entry Point
+TradeMind MT5 - Slave Management Panel Entry Point
 
 This script launches the management panel in Slave mode,
 showing only Slave-related features.

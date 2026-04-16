@@ -175,8 +175,18 @@ jobs:
           Write-Host "✓ dist/ directory cleaned"
         shell: pwsh
 
-      - name: Build MT5 Manager EXE (Panel)
+      - name: Build MT5 Manager EXE (GUI Panel)
         run: |
+          Write-Host "Building MT5_Manager.exe with TradeMind icon..."
+          Write-Host "Working directory: $(Get-Location)"
+          Write-Host "Checking icon.ico..."
+          if (Test-Path "icon.ico") {
+              Write-Host "[OK] icon.ico found"
+          } else {
+              Write-Error "[FAIL] icon.ico not found!"
+              exit 1
+          }
+          
           pyinstaller --clean --onefile --windowed `
             --name "MT5_Manager" `
             --icon "icon.ico" `
@@ -199,32 +209,79 @@ jobs:
             --hidden-import "ttkbootstrap" `
             --hidden-import "ttkbootstrap.style" `
             mt5_manager.py
+          
+          Write-Host "Verifying MT5_Manager.exe..."
+          if (Test-Path "dist\MT5_Manager.exe") {
+              $size = (Get-Item "dist\MT5_Manager.exe").Length
+              Write-Host "[OK] MT5_Manager.exe built successfully ($([math]::Round($size/1MB, 2)) MB)"
+          } else {
+              Write-Error "[FAIL] MT5_Manager.exe not found!"
+              exit 1
+          }
         shell: pwsh
 
       - name: Build MT5 Master EXE (Service)
         run: |
+          Write-Host "Building MT5_Master.exe with TradeMind icon..."
+          Write-Host "Checking icon.ico..."
+          if (Test-Path "icon.ico") {
+              Write-Host "[OK] icon.ico found"
+          } else {
+              Write-Error "[FAIL] icon.ico not found!"
+              exit 1
+          }
+          
           pyinstaller --clean --onefile --console `
             --name "MT5_Master" `
             --icon "icon.ico" `
             --add-data "config;config" `
             --add-data "common;common" `
+            --hidden-import "MetaTrader5" `
             --hidden-import "paho.mqtt.client" `
             --hidden-import "paho.mqtt" `
             --hidden-import "numpy" `
             master/signal_sender.py
+          
+          Write-Host "Verifying MT5_Master.exe..."
+          if (Test-Path "dist\MT5_Master.exe") {
+              $size = (Get-Item "dist\MT5_Master.exe").Length
+              Write-Host "[OK] MT5_Master.exe built successfully ($([math]::Round($size/1MB, 2)) MB)"
+          } else {
+              Write-Error "[FAIL] MT5_Master.exe not found!"
+              exit 1
+          }
         shell: pwsh
 
       - name: Build MT5 Slave EXE (Service)
         run: |
+          Write-Host "Building MT5_Slave.exe with TradeMind icon..."
+          Write-Host "Checking icon.ico..."
+          if (Test-Path "icon.ico") {
+              Write-Host "[OK] icon.ico found"
+          } else {
+              Write-Error "[FAIL] icon.ico not found!"
+              exit 1
+          }
+          
           pyinstaller --clean --onefile --console `
             --name "MT5_Slave" `
             --icon "icon.ico" `
             --add-data "config;config" `
             --add-data "common;common" `
+            --hidden-import "MetaTrader5" `
             --hidden-import "paho.mqtt.client" `
             --hidden-import "paho.mqtt" `
             --hidden-import "numpy" `
             slave/signal_receiver.py
+          
+          Write-Host "Verifying MT5_Slave.exe..."
+          if (Test-Path "dist\MT5_Slave.exe") {
+              $size = (Get-Item "dist\MT5_Slave.exe").Length
+              Write-Host "[OK] MT5_Slave.exe built successfully ($([math]::Round($size/1MB, 2)) MB)"
+          } else {
+              Write-Error "[FAIL] MT5_Slave.exe not found!"
+              exit 1
+          }
         shell: pwsh
 
       - name: Verify build output

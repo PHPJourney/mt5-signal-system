@@ -1,5 +1,5 @@
 """
-MT5 Signal System - Management Panel
+TradeMind MT5 - Management Panel
 
 Supports three running modes:
 - 'master': Master Server management panel only
@@ -50,7 +50,7 @@ class StreamToQueue(io.StringIO):
 
 
 class UnifiedMT5Manager:
-    """Unified MT5 Signal System Management Panel"""
+    """Unified TradeMind MT5 Management Panel"""
 
     def __init__(self, root, mode='unified'):
         self.root = root
@@ -58,9 +58,9 @@ class UnifiedMT5Manager:
         
         # Set title based on mode
         mode_titles = {
-            'master': "MT5 Signal System - Master 管理面板 v2.0",
-            'slave': "MT5 Signal System - Slave 管理面板 v2.0",
-            'unified': "MT5 Signal System - 统一管理平台 v2.0"
+            'master': "TradeMind MT5 - Master 管理面板 v2.0",
+            'slave': "TradeMind MT5 - Slave 管理面板 v2.0",
+            'unified': "TradeMind MT5 - 统一管理平台 v2.0"
         }
         self.root.title(mode_titles.get(mode, mode_titles['unified']))
         self.root.geometry("1300x850")
@@ -262,7 +262,7 @@ class UnifiedMT5Manager:
             'slave': "Slave 模式",
             'unified': "统一管理模式"
         }
-        self.status_right = ttk.Label(self.status_bar, text=f"MT5 Signal System v2.0 - {mode_labels.get(self.mode, '')}")
+        self.status_right = ttk.Label(self.status_bar, text=f"TradeMind MT5 v2.0 - {mode_labels.get(self.mode, '')}")
         self.status_right.pack(side=tk.RIGHT, padx=10)
 
         # Handle window close
@@ -1348,7 +1348,7 @@ class UnifiedMT5Manager:
     def _show_about(self):
         messagebox.showinfo(
             "关于",
-            "MT5 Signal System - 统一管理平台 v2.0\n\n"
+            "TradeMind MT5 - 统一管理平台 v2.0\n\n"
             "一个集成的 MT5 信号跟单管理系统\n"
             "• Master/Slave 服务统一管理\n"
             "• 可视化配置编辑\n"
@@ -1371,7 +1371,7 @@ class UnifiedMT5Manager:
 def main():
     """Main entry point with mode support"""
     # Parse command line arguments
-    parser = argparse.ArgumentParser(description='MT5 Signal System Management Panel')
+    parser = argparse.ArgumentParser(description='TradeMind MT5 Management Panel')
     parser.add_argument('--mode', choices=['master', 'slave', 'unified'],
                        default='unified', help='Running mode (default: unified)')
     args = parser.parse_args()

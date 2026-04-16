@@ -2,7 +2,7 @@
 
 ## 📦 工作流概览
 
-本项目包含 4 个 GitHub Actions 工作流，用于自动化编译和打包 MT5 Signal System。
+本项目包含 4 个 GitHub Actions 工作流，用于自动化编译和打包 TradeMind MT5。
 
 ### 1. build-master.yml - Master Server 打包
 **触发条件：**
@@ -90,7 +90,7 @@ GitHub Actions 会自动：
 
 1. **GitHub 账号** - 免费注册: https://github.com/join
 2. **Git 已安装** - 检查: `git --version`
-3. **项目代码** - MT5 Signal System
+3. **项目代码** - TradeMind MT5
 
 ---
 
@@ -118,7 +118,7 @@ git init
 git add .
 
 # 创建初始提交
-git commit -m "Initial commit: MT5 Signal System v1.0.0"
+git commit -m "Initial commit: TradeMind MT5 v1.0.0"
 ```
 
 ---

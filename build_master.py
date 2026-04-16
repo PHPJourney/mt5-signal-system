@@ -1,5 +1,5 @@
 """
-MT5 Signal System - Master 独立打包脚本
+TradeMind MT5 - Master 独立打包脚本
 生成 Master Server 的独立可执行文件和安装包
 """
 
@@ -158,7 +158,7 @@ def create_master_portable():
 chcp 65001 >nul
 title MT5 Master Server
 echo ========================================
-echo   MT5 Signal System - Master Server
+echo   TradeMind MT5 - Master Server
 echo ========================================
 echo.
 
@@ -247,7 +247,7 @@ Section "MainSection" SEC01
     WriteRegStr HKLM "Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\MT5MasterServer" "DisplayName" "MT5 Master Server"
     WriteRegStr HKLM "Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\MT5MasterServer" "UninstallString" "$INSTDIR\\\\uninstall.exe"
     WriteRegStr HKLM "Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\MT5MasterServer" "DisplayIcon" "$INSTDIR\\\\start_master.bat"
-    WriteRegStr HKLM "Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\MT5MasterServer" "Publisher" "MT5 Signal System"
+    WriteRegStr HKLM "Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\MT5MasterServer" "Publisher" "TradeMind MT5"
 SectionEnd
 
 Section "Uninstall"

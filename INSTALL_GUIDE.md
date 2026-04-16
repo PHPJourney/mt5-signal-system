@@ -1,4 +1,4 @@
-# MT5 Signal System - 安装指南
+# TradeMind MT5 - 安装指南
 
 ## 📦 快速开始（无需安装 Python！）
 

@@ -1,5 +1,5 @@
 """
-MT5 Signal System - Common Module
+TradeMind MT5 - Common Module
 Shared data models and utilities for master and slave servers
 """
 

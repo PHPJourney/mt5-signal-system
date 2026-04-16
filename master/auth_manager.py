@@ -1,5 +1,5 @@
 """
-License and Authentication Manager for MT5 Signal System
+License and Authentication Manager for TradeMind MT5
 Manages client authorization and access control
 """
 

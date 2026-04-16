@@ -1,4 +1,4 @@
-# MT5 Signal System - Quick Reference Card
+# TradeMind MT5 - Quick Reference Card
 
 ## 🚀 Quick Start (3 Steps)
 

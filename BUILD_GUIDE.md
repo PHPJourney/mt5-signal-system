@@ -341,12 +341,12 @@ VSVersionInfo(
       StringTable(
         u'040904B0',
         [StringStruct(u'CompanyName', u'Your Company'),
-        StringStruct(u'FileDescription', u'MT5 Signal System'),
+        StringStruct(u'FileDescription', u'TradeMind MT5'),
         StringStruct(u'FileVersion', u'1.0.0.0'),
         StringStruct(u'InternalName', u'MT5_Master_Server'),
         StringStruct(u'LegalCopyright', u'© 2026 Your Company'),
         StringStruct(u'OriginalFilename', u'MT5_Master_Server.exe'),
-        StringStruct(u'ProductName', u'MT5 Signal System'),
+        StringStruct(u'ProductName', u'TradeMind MT5'),
         StringStruct(u'ProductVersion', u'1.0.0.0')])
       ]),
     VarFileInfo([VarStruct(u'Translation', [1033, 1200])])

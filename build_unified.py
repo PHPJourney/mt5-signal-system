@@ -1,5 +1,5 @@
 """
-MT5 Signal System - Multi-Mode Build Script
+TradeMind MT5 - Multi-Mode Build Script
 
 Supports building three modes:
 - master: Master Server management panel only
@@ -252,7 +252,7 @@ def create_portable_version(mode):
 chcp 65001 >nul
 title MT5 {mode_names[mode]}
 echo ========================================
-echo   MT5 Signal System - {mode_names[mode]}
+echo   TradeMind MT5 - {mode_names[mode]}
 echo ========================================
 echo.
 
@@ -308,7 +308,7 @@ For support, see the main README.md
 def main():
     """Main entry point"""
     print("=" * 60)
-    print("MT5 Signal System - Multi-Mode Builder")
+    print("TradeMind MT5 - Multi-Mode Builder")
     print("=" * 60)
     print()
 

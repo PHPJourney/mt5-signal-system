@@ -1,5 +1,5 @@
 """
-MT5 Signal System - Slave 独立打包脚本
+TradeMind MT5 - Slave 独立打包脚本
 生成 Slave Server 的独立可执行文件和安装包
 """
 
@@ -159,7 +159,7 @@ def create_slave_portable():
 chcp 65001 >nul
 title MT5 Slave Server
 echo ========================================
-echo   MT5 Signal System - Slave Server
+echo   TradeMind MT5 - Slave Server
 echo ========================================
 echo.
 
@@ -248,7 +248,7 @@ Section "MainSection" SEC01
     WriteRegStr HKLM "Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\MT5SlaveServer" "DisplayName" "MT5 Slave Server"
     WriteRegStr HKLM "Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\MT5SlaveServer" "UninstallString" "$INSTDIR\\\\uninstall.exe"
     WriteRegStr HKLM "Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\MT5SlaveServer" "DisplayIcon" "$INSTDIR\\\\start_slave.bat"
-    WriteRegStr HKLM "Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\MT5SlaveServer" "Publisher" "MT5 Signal System"
+    WriteRegStr HKLM "Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\MT5SlaveServer" "Publisher" "TradeMind MT5"
 SectionEnd
 
 Section "Uninstall"

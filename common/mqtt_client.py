@@ -1,5 +1,5 @@
 """
-MQTT Client Module for MT5 Signal System
+MQTT Client Module for TradeMind MT5
 Handles MQTT communication between master and slave servers
 """
 

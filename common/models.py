@@ -1,5 +1,5 @@
 """
-Data models for MT5 Signal System
+Data models for TradeMind MT5
 Defines all message structures used in communication
 """
 
