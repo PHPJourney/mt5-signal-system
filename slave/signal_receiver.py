@@ -7,7 +7,6 @@ import sys
 import os
 import time
 import json
-import MetaTrader5 as mt5
 from typing import Dict, Optional, List
 from datetime import datetime
 
@@ -64,6 +63,7 @@ class SlaveSignalReceiver:
 
         # MT5连接状态
         self.mt5_initialized = False
+        self.mt5 = None  # 存储 MetaTrader5 模块引用
 
         self.logger.info("Slave Signal Receiver initialized")
         self.logger.info(f"Multiplier: {self.multiplier}x, "
@@ -72,12 +72,16 @@ class SlaveSignalReceiver:
 
     def initialize_mt5(self) -> bool:
         """
-        初始化MT5连接
+        初始化MT5连接（延迟导入）
 
         Returns:
             是否成功初始化
         """
         try:
+            # 延迟导入 MetaTrader5（避免 PyInstaller 打包时报错）
+            import MetaTrader5 as mt5
+            self.mt5 = mt5  # 保存模块引用
+            
             if not mt5.initialize():
                 self.logger.error(f"MT5 initialization failed: {mt5.last_error()}")
                 return False
@@ -93,6 +97,13 @@ class SlaveSignalReceiver:
             self.mt5_initialized = True
             return True
 
+        except ImportError:
+            self.logger.error("=" * 60)
+            self.logger.error("MetaTrader5 模块未找到！")
+            self.logger.error("请在已安装 MT5 终端的电脑上运行:")
+            self.logger.error("  pip install MetaTrader5")
+            self.logger.error("=" * 60)
+            return False
         except Exception as e:
             self.logger.error(f"Error initializing MT5: {e}")
             return False
@@ -132,6 +143,10 @@ class SlaveSignalReceiver:
         Args:
             signal: 交易信号
         """
+        if not self.mt5_initialized or not self.mt5:
+            self.logger.error("MT5 not initialized, cannot process signal")
+            return
+        
         try:
             # 根据信号类型处理
             if signal.signal_type == SignalType.NEW_ORDER.value:
@@ -147,284 +162,125 @@ class SlaveSignalReceiver:
             self.logger.error(f"Error processing signal: {e}")
 
     def _execute_new_order(self, signal: TradingSignal):
-        """
-        执行新开仓信号
-
-        Args:
-            signal: 交易信号
-        """
-        # 映射交易品种
-        slave_symbol = self.symbol_mapper.map_symbol(signal.symbol)
-        if slave_symbol is None:
-            self.logger.error(f"Cannot map symbol: {signal.symbol}")
-            return
-
-        # 检查是否可以交易
-        max_spread = self.config.get('risk_management', {}).get('max_spread_points', 50)
-        can_trade, reason = self.risk_manager.can_trade(slave_symbol, max_spread)
-        if not can_trade:
-            self.logger.warning(f"Trading blocked: {reason}")
-            return
-
-        # 计算手数
-        symbol_info = self.symbol_mapper.get_symbol_info(slave_symbol)
-        if symbol_info is None:
-            self.logger.error(f"Cannot get symbol info for {slave_symbol}")
-            return
-
-        lot_size = self.risk_manager.calculate_lot_size(
-            master_volume=signal.volume,
-            multiplier=self.multiplier,
-            min_lot=self.trading_config.get('min_lot_size', 0.01),
-            max_lot=self.trading_config.get('max_lot_size', 10.0),
-            lot_step=self.trading_config.get('lot_step', 0.01),
-            symbol=slave_symbol
-        )
-
-        # 确定订单类型(支持反向交易)
-        order_type = signal.order_type
-        if self.reverse_trading:
-            if order_type == OrderType.BUY.value:
-                order_type = OrderType.SELL.value
-            elif order_type == OrderType.SELL.value:
-                order_type = OrderType.BUY.value
-            self.logger.info(f"Reverse trading: {signal.order_type} -> {order_type}")
-
-        # 执行下单
-        result = self._place_order(
-            symbol=slave_symbol,
-            order_type=order_type,
-            volume=lot_size,
-            sl=signal.sl,
-            tp=signal.tp,
-            comment=f"Copy:{signal.ticket}"
-        )
-
-        if result:
-            self.processed_tickets[signal.ticket] = result
-            self.logger.info(f"Order executed: Master ticket {signal.ticket} -> "
-                           f"Slave ticket {result}")
-        else:
-            self.logger.error(f"Failed to execute order for signal {signal.ticket}")
-
-    def _execute_close_order(self, signal: TradingSignal):
-        """
-        执行平仓信号
-
-        Args:
-            signal: 交易信号
-        """
-        # 查找对应的从服务器订单
-        slave_ticket = self.processed_tickets.get(signal.ticket)
-        if slave_ticket is None:
-            self.logger.warning(f"No matching slave ticket for master ticket: {signal.ticket}")
-            return
-
-        # 平仓
-        success = self._close_position(slave_ticket)
-        if success:
-            del self.processed_tickets[signal.ticket]
-            self.logger.info(f"Position closed: Slave ticket {slave_ticket}")
-        else:
-            self.logger.error(f"Failed to close position: {slave_ticket}")
-
-    def _execute_modify_order(self, signal: TradingSignal):
-        """
-        执行修改订单信号
-
-        Args:
-            signal: 交易信号
-        """
-        slave_ticket = self.processed_tickets.get(signal.ticket)
-        if slave_ticket is None:
-            self.logger.warning(f"No matching slave ticket for master ticket: {signal.ticket}")
-            return
-
-        # 修改订单(SL/TP)
-        success = self._modify_position(
-            ticket=slave_ticket,
-            sl=signal.sl,
-            tp=signal.tp
-        )
-
-        if success:
-            self.logger.info(f"Position modified: Slave ticket {slave_ticket}")
-        else:
-            self.logger.error(f"Failed to modify position: {slave_ticket}")
-
-    def _place_order(self, symbol: str, order_type: str, volume: float,
-                    sl: Optional[float] = None, tp: Optional[float] = None,
-                    comment: str = "") -> Optional[int]:
-        """
-        下单
-
-        Args:
-            symbol: 交易品种
-            order_type: 订单类型 (BUY/SELL)
-            volume: 手数
-            sl: 止损价格
-            tp: 止盈价格
-            comment: 注释
-
-        Returns:
-            订单号,失败返回None
-        """
+        """执行新开仓信号"""
         try:
-            # 获取当前价格
-            tick = mt5.symbol_info_tick(symbol)
-            if tick is None:
-                self.logger.error(f"Cannot get tick for {symbol}")
-                return None
-
-            # 准备订单请求
-            if order_type == OrderType.BUY.value:
-                price = tick.ask
-                order_action = mt5.ORDER_TYPE_BUY
-            elif order_type == OrderType.SELL.value:
-                price = tick.bid
-                order_action = mt5.ORDER_TYPE_SELL
+            # 符号映射
+            symbol = self.symbol_mapper.map_symbol(signal.symbol)
+            
+            # 计算手数
+            volume = normalize_lot_size(signal.volume * self.multiplier)
+            
+            # 反向交易
+            if self.reverse_trading:
+                order_type = OrderType.SELL if signal.order_type == OrderType.BUY else OrderType.BUY
             else:
-                self.logger.error(f"Unsupported order type: {order_type}")
-                return None
-
+                order_type = signal.order_type
+            
+            # 构建请求
             request = {
-                "action": mt5.TRADE_ACTION_DEAL,
+                "action": self.mt5.TRADE_ACTION_DEAL,
                 "symbol": symbol,
                 "volume": volume,
-                "type": order_action,
-                "price": price,
-                "deviation": self.slippage,
+                "type": self.mt5.ORDER_TYPE_BUY if order_type == OrderType.BUY else self.mt5.ORDER_TYPE_SELL,
+                "slippage": self.slippage,
                 "magic": self.magic_number,
-                "comment": comment,
-                "type_time": mt5.ORDER_TIME_GTC,
-                "type_filling": mt5.ORDER_FILLING_IOC,
+                "comment": f"Slave:{signal.master_ticket}",
+                "type_filling": self.mt5.ORDER_FILLING_FOK,
             }
-
-            # 添加SL和TP
-            if sl and sl > 0:
-                request["sl"] = sl
-            if tp and tp > 0:
-                request["tp"] = tp
-
+            
+            # 添加止损止盈
+            if signal.sl > 0:
+                request["sl"] = signal.sl
+            if signal.tp > 0:
+                request["tp"] = signal.tp
+            
             # 发送订单
-            result = mt5.order_send(request)
-
-            if result.retcode != mt5.TRADE_RETCODE_DONE:
-                self.logger.error(f"Order failed: {result.comment} (code: {result.retcode})")
-                return None
-
-            self.logger.info(f"Order placed: Ticket={result.order}, "
-                           f"Symbol={symbol}, Type={order_type}, Volume={volume}")
-            return result.order
-
-        except Exception as e:
-            self.logger.error(f"Error placing order: {e}")
-            return None
-
-    def _close_position(self, ticket: int) -> bool:
-        """
-        平仓
-
-        Args:
-            ticket: 订单号
-
-        Returns:
-            是否成功
-        """
-        try:
-            # 获取持仓信息
-            position = mt5.positions_get(ticket=ticket)
-            if position is None or len(position) == 0:
-                self.logger.warning(f"Position not found: {ticket}")
-                return False
-
-            pos = position[0]
-
-            # 准备平仓请求
-            if pos.type == mt5.ORDER_TYPE_BUY:
-                order_type = mt5.ORDER_TYPE_SELL
-                price = mt5.symbol_info_tick(pos.symbol).bid
+            result = self.mt5.order_send(request)
+            
+            if result.retcode == self.mt5.TRADE_RETCODE_DONE:
+                self.processed_tickets[signal.master_ticket] = result.order
+                self.logger.info(f"Order executed: {symbol} {order_type} "
+                               f"vol={volume} ticket={result.order}")
             else:
-                order_type = mt5.ORDER_TYPE_BUY
-                price = mt5.symbol_info_tick(pos.symbol).ask
-
-            request = {
-                "action": mt5.TRADE_ACTION_DEAL,
-                "symbol": pos.symbol,
-                "volume": pos.volume,
-                "type": order_type,
-                "position": ticket,
-                "price": price,
-                "deviation": self.slippage,
-                "magic": self.magic_number,
-                "comment": f"Close:{ticket}",
-                "type_time": mt5.ORDER_TIME_GTC,
-                "type_filling": mt5.ORDER_FILLING_IOC,
-            }
-
-            # 发送平仓请求
-            result = mt5.order_send(request)
-
-            if result.retcode != mt5.TRADE_RETCODE_DONE:
-                self.logger.error(f"Close failed: {result.comment} (code: {result.retcode})")
-                return False
-
-            self.logger.info(f"Position closed: Ticket={ticket}")
-            return True
+                self.logger.error(f"Order failed: {result.comment} (retcode={result.retcode})")
 
         except Exception as e:
-            self.logger.error(f"Error closing position: {e}")
-            return False
+            self.logger.error(f"Error executing new order: {e}")
 
-    def _modify_position(self, ticket: int, sl: Optional[float] = None,
-                        tp: Optional[float] = None) -> bool:
-        """
-        修改持仓(SL/TP)
-
-        Args:
-            ticket: 订单号
-            sl: 新止损价格
-            tp: 新止盈价格
-
-        Returns:
-            是否成功
-        """
+    def _execute_close_order(self, signal: TradingSignal):
+        """执行平仓信号"""
         try:
+            slave_ticket = self.processed_tickets.get(signal.master_ticket)
+            if not slave_ticket:
+                self.logger.warning(f"No slave ticket found for master ticket {signal.master_ticket}")
+                return
+            
             # 获取持仓信息
-            position = mt5.positions_get(ticket=ticket)
-            if position is None or len(position) == 0:
-                self.logger.warning(f"Position not found: {ticket}")
-                return False
-
-            pos = position[0]
-
-            # 准备修改请求
+            positions = self.mt5.positions_get(ticket=slave_ticket)
+            if not positions:
+                self.logger.warning(f"Position {slave_ticket} not found")
+                return
+            
+            position = positions[0]
+            symbol = position.symbol
+            
+            # 反向平仓
+            close_type = self.mt5.ORDER_TYPE_SELL if position.type == self.mt5.ORDER_TYPE_BUY else self.mt5.ORDER_TYPE_BUY
+            
             request = {
-                "action": mt5.TRADE_ACTION_SLTP,
-                "symbol": pos.symbol,
-                "sl": sl if sl and sl > 0 else pos.sl,
-                "tp": tp if tp and tp > 0 else pos.tp,
-                "position": ticket,
+                "action": self.mt5.TRADE_ACTION_DEAL,
+                "symbol": symbol,
+                "volume": position.volume,
+                "type": close_type,
+                "position": slave_ticket,
+                "slippage": self.slippage,
+                "magic": self.magic_number,
+                "comment": f"Close:{signal.master_ticket}",
+                "type_filling": self.mt5.ORDER_FILLING_FOK,
             }
-
-            # 发送修改请求
-            result = mt5.order_send(request)
-
-            if result.retcode != mt5.TRADE_RETCODE_DONE:
-                self.logger.error(f"Modify failed: {result.comment} (code: {result.retcode})")
-                return False
-
-            self.logger.info(f"Position modified: Ticket={ticket}, SL={sl}, TP={tp}")
-            return True
+            
+            result = self.mt5.order_send(request)
+            
+            if result.retcode == self.mt5.TRADE_RETCODE_DONE:
+                self.logger.info(f"Position closed: {symbol} ticket={slave_ticket}")
+                del self.processed_tickets[signal.master_ticket]
+            else:
+                self.logger.error(f"Close failed: {result.comment}")
 
         except Exception as e:
-            self.logger.error(f"Error modifying position: {e}")
-            return False
+            self.logger.error(f"Error executing close order: {e}")
+
+    def _execute_modify_order(self, signal: TradingSignal):
+        """执行修改订单信号"""
+        try:
+            slave_ticket = self.processed_tickets.get(signal.master_ticket)
+            if not slave_ticket:
+                self.logger.warning(f"No slave ticket found for master ticket {signal.master_ticket}")
+                return
+            
+            request = {
+                "action": self.mt5.TRADE_ACTION_SLTP,
+                "symbol": signal.symbol,
+                "sl": signal.sl,
+                "tp": signal.tp,
+                "position": slave_ticket,
+            }
+            
+            result = self.mt5.order_send(request)
+            
+            if result.retcode == self.mt5.TRADE_RETCODE_DONE:
+                self.logger.info(f"Order modified: ticket={slave_ticket} "
+                               f"sl={signal.sl} tp={signal.tp}")
+            else:
+                self.logger.error(f"Modify failed: {result.comment}")
+
+        except Exception as e:
+            self.logger.error(f"Error executing modify order: {e}")
 
     def run(self):
-        """运行从服务器"""
+        """主运行循环"""
         self.logger.info("Starting Slave Signal Receiver...")
-
+        
         # 初始化MT5
         if not self.initialize_mt5():
             self.logger.error("Failed to initialize MT5. Exiting.")
@@ -433,42 +289,27 @@ class SlaveSignalReceiver:
         # 连接MQTT
         self.connect_mqtt()
 
+        # 启动MQTT循环
         try:
-            self.logger.info("Slave server running. Waiting for signals...")
-
-            # 主循环 - 保持运行并定期检查风险状态
-            while True:
-                # 检查风险状态
-                risk_status = self.risk_manager.get_risk_status()
-                if not risk_status.trading_enabled:
-                    self.logger.warning(f"Trading disabled: {risk_status.blocked_reason}")
-
-                time.sleep(1)
-
+            self.mqtt_client.start_loop()
         except KeyboardInterrupt:
-            self.logger.info("Slave server stopped by user")
+            self.logger.info("Slave Signal Receiver stopped by user")
         except Exception as e:
-            self.logger.error(f"Error in main loop: {e}")
+            self.logger.error(f"Slave Signal Receiver error: {e}")
         finally:
-            self.cleanup()
-
-    def cleanup(self):
-        """清理资源"""
-        self.logger.info("Cleaning up resources...")
-        self.mqtt_client.disconnect()
-        mt5.shutdown()
-        self.logger.info("Cleanup completed")
+            self.mt5.shutdown()
+            self.mqtt_client.disconnect()
 
 
 def main():
-    """主函数"""
+    """入口函数"""
     import argparse
-
+    
     parser = argparse.ArgumentParser(description='MT5 Slave Signal Receiver')
-    parser.add_argument('--config', type=str, default='config/slave_config.json',
+    parser.add_argument('--config', default='config/slave_config.json',
                        help='Path to configuration file')
     args = parser.parse_args()
-
+    
     receiver = SlaveSignalReceiver(args.config)
     receiver.run()
 

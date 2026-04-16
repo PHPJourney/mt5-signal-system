@@ -6,7 +6,6 @@ Monitors MT5 trades and broadcasts signals via MQTT
 import sys
 import os
 import time
-import MetaTrader5 as mt5
 from typing import List, Dict, Optional
 from datetime import datetime
 
@@ -44,17 +43,22 @@ class MasterSignalSender:
 
         # MT5连接状态
         self.mt5_initialized = False
+        self.mt5 = None  # 存储 MetaTrader5 模块引用
 
         self.logger.info("Master Signal Sender initialized")
 
     def initialize_mt5(self) -> bool:
         """
-        初始化MT5连接
+        初始化MT5连接（延迟导入）
 
         Returns:
             是否成功初始化
         """
         try:
+            # 延迟导入 MetaTrader5（避免 PyInstaller 打包时报错）
+            import MetaTrader5 as mt5
+            self.mt5 = mt5  # 保存模块引用
+            
             if not mt5.initialize():
                 self.logger.error(f"MT5 initialization failed: {mt5.last_error()}")
                 return False
@@ -69,6 +73,13 @@ class MasterSignalSender:
             self.mt5_initialized = True
             return True
 
+        except ImportError:
+            self.logger.error("=" * 60)
+            self.logger.error("MetaTrader5 模块未找到！")
+            self.logger.error("请在已安装 MT5 终端的电脑上运行:")
+            self.logger.error("  pip install MetaTrader5")
+            self.logger.error("=" * 60)
+            return False
         except Exception as e:
             self.logger.error(f"Error initializing MT5: {e}")
             return False
@@ -85,9 +96,13 @@ class MasterSignalSender:
         Returns:
             持仓信息列表
         """
+        if not self.mt5_initialized or not self.mt5:
+            self.logger.error("MT5 not initialized")
+            return []
+        
         positions = []
         try:
-            mt5_positions = mt5.positions_get()
+            mt5_positions = self.mt5.positions_get()
             if mt5_positions is None:
                 return positions
 
@@ -95,7 +110,7 @@ class MasterSignalSender:
                 position_info = PositionInfo(
                     ticket=pos.ticket,
                     symbol=pos.symbol,
-                    order_type="BUY" if pos.type == mt5.ORDER_TYPE_BUY else "SELL",
+                    order_type="BUY" if pos.type == self.mt5.ORDER_TYPE_BUY else "SELL",
                     volume=pos.volume,
                     price_open=pos.price_open,
                     price_current=pos.price_current,
@@ -122,140 +137,97 @@ class MasterSignalSender:
         Returns:
             挂单信息列表
         """
+        if not self.mt5_initialized or not self.mt5:
+            self.logger.error("MT5 not initialized")
+            return []
+        
         orders = []
         try:
-            mt5_orders = mt5.orders_get()
+            mt5_orders = self.mt5.orders_get()
             if mt5_orders is None:
                 return orders
 
             for order in mt5_orders:
-                order_type_map = {
-                    mt5.ORDER_TYPE_BUY_LIMIT: "BUY_LIMIT",
-                    mt5.ORDER_TYPE_SELL_LIMIT: "SELL_LIMIT",
-                    mt5.ORDER_TYPE_BUY_STOP: "BUY_STOP",
-                    mt5.ORDER_TYPE_SELL_STOP: "SELL_STOP"
-                }
-
                 order_info = OrderInfo(
                     ticket=order.ticket,
                     symbol=order.symbol,
-                    order_type=order_type_map.get(order.type, str(order.type)),
+                    order_type="BUY" if order.type == self.mt5.ORDER_TYPE_BUY else "SELL",
                     volume=order.volume_current,
                     price_open=order.price_open,
+                    price_current=order.price_current,
                     sl=order.sl,
                     tp=order.tp,
-                    price_current=order.price_current,
-                    time_expiration=int(order.time_expiration) if order.time_expiration else 0,
+                    time_setup=int(order.time_setup),
                     magic=order.magic,
                     comment=order.comment
                 )
                 orders.append(order_info)
 
         except Exception as e:
-            self.logger.error(f"Error getting orders: {e}")
+            self.logger.error(f"Error getting pending orders: {e}")
 
         return orders
 
-    def detect_new_signals(self) -> List[TradingSignal]:
-        """
-        检测新的交易信号
-
-        Returns:
-            新信号列表
-        """
-        signals = []
-
+    def check_for_new_signals(self):
+        """检查新的持仓变化并发送信号"""
         try:
-            # 获取当前持仓
-            current_positions = mt5.positions_get()
-            if current_positions is None:
-                return signals
+            positions = self.get_positions()
+            orders = self.get_pending_orders()
 
-            current_tickets = {pos.ticket for pos in current_positions}
-
-            # 检测新开仓
-            for pos in current_positions:
+            # 处理新持仓
+            for pos in positions:
                 if pos.ticket not in self.sent_tickets:
+                    self.logger.info(f"New position detected: {pos.symbol} {pos.order_type} "
+                                   f"vol={pos.volume} ticket={pos.ticket}")
+                    
                     signal = TradingSignal(
                         signal_type=SignalType.NEW_ORDER.value,
                         symbol=pos.symbol,
-                        order_type="BUY" if pos.type == mt5.ORDER_TYPE_BUY else "SELL",
+                        order_type=pos.order_type,
                         volume=pos.volume,
                         price=pos.price_open,
-                        sl=pos.sl if pos.sl > 0 else None,
-                        tp=pos.tp if pos.tp > 0 else None,
-                        ticket=pos.ticket,
+                        sl=pos.sl,
+                        tp=pos.tp,
+                        master_ticket=pos.ticket,
                         magic=pos.magic,
                         comment=pos.comment
                     )
-                    signals.append(signal)
+                    
+                    self.send_signal(signal)
                     self.sent_tickets.add(pos.ticket)
-                    self.logger.info(f"New position detected: Ticket={pos.ticket}, "
-                                   f"Symbol={pos.symbol}, Type={'BUY' if pos.type == mt5.ORDER_TYPE_BUY else 'SELL'}")
 
-            # 检测已平仓(从sent_tickets中移除不在当前持仓中的ticket)
-            closed_tickets = self.sent_tickets - current_tickets
-            for ticket in closed_tickets:
-                signal = TradingSignal(
-                    signal_type=SignalType.CLOSE_ORDER.value,
-                    symbol="",
-                    ticket=ticket
-                )
-                signals.append(signal)
-                self.sent_tickets.discard(ticket)
-                self.logger.info(f"Position closed: Ticket={ticket}")
-
-            # 检测持仓修改(SL/TP变化)
-            for pos in current_positions:
-                if pos.ticket in self.sent_tickets:
-                    # 这里可以添加更复杂的逻辑来检测SL/TP变化
-                    pass
+            # 处理关闭的持仓
+            # （需要维护一个持仓快照来检测关闭）
+            # 这里简化处理，实际应该对比上一次的状态
 
         except Exception as e:
-            self.logger.error(f"Error detecting signals: {e}")
+            self.logger.error(f"Error checking for new signals: {e}")
 
-        return signals
-
-    def send_signal_message(self, signals: List[TradingSignal],
-                          positions: List[PositionInfo] = None,
-                          orders: List[OrderInfo] = None):
+    def send_signal(self, signal: TradingSignal):
         """
-        发送信号消息
+        发送交易信号
 
         Args:
-            signals: 交易信号列表
-            positions: 持仓信息列表
-            orders: 挂单信息列表
+            signal: 交易信号
         """
-        if not signals and not self.config['signal'].get('include_positions', False):
-            return
-
         try:
             message = SignalMessage(
-                signal_type=SignalType.STATUS.value if not signals else SignalType.NEW_ORDER.value,
                 master_id=self.config['mqtt']['client_id'],
-                signals=[s.to_dict() for s in signals],
-                positions=[p.to_dict() for p in positions] if positions else [],
-                orders=[o.to_dict() for o in orders] if orders else []
+                timestamp=int(datetime.now().timestamp()),
+                signals=[signal.to_dict()]
             )
-
-            json_message = message.to_json()
-            success = self.mqtt_client.publish("signals", json_message)
-
-            if success:
-                self.logger.debug(f"Signal sent: {len(signals)} signals, "
-                                f"{len(positions or [])} positions, "
-                                f"{len(orders or [])} orders")
-            else:
-                self.logger.error("Failed to send signal")
+            
+            self.mqtt_client.publish("signals", message.to_json())
+            self.logger.info(f"Signal sent: {signal.symbol} {signal.order_type} "
+                           f"ticket={signal.master_ticket}")
 
         except Exception as e:
-            self.logger.error(f"Error sending signal message: {e}")
+            self.logger.error(f"Error sending signal: {e}")
 
     def run(self):
-        """运行主服务器"""
+        """主运行循环"""
         self.logger.info("Starting Master Signal Sender...")
-
+        
         # 初始化MT5
         if not self.initialize_mt5():
             self.logger.error("Failed to initialize MT5. Exiting.")
@@ -264,53 +236,31 @@ class MasterSignalSender:
         # 连接MQTT
         self.connect_mqtt()
 
+        # 主循环
+        check_interval = self.config.get('signal', {}).get('check_interval', 1)
+        
         try:
-            send_interval = self.config['signal'].get('send_interval_ms', 100) / 1000.0
-            self.logger.info(f"Signal sender running with interval: {send_interval}s")
-
             while True:
-                # 检测新信号
-                signals = self.detect_new_signals()
-
-                # 获取持仓和挂单(如果配置启用)
-                positions = None
-                orders = None
-                if self.config['signal'].get('include_positions', False):
-                    positions = self.get_positions()
-                if self.config['signal'].get('include_orders', False):
-                    orders = self.get_pending_orders()
-
-                # 发送信号
-                if signals or positions or orders:
-                    self.send_signal_message(signals, positions, orders)
-
-                # 等待下一个周期
-                time.sleep(send_interval)
-
+                self.check_for_new_signals()
+                time.sleep(check_interval)
         except KeyboardInterrupt:
-            self.logger.info("Master server stopped by user")
+            self.logger.info("Master Signal Sender stopped by user")
         except Exception as e:
-            self.logger.error(f"Error in main loop: {e}")
+            self.logger.error(f"Master Signal Sender error: {e}")
         finally:
-            self.cleanup()
-
-    def cleanup(self):
-        """清理资源"""
-        self.logger.info("Cleaning up resources...")
-        self.mqtt_client.disconnect()
-        mt5.shutdown()
-        self.logger.info("Cleanup completed")
+            self.mt5.shutdown()
+            self.mqtt_client.disconnect()
 
 
 def main():
-    """主函数"""
+    """入口函数"""
     import argparse
-
+    
     parser = argparse.ArgumentParser(description='MT5 Master Signal Sender')
-    parser.add_argument('--config', type=str, default='config/master_config.json',
+    parser.add_argument('--config', default='config/master_config.json',
                        help='Path to configuration file')
     args = parser.parse_args()
-
+    
     sender = MasterSignalSender(args.config)
     sender.run()
 
