@@ -34,15 +34,10 @@ class DashboardTab:
                                font=('Arial', 16, 'bold'))
         title_label.pack(side=tk.LEFT)
         
-        # Python 环境状态
-        if self.app.python_exe:
-            env_label = ttk.Label(title_frame, 
-                                 text=f"✓ Python: {self.app.python_exe}",
-                                 foreground="green")
-        else:
-            env_label = ttk.Label(title_frame, 
-                                 text="✗ Python 未安装",
-                                 foreground="red")
+        # 系统状态（exe 独立运行，无需外部 Python）
+        env_label = ttk.Label(title_frame, 
+                             text="✓ 独立运行模式",
+                             foreground="green")
         env_label.pack(side=tk.RIGHT)
 
         # 系统状态

@@ -12,6 +12,8 @@ from pathlib import Path
 
 # 添加项目根目录到 Python 路径
 project_root = Path(__file__).parent
+if getattr(sys, 'frozen', False):
+    project_root = Path(sys.executable).parent
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
@@ -36,8 +38,11 @@ class MT5ManagerApp:
         self.root.title("TradeMind MT5 - 智能交易策略管理")
         self.root.geometry("1200x800")
         self.root.minsize(1000, 700)
+        
+        # 设置窗口图标（PNG 格式）
+        self.setup_icon()
 
-        # 基础路径
+        # 基础路径（兼容 PyInstaller）
         if getattr(sys, 'frozen', False):
             self.base_dir = Path(sys.executable).parent
         else:
@@ -46,13 +51,9 @@ class MT5ManagerApp:
         # 目录
         self.config_dir = self.base_dir / "config"
         self.logs_dir = self.base_dir / "logs"
-        self.python_runtime_dir = self.base_dir / "python_runtime"
         
         self.config_dir.mkdir(exist_ok=True)
         self.logs_dir.mkdir(exist_ok=True)
-
-        # 检测 Python 环境
-        self.python_exe = self.detect_python()
 
         # 初始化服务
         self.config_manager = ConfigManager(self.base_dir)
@@ -67,59 +68,20 @@ class MT5ManagerApp:
         self.create_menu_bar()
         self.create_main_ui()
 
-    def detect_python(self):
-        """检测 Python 可执行文件"""
-        # 首先检查内置的 Python 运行时
-        if self.python_runtime_dir.exists():
-            if sys.platform == 'win32':
-                python_exe = self.python_runtime_dir / "python.exe"
+    def setup_icon(self):
+        """设置窗口图标（使用 PNG 格式）"""
+        try:
+            if getattr(sys, 'frozen', False):
+                icon_path = Path(sys.executable).parent / "icon.png"
             else:
-                python_exe = self.python_runtime_dir / "bin" / "python3"
+                icon_path = Path(__file__).parent / "icon.png"
             
-            if python_exe.exists():
-                return str(python_exe)
-
-        # 尝试使用系统 Python
-        if sys.platform == 'win32':
-            # Windows: 尝试常见路径
-            common_paths = [
-                "C:\\Python311\\python.exe",
-                "C:\\Python310\\python.exe",
-                "C:\\Python39\\python.exe",
-                "C:\\Program Files\\Python311\\python.exe",
-                "C:\\Program Files (x86)\\Python311\\python.exe",
-            ]
-            for path in common_paths:
-                if os.path.exists(path):
-                    return path
-            
-            # 尝试 PATH 中的 python
-            try:
-                result = subprocess.run(
-                    ["where", "python"],
-                    capture_output=True,
-                    text=True,
-                    check=True
-                )
-                if result.stdout.strip():
-                    return result.stdout.strip().split('\n')[0]
-            except:
-                pass
-        else:
-            # macOS/Linux
-            try:
-                result = subprocess.run(
-                    ["which", "python3"],
-                    capture_output=True,
-                    text=True,
-                    check=True
-                )
-                if result.stdout.strip():
-                    return result.stdout.strip()
-            except:
-                pass
-        
-        return None
+            if icon_path.exists():
+                icon = tk.PhotoImage(file=str(icon_path))
+                self.root.iconphoto(True, icon)
+        except Exception as e:
+            # 图标加载失败不影响主程序
+            pass
 
     def create_menu_bar(self):
         """创建顶部菜单栏"""
@@ -134,12 +96,9 @@ class MT5ManagerApp:
         file_menu.add_separator()
         file_menu.add_command(label="退出", command=self.root.quit)
 
-        # 工具菜单
+        # 工具菜单（移除 Python 安装选项，exe 已包含运行时）
         tools_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="工具", menu=tools_menu)
-        tools_menu.add_command(label="安装 Python 运行时", command=self.show_install_python_dialog)
-        tools_menu.add_command(label="安装依赖包", command=self.install_dependencies)
-        tools_menu.add_separator()
         tools_menu.add_command(label="清理日志", command=self.clear_logs)
 
         # 帮助菜单
@@ -183,30 +142,6 @@ class MT5ManagerApp:
             subprocess.run(['open', str(self.logs_dir)])
         else:
             subprocess.run(['xdg-open', str(self.logs_dir)])
-
-    def show_install_python_dialog(self):
-        """显示安装 Python 对话框"""
-        messagebox.showinfo(
-            "安装 Python 运行时",
-            "此功能将下载并安装嵌入式 Python。\n\n"
-            "如果您已安装系统 Python，可以跳过此步骤。\n\n"
-            "下载链接: https://www.python.org/downloads/"
-        )
-
-    def install_dependencies(self):
-        """安装依赖包"""
-        if not self.python_exe:
-            messagebox.showerror("错误", "未找到 Python 环境")
-            return
-        
-        try:
-            subprocess.run(
-                [self.python_exe, "-m", "pip", "install", "-r", "requirements.txt"],
-                check=True
-            )
-            messagebox.showinfo("成功", "依赖包安装完成")
-        except Exception as e:
-            messagebox.showerror("错误", f"安装失败: {e}")
 
     def clear_logs(self):
         """清理日志文件"""

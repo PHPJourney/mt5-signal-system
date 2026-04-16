@@ -150,11 +150,16 @@ jobs:
           icon = create_icon(256)
           icon.save('icon.ico', format='ICO', sizes=[(256, 256), (128, 128), (64, 64), (48, 48), (32, 32), (16, 16)])
           
+          # Generate PNG for tkinter window icon
+          icon_32 = create_icon(32)
+          icon_32.save('icon.png')
+          
           # Generate preview
           create_icon(512).save('icon_preview.png')
           
           print('[OK] TradeMind MT5 icon generated')
-          print('  - icon.ico (multi-size)')
+          print('  - icon.ico (multi-size, for exe)')
+          print('  - icon.png (32x32, for tkinter)')
           print('  - icon_preview.png (512x512)')
           "
         shell: pwsh
