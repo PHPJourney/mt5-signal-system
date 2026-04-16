@@ -37,8 +37,9 @@ class I18nManager:
             "English": "en_US"
         }
         
-        for nsh_file in self.lang_dir.glob("*.nsh"):
-            lang_name = nsh_file.stem
+        # Look for JSON files instead of NSH files
+        for json_file in self.lang_dir.glob("*.json"):
+            lang_name = json_file.stem
             if lang_name in lang_mapping:
                 languages[lang_mapping[lang_name]] = lang_name
         
@@ -61,13 +62,6 @@ class I18nManager:
                 return True
             except Exception as e:
                 print(f"Error loading JSON language file: {e}")
-        
-        # Fallback: Parse NSH file (simplified approach)
-        nsh_file = self.lang_dir / f"{lang_file_name}.nsh"
-        if nsh_file.exists():
-            self._parse_nsh_file(nsh_file, lang_code)
-            self.current_language = lang_code
-            return True
         
         return False
     

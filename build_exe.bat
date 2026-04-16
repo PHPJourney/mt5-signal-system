@@ -54,6 +54,7 @@ pyinstaller --name="MT5_Master_Server" ^
     --console ^
     --icon=NONE ^
     --add-data "config;config" ^
+    --add-data "lang;lang" ^
     --hidden-import=paho.mqtt.client ^
     --hidden-import=MetaTrader5 ^
     --hidden-import=common ^
@@ -82,6 +83,7 @@ pyinstaller --name="MT5_Slave_Server" ^
     --console ^
     --icon=NONE ^
     --add-data "config;config" ^
+    --add-data "lang;lang" ^
     --hidden-import=paho.mqtt.client ^
     --hidden-import=MetaTrader5 ^
     --hidden-import=common ^

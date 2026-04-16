@@ -89,6 +89,8 @@ Section "$(SEC_PANEL_NAME)" SecPanel
     SetOutPath "$INSTDIR\lang"
     File "..\lang\Chinese.json"
     File "..\lang\English.json"
+    File "..\lang\Chinese.nsh"
+    File "..\lang\English.nsh"
     
     ; 复制国际化模块
     SetOutPath "$INSTDIR\common"
