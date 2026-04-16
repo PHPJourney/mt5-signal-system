@@ -15,7 +15,34 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from common.mqtt_client import MQTTClient
 from common.models import SignalMessage, TradingSignal, PositionInfo, OrderInfo, SignalType
-from common.utils import load_config, setup_logger
+from common.utils import load_config, setup_logger, get_base_dir
+
+
+def get_default_master_config() -> dict:
+    """获取默认 Master 配置"""
+    return {
+        'enabled': True,
+        'mqtt': {
+            'broker': 'localhost',
+            'port': 1883,
+            'username': 'master',
+            'password': '',
+            'client_id': 'master_001'
+        },
+        'mt5': {
+            'terminal_path': '',
+            'auto_select': True
+        },
+        'logging': {
+            'file': 'logs/master.log',
+            'level': 'INFO'
+        },
+        'signal': {
+            'broadcast_interval': 1,
+            'include_positions': True,
+            'include_orders': True
+        }
+    }
 
 
 class MasterSignalSender:
@@ -28,8 +55,32 @@ class MasterSignalSender:
         Args:
             config_path: 配置文件路径
         """
+        # 获取 exe 所在目录作为基础路径
+        base_dir = get_base_dir()
+        
+        # 解析配置文件路径（相对于 exe 目录）
+        if not os.path.isabs(config_path):
+            config_path = str(base_dir / config_path)
+        
         # 加载配置
         self.config = load_config(config_path)
+        
+        # 如果配置为空，使用默认配置
+        if not self.config:
+            print(f"Warning: Config file not found: {config_path}")
+            print("Using default configuration...")
+            self.config = get_default_master_config()
+            
+            # 确保日志目录存在
+            log_dir = base_dir / 'logs'
+            log_dir.mkdir(parents=True, exist_ok=True)
+        
+        # 确保日志文件路径是相对于 exe 目录
+        if 'logging' in self.config and 'file' in self.config['logging']:
+            log_file = self.config['logging']['file']
+            if not os.path.isabs(log_file):
+                self.config['logging']['file'] = str(base_dir / log_file)
+        
         self.logger = setup_logger(
             "master_server",
             self.config['logging']['file'],
@@ -46,6 +97,8 @@ class MasterSignalSender:
         self.mt5_initialized = False
 
         self.logger.info("Master Signal Sender initialized")
+        self.logger.info(f"Base directory: {base_dir}")
+        self.logger.info(f"Config path: {config_path}")
 
     def initialize_mt5(self) -> bool:
         """

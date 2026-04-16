@@ -18,9 +18,62 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from common.mqtt_client import MQTTClient
 from common.models import SignalMessage, TradingSignal, SignalType, OrderType
-from common.utils import load_config, setup_logger, normalize_lot_size
+from common.utils import load_config, setup_logger, normalize_lot_size, get_base_dir
 from slave.symbol_mapper import SymbolMapper
 from slave.risk_manager import RiskManager
+
+
+def get_default_slave_config() -> dict:
+    """获取默认 Slave 配置"""
+    return {
+        'enabled': True,
+        'mqtt': {
+            'broker': 'localhost',
+            'port': 1883,
+            'username': 'slave',
+            'password': '',
+            'client_id': 'slave_001'
+        },
+        'mt5': {
+            'terminal_path': '',
+            'auto_select': True
+        },
+        'logging': {
+            'file': 'logs/slave.log',
+            'level': 'INFO'
+        },
+        'common': {
+            'follow_mode': 'both',
+            'multiplier': 1.0,
+            'fixed_volume': 0.01,
+            'min_volume': 0.01,
+            'max_volume': 100.0,
+            'balance_ratio': 1.0
+        },
+        'filter': {
+            'follow_symbols': [],
+            'ignore_symbols': [],
+            'allowed_magics': [],
+            'follow_market_orders': True,
+            'follow_pending_orders': False,
+            'allow_duplicate_follow': False,
+            'follow_sl_tp': True,
+            'max_price_deviation_points': 0
+        },
+        'risk': {
+            'max_daily_loss_usd': 0,
+            'max_session_loss_usd': 0,
+            'max_positions': 0,
+            'max_total_lots': 0,
+            'cool_down_minutes': 0
+        },
+        'trailing_stop': {
+            'enabled': False,
+            'trigger_points': 20,
+            'stop_points': 10
+        },
+        'symbol_mapping': {}
+    }
 
 
 class SlaveSignalReceiver:
@@ -33,8 +86,32 @@ class SlaveSignalReceiver:
         Args:
             config_path: 配置文件路径
         """
+        # 获取 exe 所在目录作为基础路径
+        base_dir = get_base_dir()
+        
+        # 解析配置文件路径（相对于 exe 目录）
+        if not os.path.isabs(config_path):
+            config_path = str(base_dir / config_path)
+        
         # 加载配置
         self.config = load_config(config_path)
+        
+        # 如果配置为空，使用默认配置
+        if not self.config:
+            print(f"Warning: Config file not found: {config_path}")
+            print("Using default configuration...")
+            self.config = get_default_slave_config()
+            
+            # 确保日志目录存在
+            log_dir = base_dir / 'logs'
+            log_dir.mkdir(parents=True, exist_ok=True)
+        
+        # 确保日志文件路径是相对于 exe 目录
+        if 'logging' in self.config and 'file' in self.config['logging']:
+            log_file = self.config['logging']['file']
+            if not os.path.isabs(log_file):
+                self.config['logging']['file'] = str(base_dir / log_file)
+        
         self.logger = setup_logger(
             "slave_server",
             self.config['logging']['file'],
