@@ -65,11 +65,18 @@ class MasterSignalSender:
         # 加载配置
         self.config = load_config(config_path)
         
-        # 如果配置为空，使用默认配置
-        if not self.config:
-            print(f"Warning: Config file not found: {config_path}")
-            print("Using default configuration...")
-            self.config = get_default_master_config()
+        # 如果配置为空或不完整，使用默认配置
+        if not self.config or 'logging' not in self.config:
+            if not self.config:
+                print(f"Warning: Config file not found: {config_path}")
+            else:
+                print(f"Warning: Config file is incomplete, using defaults for missing fields")
+            
+            # 合并默认配置（保留用户已有的配置）
+            default_config = get_default_master_config()
+            for key, value in default_config.items():
+                if key not in self.config:
+                    self.config[key] = value
             
             # 确保日志目录存在
             log_dir = base_dir / 'logs'
