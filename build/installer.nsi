@@ -10,7 +10,6 @@
 
 ; Set code page to UTF-8
 Unicode true
-!define MUI_LANGDLL_ALLLANGUAGES
 
 ; General settings
 Name "TradeMind MT5"
@@ -34,8 +33,14 @@ VIAddVersionKey "FileDescription" "Intelligent Trading Strategy Platform"
 !define MUI_ICON "..\dist\icon.ico"
 !define MUI_UNICON "..\dist\icon.ico"
 
+; Language settings - Default to Simplified Chinese
+!define MUI_LANGDLL_REGISTRY_ROOT "HKLM"
+!define MUI_LANGDLL_REGISTRY_KEY "Software\TradeMindMT5"
+!define MUI_LANGDLL_REGISTRY_VALUENAME "Installer Language"
+
 ; Pages
 !insertmacro MUI_PAGE_WELCOME
+!insertmacro MUI_PAGE_LICENSE "..\LICENSE"
 !insertmacro MUI_PAGE_COMPONENTS
 !insertmacro MUI_PAGE_DIRECTORY
 !insertmacro MUI_PAGE_INSTFILES
@@ -43,10 +48,11 @@ VIAddVersionKey "FileDescription" "Intelligent Trading Strategy Platform"
 
 !insertmacro MUI_UNPAGE_CONFIRM
 !insertmacro MUI_UNPAGE_INSTFILES
+!insertmacro MUI_UNPAGE_FINISH
 
-; Language
-!insertmacro MUI_LANGUAGE "English"
+; Language - Simplified Chinese first, then English
 !insertmacro MUI_LANGUAGE "SimpChinese"
+!insertmacro MUI_LANGUAGE "English"
 !insertmacro MUI_RESERVEFILE_LANGDLL
 
 ; Variables
@@ -54,35 +60,45 @@ Var EnableMaster
 Var EnableSlave
 
 ; Component sections
-Section "Management Panel (Required)" SecPanel
+Section "管理面板 (必选)" SecPanel
     SectionIn RO  ; Required, cannot be unchecked
+    
+    ; Set fixed size for display (in KB)
+    SectionSetSize ${SecPanel} 15360  ; 15 MB for Manager EXE
 SectionEnd
 
-Section "Master Strategy Engine" SecMaster
+Section "策略引擎 (Master)" SecMaster
+    ; Set fixed size for display (in KB)
+    SectionSetSize ${SecMaster} 10240  ; 10 MB for Master EXE
+    
     StrCpy $EnableMaster "true"
 SectionEnd
 
-Section "Slave Execution Node" SecSlave
+Section "执行节点 (Slave)" SecSlave
+    ; Set fixed size for display (in KB)
+    SectionSetSize ${SecSlave} 10240  ; 10 MB for Slave EXE
+    
     StrCpy $EnableSlave "true"
 SectionEnd
 
-Section "System Documentation" SecDeps
+Section "系统文档" SecDeps
+    SectionSetSize ${SecDeps} 0
 SectionEnd
 
-Section "Configuration Templates" SecConfig
+Section "配置模板" SecConfig
     SetOutPath "$INSTDIR\config"
-
+    
     IfFileExists "..\config\*.*" 0 +3
         File /r "..\config\*.*"
     Goto +2
         CreateDirectory "$INSTDIR\config"
-
+    
     SetOutPath "$INSTDIR"
 SectionEnd
 
-Section "Documents" SecDocs
+Section "用户手册" SecDocs
     SetOutPath "$INSTDIR"
-
+    
     IfFileExists "..\README.md" 0 +2
         File "..\README.md"
     IfFileExists "..\QUICKSTART.md" 0 +2
@@ -127,26 +143,21 @@ Section -Post
     FileWriteUTF16LE $0 "========================================$\r$\n"
     FileWriteUTF16LE $0 "TradeMind MT5 - Intelligent Trading Platform$\r$\n"
     FileWriteUTF16LE $0 "========================================$\r$\n"
-    FileWriteUTF16LE $0 "$\r$\n"
     FileWriteUTF16LE $0 "This system provides intelligent trading strategies.$\r$\n"
     FileWriteUTF16LE $0 "Signals are distributed via MQTT to execution nodes.$\r$\n"
     FileWriteUTF16LE $0 "$\r$\n"
-    FileWriteUTF16LE $0 "Installed components:$\r$\n"
-    FileWriteUTF16LE $0 "- MT5_Manager.exe  : Management Panel (GUI)$\r$\n"
+    FileWriteUTF16LE $0 "Components installed:$\r$\n"
     
     StrCmp $EnableMaster "true" 0 +2
-    FileWriteUTF16LE $0 "- MT5_Master.exe   : Strategy Engine (Master)$\r$\n"
-    
+        FileWriteUTF16LE $0 "  - Master Strategy Engine$\r$\n"
     StrCmp $EnableSlave "true" 0 +2
-    FileWriteUTF16LE $0 "- MT5_Slave.exe    : Execution Node (Slave)$\r$\n"
+        FileWriteUTF16LE $0 "  - Slave Execution Node$\r$\n"
     
     FileWriteUTF16LE $0 "$\r$\n"
-    FileWriteUTF16LE $0 "Usage:$\r$\n"
-    FileWriteUTF16LE $0 "1. Double-click MT5_Manager.exe to start$\r$\n"
-    FileWriteUTF16LE $0 "2. Configure strategy parameters$\r$\n"
-    FileWriteUTF16LE $0 "3. Click 'Start' to run trading strategies$\r$\n"
-    FileWriteUTF16LE $0 "$\r$\n"
-    FileWriteUTF16LE $0 "Note: MetaTrader 5 terminal required for execution$\r$\n"
+    FileWriteUTF16LE $0 "Getting Started:$\r$\n"
+    FileWriteUTF16LE $0 "1. Launch TradeMind Manager from Desktop$\r$\n"
+    FileWriteUTF16LE $0 "2. Configure MT5 terminal and MQTT settings$\r$\n"
+    FileWriteUTF16LE $0 "3. Start Master/Slave services$\r$\n"
     FileClose $0
 
     ; Create shortcuts
@@ -199,51 +210,70 @@ Section "Uninstall"
     RMDir "$INSTDIR"
 
     DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\TradeMindMT5"
+    DeleteRegKey /ifempty HKLM "Software\TradeMindMT5"
 SectionEnd
 
 ; Descriptions
 !insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
-    !insertmacro MUI_DESCRIPTION_TEXT ${SecPanel} "Management Panel - Configuration and Monitoring (Required)"
-    !insertmacro MUI_DESCRIPTION_TEXT ${SecMaster} "Strategy Engine - Intelligent trading strategies (Master)"
-    !insertmacro MUI_DESCRIPTION_TEXT ${SecSlave} "Execution Node - Signal execution and order management (Slave)"
-    !insertmacro MUI_DESCRIPTION_TEXT ${SecDeps} "System documentation"
-    !insertmacro MUI_DESCRIPTION_TEXT ${SecConfig} "Configuration templates"
-    !insertmacro MUI_DESCRIPTION_TEXT ${SecDocs} "User manual"
+    !insertmacro MUI_DESCRIPTION_TEXT ${SecPanel} "管理面板 - 配置和监控（必选）"
+    !insertmacro MUI_DESCRIPTION_TEXT ${SecMaster} "策略引擎 - 智能交易策略（Master 主服务器）"
+    !insertmacro MUI_DESCRIPTION_TEXT ${SecSlave} "执行节点 - 信号执行和订单管理（Slave 从服务器）"
+    !insertmacro MUI_DESCRIPTION_TEXT ${SecDeps} "系统文档"
+    !insertmacro MUI_DESCRIPTION_TEXT ${SecConfig} "配置模板"
+    !insertmacro MUI_DESCRIPTION_TEXT ${SecDocs} "用户手册"
 !insertmacro MUI_FUNCTION_DESCRIPTION_END
 
 ; Validation: at least one of Master/Slave must be selected
 Function .onLeaveComponents
+    ; Check if Master is selected
     SectionGetFlags ${SecMaster} $R0
     IntOp $R0 $R0 & ${SF_SELECTED}
     
+    ; Check if Slave is selected
     SectionGetFlags ${SecSlave} $R1
     IntOp $R1 $R1 & ${SF_SELECTED}
     
-    IntCmp $R0 0 0 skip_check
+    ; If both are NOT selected (both flags are 0)
+    IntCmp $R0 0 check_slave skip_check check_slave
+    
+    check_slave:
     IntCmp $R1 0 0 skip_check
     
-    MessageBox MB_ICONEXCLAMATION|MB_OK "Please select at least one: Master or Slave!$\n$\nBoth cannot be unselected."
+    ; Both are unselected, show error
+    MessageBox MB_ICONEXCLAMATION|MB_OK \
+        "请至少选择一项：Master 策略引擎 或 Slave 执行节点！$\n$\n两者不能同时不选。" \
+        /SD IDOK
     Abort
     
     skip_check:
 FunctionEnd
 
 Function .onInit
+    ; Initialize variables
     StrCpy $EnableMaster "false"
     StrCpy $EnableSlave "false"
     
+    ; Set default selections
     SectionSetFlags ${SecPanel} ${SF_SELECTED}
     SectionSetFlags ${SecMaster} ${SF_SELECTED}
     SectionSetFlags ${SecSlave} ${SF_SELECTED}
     SectionSetFlags ${SecDeps} ${SF_SELECTED}
     
+    ; Set default language to Simplified Chinese
     !insertmacro MUI_LANGDLL_DISPLAY
+    
+    ; If user cancels language selection, abort
+    IfSilent +3
+    IntCmp $0 0 0 +2
+    Abort
 FunctionEnd
 
 Function un.onInit
     !insertmacro MUI_UNGETLANGUAGE
+    
     MessageBox MB_ICONQUESTION|MB_YESNO|MB_DEFBUTTON2 \
-        "Are you sure you want to completely uninstall TradeMind MT5?$\n$\nThis will remove all files." \
+        "您确定要完全卸载 TradeMind MT5 吗？$\n$\n此操作将删除所有文件。" \
+        /SD IDNO \
         IDYES +2
     Abort
 FunctionEnd
