@@ -24,9 +24,12 @@ from slave.risk_manager import RiskManager
 
 
 def get_default_slave_config() -> dict:
-    """获取默认 Slave 配置"""
+    """获取默认 Slave 配置 - 对标言成EA 71个参数"""
     return {
+        # 基础开关
         'enabled': True,
+        
+        # MQTT 配置
         'mqtt': {
             'broker': 'localhost',
             'port': 1883,
@@ -34,45 +37,109 @@ def get_default_slave_config() -> dict:
             'password': '',
             'client_id': 'slave_001'
         },
+        
+        # MT5 配置
         'mt5': {
             'terminal_path': '',
             'auto_select': True
         },
+        
+        # 订阅配置
+        'subscription': {
+            'master_id': 'master_001'
+        },
+        
+        # 日志配置
         'logging': {
             'file': 'logs/slave.log',
             'level': 'INFO'
         },
+        
+        # 常用设置
         'common': {
-            'follow_mode': 'both',
-            'multiplier': 1.0,
-            'fixed_volume': 0.01,
-            'min_volume': 0.01,
-            'max_volume': 100.0,
-            'balance_ratio': 1.0
+            'follow_mode': 'both',  # both/long_only/short_only
+            'enable_alerts': True,
+            'stop_alert_on_price': False,
+            'reverse_trading': False,
+            'magic_number': 999999,
+            'slippage_points': 30,
+            'comment_prefix': 'TM_'
         },
+        
+        # 安全设置
+        'security': {
+            'allow_auto_trading': True,
+            'allow_dll_import': False
+        },
+        
+        # 风险管理（手数模式 + 风险控制）
+        'risk': {
+            # 风险控制参数
+            'max_drawdown_percent': 10.0,
+            'max_drawdown_usd': 1000.0,
+            'max_profit_percent': 20.0,
+            'max_profit_usd': 2000.0,
+            'session_loss_usd': 0.0,
+            'session_profit_usd': 0.0,
+            'cooldown_minutes': 0,
+            'max_positions': 3,
+            'max_total_lots': 10.0,
+            
+            # 手数计算模式
+            'lot_mode': 'multiplier',  # multiplier/balance_ratio/fixed/fixed_per_usd/incremental
+            'lot_multiplier': 1.0,
+            'fixed_lot': 0.1,
+            'balance_ratio': 1.0,
+            'usd_per_lot': 1000.0,
+            'incremental_base': 0.01,
+            'incremental_step': 0.01,
+            
+            # 手数限制
+            'min_lot': 0.01,
+            'max_lot': 888.8,
+            'skip_lot_less_than': 0.01,
+            'skip_lot_greater_than': 888.8
+        },
+        
+        # 过滤规则
         'filter': {
-            'follow_symbols': [],
-            'ignore_symbols': [],
-            'allowed_magics': [],
+            'follow_buy': True,
+            'follow_sell': True,
             'follow_market_orders': True,
             'follow_pending_orders': False,
+            'follow_old_orders': False,
+            'max_order_age_minutes': 0.0,
             'allow_duplicate_follow': False,
-            'follow_sl_tp': True,
-            'max_price_deviation_points': 0
+            'follow_close': True,
+            'follow_sl_tp': False,
+            'require_profit_points': 0,
+            'require_loss_points': 0,
+            'max_price_deviation_points': 0,
+            'allowed_magics': [],
+            'required_comments': [],
+            'allowed_hours_start': '00:00:00',
+            'allowed_hours_end': '23:59:59',
+            'whitelist_symbols': [],
+            'blacklist_symbols': []
         },
-        'risk': {
-            'max_daily_loss_usd': 0,
-            'max_session_loss_usd': 0,
-            'max_positions': 0,
-            'max_total_lots': 0,
-            'cool_down_minutes': 0
-        },
+        
+        # 追踪止损
         'trailing_stop': {
             'enabled': False,
-            'trigger_points': 20,
-            'stop_points': 10
+            'profit_points': 0,
+            'trail_points': 0
         },
-        'symbol_mapping': {}
+        
+        # 符号映射
+        'symbol_mapping': {},
+        
+        # 高级设置
+        'advanced': {
+            'refresh_interval_ms': 150,
+            'auto_clear_traces': True,
+            'disconnect_alert_seconds': 30,
+            'custom_comment': ''
+        }
     }
 
 
