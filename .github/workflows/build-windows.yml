@@ -406,18 +406,33 @@ jobs:
         run: |
           Write-Host "=== Before running makensis ==="
           
+          # Verify files exist
+          Write-Host "Checking for exe files in dist/:"
+          Get-ChildItem dist/ -Filter "*.exe" | ForEach-Object {
+              Write-Host "  ✓ $($_.Name) ($([math]::Round($_.Length/1MB, 2)) MB)"
+          }
+          
+          Write-Host "`nChecking installer.nsi:"
           if (Test-Path "build/installer.nsi") {
-              Write-Host "✓ File exists, proceeding with makensis" -ForegroundColor Green
+              Write-Host "✓ File exists" -ForegroundColor Green
           } else {
               Write-Host "✗ File not found!" -ForegroundColor Red
               exit 1
           }
           
-          Write-Host "`nRunning: makensis build/installer.nsi"
-          & "C:\Program Files (x86)\NSIS\makensis.exe" build/installer.nsi
+          # Run makensis from build/ directory so relative paths work
+          Write-Host "`nRunning: cd build && makensis installer.nsi"
+          Set-Location build
+          & "C:\Program Files (x86)\NSIS\makensis.exe" installer.nsi
           
           if ($LASTEXITCODE -eq 0) {
               Write-Host "✓ NSIS build successful!" -ForegroundColor Green
+              
+              # Verify installer was created
+              if (Test-Path "..\dist\TradeMind_MT5_Installer*.exe") {
+                  $installer = Get-Item "..\dist\TradeMind_MT5_Installer*.exe" | Select-Object -First 1
+                  Write-Host "✓ Installer created: $($installer.Name) ($([math]::Round($installer.Length/1MB, 2)) MB)"
+              }
           } else {
               Write-Host "✗ NSIS build failed!" -ForegroundColor Red
               exit 1
