@@ -1,6 +1,20 @@
 ; TradeMind MT5 - Unified Installer
 ; 交易智慧 - 面板必选，主从至少选一个
+# 文件编码
+Unicode True
 
+; TradeMind MT5 Installer Script
+
+!define PRODUCT_NAME "TradeMind MT5"
+!define PRODUCT_VERSION "1.0.0"
+!define PRODUCT_PUBLISHER "TradeMind"
+!define PRODUCT_WEB_SITE "https://trademind.dev"
+!define PRODUCT_UNINST_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\TradeMindMT5"
+!define PRODUCT_UNINST_ROOT_KEY "HKLM"
+
+SetCompressor /SOLID lzma
+
+; MUI 2.0
 !include "MUI2.nsh"
 !include "LogicLib.nsh"
 !include "FileFunc.nsh"
