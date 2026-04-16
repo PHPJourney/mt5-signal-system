@@ -259,13 +259,18 @@ Function .onInit
     SectionSetFlags ${SecSlave} ${SF_SELECTED}
     SectionSetFlags ${SecDeps} ${SF_SELECTED}
     
-    ; Set default language to Simplified Chinese
+    ; Display language selection dialog
     !insertmacro MUI_LANGDLL_DISPLAY
     
-    ; If user cancels language selection, abort
-    IfSilent +3
-    IntCmp $0 0 0 +2
+    ; Check if user cancelled language selection
+    ; $Language will be 0 if cancelled
+    StrCmp $Language 0 0 lang_ok
+    
+    ; User cancelled, abort installation
     Abort
+    
+    lang_ok:
+    ; Continue with installation
 FunctionEnd
 
 Function un.onInit
