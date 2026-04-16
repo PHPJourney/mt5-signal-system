@@ -300,7 +300,7 @@ jobs:
           }
         shell: pwsh
 
-      - name: Prepare files for upload
+      - name: Prepare artifacts for upload
         run: |
           # Create a clean directory without path prefixes
           New-Item -Path "artifact" -ItemType Directory -Force
@@ -309,7 +309,10 @@ jobs:
           Copy-Item "dist/MT5_Manager.exe" "artifact/"
           Copy-Item "dist/MT5_Master.exe" "artifact/"
           Copy-Item "dist/MT5_Slave.exe" "artifact/"
+          
+          # Copy icon files
           Copy-Item "icon.ico" "artifact/"
+          Copy-Item "icon.png" "artifact/"
           
           if (Test-Path "README.md") {
             Copy-Item "README.md" "artifact/"
