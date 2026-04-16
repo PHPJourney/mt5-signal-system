@@ -75,31 +75,21 @@ Var EnableSlave
 
 ; Component sections
 Section "管理面板 (必选)" SecPanel
-    SectionIn RO  ; Required, cannot be unchecked
+    SectionIn RO
     
     SetOutPath "$INSTDIR"
     
-    ; Copy Manager executable
-    IfFileExists "..\dist\MT5_Manager.exe" 0 +3
-        File "..\dist\MT5_Manager.exe"
-        Goto +2
-        DetailPrint "Warning: MT5_Manager.exe not found"
+    File "..\dist\MT5_Manager.exe"
     
-    ; Set fixed size for display (in KB)
-    SectionSetSize ${SecPanel} 15360  ; 15 MB for Manager EXE
+    SectionSetSize ${SecPanel} 15360
 SectionEnd
 
 Section "策略引擎 (Master)" SecMaster
     SetOutPath "$INSTDIR"
     
-    ; Copy Master executable
-    IfFileExists "..\dist\MT5_Master.exe" 0 +3
-        File "..\dist\MT5_Master.exe"
-        Goto +2
-        DetailPrint "Warning: MT5_Master.exe not found"
+    File "..\dist\MT5_Master.exe"
     
-    ; Set fixed size for display (in KB)
-    SectionSetSize ${SecMaster} 10240  ; 10 MB for Master EXE
+    SectionSetSize ${SecMaster} 10240
     
     StrCpy $EnableMaster "true"
 SectionEnd
@@ -107,38 +97,25 @@ SectionEnd
 Section "执行节点 (Slave)" SecSlave
     SetOutPath "$INSTDIR"
     
-    ; Copy Slave executable
-    IfFileExists "..\dist\MT5_Slave.exe" 0 +3
-        File "..\dist\MT5_Slave.exe"
-        Goto +2
-        DetailPrint "Warning: MT5_Slave.exe not found"
+    File "..\dist\MT5_Slave.exe"
     
-    ; Set fixed size for display (in KB)
-    SectionSetSize ${SecSlave} 10240  ; 10 MB for Slave EXE
+    SectionSetSize ${SecSlave} 10240
     
     StrCpy $EnableSlave "true"
 SectionEnd
 
-Section "系统文档" SecDeps
-    SectionSetSize ${SecDeps} 0
-SectionEnd
-
-Section "配置模板" SecConfig
+Section "配置文件" SecConfig
     SetOutPath "$INSTDIR\config"
     
-    ; Copy config files
     IfFileExists "..\config\master_config.json" 0 +2
         File "..\config\master_config.json"
     IfFileExists "..\config\slave_config.json" 0 +2
         File "..\config\slave_config.json"
-    
-    SetOutPath "$INSTDIR"
 SectionEnd
 
 Section "用户手册" SecDocs
     SetOutPath "$INSTDIR"
     
-    ; Copy documentation
     IfFileExists "..\README.md" 0 +2
         File "..\README.md"
     IfFileExists "..\QUICKSTART.md" 0 +2
