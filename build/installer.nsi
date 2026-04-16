@@ -143,8 +143,6 @@ Section "用户手册" SecDocs
         File "..\README.md"
     IfFileExists "..\QUICKSTART.md" 0 +2
         File "..\QUICKSTART.md"
-    IfFileExists "..\INSTALL_GUIDE.md" 0 +2
-        File "..\INSTALL_GUIDE.md"
 SectionEnd
 
 ; Post-installation: generate config and copy files
