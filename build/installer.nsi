@@ -271,7 +271,8 @@ Function .onInit
     SectionSetFlags ${SecPanel} ${SF_SELECTED}
     SectionSetFlags ${SecMaster} ${SF_SELECTED}
     SectionSetFlags ${SecSlave} ${SF_SELECTED}
-    SectionSetFlags ${SecDeps} ${SF_SELECTED}
+    SectionSetFlags ${SecConfig} ${SF_SELECTED}
+    SectionSetFlags ${SecDocs} ${SF_SELECTED}
     
     ; Display language selection dialog
     !insertmacro MUI_LANGDLL_DISPLAY
