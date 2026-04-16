@@ -25,10 +25,24 @@ class DashboardTab:
         main_frame = ttk.Frame(self, padding="10")
         main_frame.pack(fill=tk.BOTH, expand=True)
 
-        # 标题
-        title_label = ttk.Label(main_frame, text="TradeMind MT5 - 控制面板", 
+        # 标题栏
+        title_frame = ttk.Frame(main_frame)
+        title_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        title_label = ttk.Label(title_frame, text="TradeMind MT5 - 控制面板", 
                                font=('Arial', 16, 'bold'))
-        title_label.pack(pady=(0, 20))
+        title_label.pack(side=tk.LEFT)
+        
+        # Python 环境状态
+        if self.app.python_exe:
+            env_label = ttk.Label(title_frame, 
+                                 text=f"✓ Python: {self.app.python_exe}",
+                                 foreground="green")
+        else:
+            env_label = ttk.Label(title_frame, 
+                                 text="✗ Python 未安装",
+                                 foreground="red")
+        env_label.pack(side=tk.RIGHT)
 
         # 系统状态
         status_frame = ttk.LabelFrame(main_frame, text="系统状态", padding="10")
@@ -45,10 +59,20 @@ class DashboardTab:
                                                 text="未启动", foreground="red")
             self.master_status_label.pack(side=tk.LEFT, padx=5)
             
-            self.master_start_btn = ttk.Button(self.master_status_frame, 
+            # 按钮框架
+            master_btn_frame = ttk.Frame(self.master_status_frame)
+            master_btn_frame.pack(side=tk.RIGHT)
+            
+            self.master_start_btn = ttk.Button(master_btn_frame, 
                                                text="启动", 
                                                command=self.start_master)
-            self.master_start_btn.pack(side=tk.RIGHT, padx=5)
+            self.master_start_btn.pack(side=tk.LEFT, padx=2)
+            
+            self.master_stop_btn = ttk.Button(master_btn_frame, 
+                                              text="停止", 
+                                              command=self.stop_master,
+                                              state=tk.DISABLED)
+            self.master_stop_btn.pack(side=tk.LEFT, padx=2)
 
         # Slave 状态
         if self.enable_slave:
@@ -61,10 +85,20 @@ class DashboardTab:
                                                text="未启动", foreground="red")
             self.slave_status_label.pack(side=tk.LEFT, padx=5)
             
-            self.slave_start_btn = ttk.Button(self.slave_status_frame, 
+            # 按钮框架
+            slave_btn_frame = ttk.Frame(self.slave_status_frame)
+            slave_btn_frame.pack(side=tk.RIGHT)
+            
+            self.slave_start_btn = ttk.Button(slave_btn_frame, 
                                               text="启动", 
                                               command=self.start_slave)
-            self.slave_start_btn.pack(side=tk.RIGHT, padx=5)
+            self.slave_start_btn.pack(side=tk.LEFT, padx=2)
+            
+            self.slave_stop_btn = ttk.Button(slave_btn_frame, 
+                                             text="停止", 
+                                             command=self.stop_slave,
+                                             state=tk.DISABLED)
+            self.slave_stop_btn.pack(side=tk.LEFT, padx=2)
 
         # MT5 终端检测
         self.create_mt5_section(main_frame)
@@ -79,6 +113,54 @@ class DashboardTab:
         # 初始刷新
         self.refresh_status()
     
+    def create_mt5_section(self, parent):
+        """创建 MT5 终端检测区域"""
+        mt5_frame = ttk.LabelFrame(parent, text="MT5 终端", padding="10")
+        mt5_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        self.mt5_listbox = tk.Listbox(mt5_frame, height=5)
+        self.mt5_listbox.pack(fill=tk.X, pady=5)
+        
+        ttk.Button(mt5_frame, text="检测 MT5 终端", 
+                  command=self.detect_mt5).pack()
+
+    def detect_mt5(self):
+        """检测 MT5 终端"""
+        self.mt5_listbox.delete(0, tk.END)
+        terminals = self.app.mt5_detector.find_terminals()
+        
+        if terminals:
+            for terminal in terminals:
+                self.mt5_listbox.insert(tk.END, terminal.get('name', 'Unknown'))
+        else:
+            self.mt5_listbox.insert(tk.END, "未检测到 MT5 终端")
+
+    def refresh_status(self):
+        """刷新状态"""
+        self.detect_mt5()
+        
+        # 更新 Master 状态
+        if hasattr(self, 'master_status_label'):
+            if self.app.process_manager.master_running:
+                self.master_status_label.config(text="● 运行中", foreground="green")
+                self.master_start_btn.config(state=tk.DISABLED)
+                self.master_stop_btn.config(state=tk.NORMAL)
+            else:
+                self.master_status_label.config(text="● 已停止", foreground="red")
+                self.master_start_btn.config(state=tk.NORMAL)
+                self.master_stop_btn.config(state=tk.DISABLED)
+        
+        # 更新 Slave 状态
+        if hasattr(self, 'slave_status_label'):
+            if self.app.process_manager.slave_running:
+                self.slave_status_label.config(text="● 运行中", foreground="green")
+                self.slave_start_btn.config(state=tk.DISABLED)
+                self.slave_stop_btn.config(state=tk.NORMAL)
+            else:
+                self.slave_status_label.config(text="● 已停止", foreground="red")
+                self.slave_start_btn.config(state=tk.NORMAL)
+                self.slave_stop_btn.config(state=tk.DISABLED)
+    
     def start_master(self):
         """启动 Master"""
         config_path = self.app.config_manager.config_dir / "master_config.json"
@@ -86,9 +168,10 @@ class DashboardTab:
         
         if result['success']:
             self.master_status_label.config(text="● 运行中", foreground="green")
+            self.master_start_btn.config(state=tk.DISABLED)
+            self.master_stop_btn.config(state=tk.NORMAL)
             self.app.update_status("Master 服务已启动")
         else:
-            from tkinter import messagebox
             messagebox.showerror("错误", result['error'])
     
     def stop_master(self):
@@ -97,9 +180,10 @@ class DashboardTab:
         
         if result['success']:
             self.master_status_label.config(text="● 已停止", foreground="red")
+            self.master_start_btn.config(state=tk.NORMAL)
+            self.master_stop_btn.config(state=tk.DISABLED)
             self.app.update_status("Master 服务已停止")
         else:
-            from tkinter import messagebox
             messagebox.showwarning("警告", result['error'])
     
     def start_slave(self):
@@ -109,9 +193,10 @@ class DashboardTab:
         
         if result['success']:
             self.slave_status_label.config(text="● 运行中", foreground="green")
+            self.slave_start_btn.config(state=tk.DISABLED)
+            self.slave_stop_btn.config(state=tk.NORMAL)
             self.app.update_status("Slave 服务已启动")
         else:
-            from tkinter import messagebox
             messagebox.showerror("错误", result['error'])
     
     def stop_slave(self):
@@ -120,7 +205,8 @@ class DashboardTab:
         
         if result['success']:
             self.slave_status_label.config(text="● 已停止", foreground="red")
+            self.slave_start_btn.config(state=tk.NORMAL)
+            self.slave_stop_btn.config(state=tk.DISABLED)
             self.app.update_status("Slave 服务已停止")
         else:
-            from tkinter import messagebox
             messagebox.showwarning("警告", result['error'])
