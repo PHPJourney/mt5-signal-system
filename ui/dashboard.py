@@ -128,11 +128,12 @@ class DashboardTab:
     def detect_mt5(self):
         """检测 MT5 终端"""
         self.mt5_listbox.delete(0, tk.END)
-        terminals = self.app.mt5_detector.find_terminals()
+        terminals = self.app.mt5_detector.detect_terminals()
         
         if terminals:
             for terminal in terminals:
-                self.mt5_listbox.insert(tk.END, terminal.get('name', 'Unknown'))
+                display = f"{terminal.get('broker', 'Unknown')} - {terminal.get('login', 'N/A')} ({terminal.get('path', 'N/A')})"
+                self.mt5_listbox.insert(tk.END, display)
         else:
             self.mt5_listbox.insert(tk.END, "未检测到 MT5 终端")
 
@@ -161,7 +162,7 @@ class DashboardTab:
                 self.slave_status_label.config(text="● 已停止", foreground="red")
                 self.slave_start_btn.config(state=tk.NORMAL)
                 self.slave_stop_btn.config(state=tk.DISABLED)
-    
+
     def start_master(self):
         """启动 Master"""
         config_path = self.app.config_manager.config_dir / "master_config.json"
