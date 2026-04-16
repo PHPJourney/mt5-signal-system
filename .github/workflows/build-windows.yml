@@ -2,34 +2,33 @@ name: Build Windows Installer
 
 on:
   push:
-    branches: [main, master]
-    tags: ['v*']
+    branches: [ main ]
+    tags: [ 'v*' ]
   pull_request:
-    branches: [main, master]
+    branches: [ main ]
   workflow_dispatch:
     inputs:
       release_version:
         description: 'Release version (e.g., v1.0.0)'
         required: false
-        type: string
-
-env:
-  PYTHON_VERSION: '3.11'
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   build-windows-exes:
     name: Build Windows EXEs
     runs-on: windows-latest
+    
+    defaults:
+      run:
+        working-directory: ${{ github.workspace }}
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
-      - name: Set up Python
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
+          python-version: '3.11'
 
       - name: Cache pip dependencies
         uses: actions/cache@v4
@@ -334,7 +333,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Download Windows build
         uses: actions/download-artifact@v4
@@ -450,9 +449,17 @@ jobs:
         run: |
           $version = "${{ steps.version.outputs.version }}"
           $content = Get-Content build/installer.nsi -Raw
-          $content = $content -replace 'OutFile "dist\\MT5_Signal_System_Installer.exe"', "OutFile `"dist\MT5_Signal_System_Installer_v$version.exe`""
-          $content = $content -replace 'Name "MT5 Signal System"', "Name `"MT5 Signal System v$version`""
+          
+          # Update OutFile path with version
+          $content = $content -replace 'OutFile "\.\.\\dist\\TradeMind_MT5_Installer\.exe"', "OutFile `"..\dist\TradeMind_MT5_Installer_v$version.exe`""
+          
+          # Update Name with version
+          $content = $content -replace 'Name "TradeMind MT5"', "Name `"TradeMind MT5 v$version`""
+          
           Set-Content -Path build/installer.nsi -Value $content
+          
+          Write-Host "Updated installer.nsi:"
+          Write-Host ($content | Select-String "OutFile|Name" | Select-Object -First 4)
         shell: pwsh
 
       - name: Build NSIS Installer
@@ -480,8 +487,8 @@ jobs:
       - name: Upload NSIS Installer artifact
         uses: actions/upload-artifact@v4
         with:
-          name: windows-installer
-          path: dist/MT5_Signal_System_Installer_v*.exe
+          name: nsis-installer
+          path: dist/TradeMind_MT5_Installer_v*.exe
           retention-days: 30
 
   create-release:
@@ -496,71 +503,3 @@ jobs:
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
-
-      - name: List release assets
-        run: |
-          echo "=== Available files ==="
-          find . -type f -name "*.exe" -ls
-          echo ""
-          echo "=== Directory structure ==="
-          find . -type f | head -20
-        shell: bash
-
-      - name: Generate release notes
-        run: |
-          cat > RELEASE_NOTES.md << 'NOTESEOF'
-          # MT5 Signal System
-
-          ## ✨ 功能特性
-
-          ### 统一管理面板
-          - 🎯 **一体化客户端**：单个可执行文件，集成所有功能
-          - 🎨 **专业图标**：自定义应用程序图标
-          - 🔧 **Master/Slave 可选**：安装时选择启用 Master 或 Slave 功能
-          - 🔍 **自动环境检测**：启动时自动检查 Python 环境
-          - 📦 **自动依赖安装**：缺失依赖自动安装，无需手动操作
-
-          ### 完全独立的 EXE 文件
-          所有组件都已编译为独立的 Windows 可执行文件：
-          - ✅ **MT5_Manager.exe** - 管理面板（GUI）
-          - ✅ **MT5_Master.exe** - Master 信号服务（控制台）
-          - ✅ **MT5_Slave.exe** - Slave 信号服务（控制台）
-          
-          **无需安装 Python！** 所有依赖已内置。
-
-          ## 📥 安装步骤
-
-          1. 下载 `MT5_Signal_System_Installer_v*.exe`
-          2. 运行安装程序，选择需要的功能（Master/Slave）
-          3. 从桌面或开始菜单启动"MT5 Manager"
-          4. 面板会根据安装时的选择自动显示对应的功能
-          5. 点击"启动 Master/Slave"按钮即可运行服务
-
-          ## ⚙️ 系统要求
-
-          - Windows 10/11
-          - **无需 Python 环境**（已内置）
-          - MetaTrader 5 终端（可选，仅在使用交易功能时需要）
-
-          ## 📝 使用说明
-
-          安装时可选择：
-          - **仅 Master**：作为主信号服务器，发送交易信号
-          - **仅 Slave**：作为从信号服务器，接收并执行交易
-          - **两者都装**：完整的统一管理模式
-
-          启动 MT5 Manager 后，面板会根据安装时的选择自动显示对应功能。
-          NOTESEOF
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            windows-installer/*.exe
-            windows-build/*.exe
-          body_path: RELEASE_NOTES.md
-          draft: false
-          prerelease: ${{ !startsWith(github.ref, 'refs/tags/v') }}
-          generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
