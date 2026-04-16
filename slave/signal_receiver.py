@@ -8,6 +8,7 @@ import sys
 import os
 import time
 import json
+import threading
 import MetaTrader5 as mt5
 from typing import Dict, Optional, List
 from datetime import datetime
@@ -48,10 +49,8 @@ class SlaveSignalReceiver:
             self.config.get('symbol_mapping', {})
         )
 
-        # 初始化高级风险管理器
-        self.risk_manager = RiskManager(
-            self.config.get('risk', {})
-        )
+        # 初始化高级风险管理器（传递完整配置）
+        self.risk_manager = RiskManager(self.config)
 
         # 配置分区
         self.filter_config = self.config.get('filter', {})
@@ -70,6 +69,10 @@ class SlaveSignalReceiver:
 
         # MT5连接状态
         self.mt5_initialized = False
+        
+        # 追踪止损线程
+        self.trailing_thread = None
+        self.trailing_stop_running = False
 
         self.logger.info("=" * 60)
         self.logger.info("Slave Signal Receiver (Enhanced) initialized")
@@ -161,23 +164,26 @@ class SlaveSignalReceiver:
             # 构建信号字典用于过滤
             signal_dict = {
                 'type': 'BUY' if signal.order_type == OrderType.BUY else 'SELL',
+                'order_type': 'market' if signal.order_type in [OrderType.BUY, OrderType.SELL] else 'pending',
                 'symbol': signal.symbol,
                 'volume': signal.volume,
-                'timestamp': signal.timestamp.isoformat() if hasattr(signal.timestamp, 'isoformat') else str(signal.timestamp),
+                'price': signal.price or 0,
+                'timestamp': datetime.fromtimestamp(signal.timestamp).isoformat() if signal.timestamp else datetime.now().isoformat(),
                 'profit_points': getattr(signal, 'profit', 0),
-                'magic': getattr(signal, 'magic', 0),
-                'comment': getattr(signal, 'comment', '')
+                'magic': signal.magic or 0,
+                'comment': signal.comment or '',
+                'ticket': signal.ticket or 0
             }
             
             # 执行订单过滤
             allowed, reason = self.risk_manager.check_order_filter(signal_dict)
             if not allowed:
-                self.logger.info(f"[FILTER] Signal ignored: {reason} (ticket={signal.master_ticket})")
+                self.logger.info(f"[FILTER] Signal ignored: {reason} (ticket={signal.ticket})")
                 return
 
             # 执行风险限制检查
             if not self.risk_manager.check_risk_limits():
-                self.logger.warning(f"[RISK] Risk limit reached, ignoring signal (ticket={signal.master_ticket})")
+                self.logger.warning(f"[RISK] Risk limit reached, ignoring signal (ticket={signal.ticket})")
                 return
 
             # 根据信号类型处理
@@ -248,7 +254,15 @@ class SlaveSignalReceiver:
             
             if result.retcode == mt5.TRADE_RETCODE_DONE:
                 self.processed_tickets[signal.master_ticket] = result.order
+                
+                # 标记订单已处理（用于重复检测）
+                self.risk_manager.mark_order_processed(signal.master_ticket, result.order)
+                
                 self.order_index += 1  # 递增订单序号（用于递增手数模式）
+                
+                # 更新持仓统计到风险管理器
+                self._update_position_stats()
+                
                 self.logger.info(f"[OK] Order executed: {mapped_symbol} {order_type} "
                                f"vol={volume} ticket={result.order} "
                                f"(master={signal.master_ticket})")
@@ -295,6 +309,9 @@ class SlaveSignalReceiver:
             if result.retcode == mt5.TRADE_RETCODE_DONE:
                 self.logger.info(f"[OK] Position closed: {symbol} ticket={slave_ticket}")
                 del self.processed_tickets[signal.master_ticket]
+                
+                # 更新持仓统计到风险管理器
+                self._update_position_stats()
             else:
                 self.logger.error(f"[FAIL] Close failed: {result.comment}")
 
@@ -328,6 +345,88 @@ class SlaveSignalReceiver:
         except Exception as e:
             self.logger.error(f"Error executing modify order: {e}")
 
+    def _update_position_stats(self):
+        """更新持仓统计到风险管理器"""
+        try:
+            positions = mt5.positions_get()
+            if positions:
+                count = len(positions)
+                total_lots = sum(pos.volume for pos in positions)
+                self.risk_manager.update_position_count(count, total_lots)
+                self.logger.debug(f"[STATS] Positions: {count}, Total lots: {total_lots:.2f}")
+            else:
+                self.risk_manager.update_position_count(0, 0.0)
+        except Exception as e:
+            self.logger.error(f"Error updating position stats: {e}")
+
+    def _check_trailing_stops(self):
+        """检查并执行追踪止损"""
+        if not self.trailing_config.get('enabled', False):
+            return
+        
+        try:
+            positions = mt5.positions_get()
+            if not positions:
+                return
+            
+            for position in positions:
+                # 只处理我们自己的持仓
+                if position.magic != self.magic_number:
+                    continue
+                
+                # 计算当前盈利点数
+                if position.type == mt5.ORDER_TYPE_BUY:
+                    current_price = mt5.symbol_info_tick(position.symbol).bid
+                    profit_points = (current_price - position.price_open) / position.point
+                else:
+                    current_price = mt5.symbol_info_tick(position.symbol).ask
+                    profit_points = (position.price_open - current_price) / position.point
+                
+                # 检查是否需要触发追踪止损
+                trailing_result = self.risk_manager.check_trailing_stop(
+                    position.ticket, 
+                    profit_points
+                )
+                
+                if trailing_result and trailing_result.get('triggered'):
+                    trail_points = trailing_result['trail_points']
+                    
+                    # 计算新的止损价
+                    if position.type == mt5.ORDER_TYPE_BUY:
+                        new_sl = current_price - (trail_points * position.point)
+                        if new_sl > position.sl:  # 只允许向上移动
+                            self._modify_position_sl(position.ticket, new_sl, position.tp)
+                    else:
+                        new_sl = current_price + (trail_points * position.point)
+                        if new_sl < position.sl or position.sl == 0:  # 只允许向下移动
+                            self._modify_position_sl(position.ticket, new_sl, position.tp)
+        
+        except Exception as e:
+            self.logger.error(f"Error checking trailing stops: {e}")
+
+    def _modify_position_sl(self, ticket: int, new_sl: float, tp: float):
+        """修改持仓止损"""
+        try:
+            position = mt5.positions_get(ticket=ticket)[0]
+            
+            request = {
+                "action": mt5.TRADE_ACTION_SLTP,
+                "symbol": position.symbol,
+                "sl": new_sl,
+                "tp": tp,
+                "position": ticket,
+            }
+            
+            result = mt5.order_send(request)
+            
+            if result.retcode == mt5.TRADE_RETCODE_DONE:
+                self.logger.info(f"[TRAILING] SL updated: ticket={ticket}, new_sl={new_sl:.5f}")
+            else:
+                self.logger.error(f"[TRAILING] Failed to update SL: {result.comment}")
+        
+        except Exception as e:
+            self.logger.error(f"Error modifying position SL: {e}")
+
     def run(self):
         """主运行循环"""
         self.logger.info("Starting Slave Signal Receiver (Enhanced)...")
@@ -342,15 +441,31 @@ class SlaveSignalReceiver:
 
         # 启动MQTT循环
         try:
+            # 启动追踪止损检查线程（只启动一次）
+            if not self.trailing_stop_running:
+                self.trailing_stop_running = True
+                self.trailing_thread = threading.Thread(target=self._trailing_stop_worker, daemon=True)
+                self.trailing_thread.start()
+                self.logger.info("Trailing stop checker thread started")
+            
             self.mqtt_client.start_loop()
         except KeyboardInterrupt:
             self.logger.info("Slave Signal Receiver stopped by user")
         except Exception as e:
             self.logger.error(f"Slave Signal Receiver error: {e}")
         finally:
+            self.trailing_stop_running = False
             mt5.shutdown()
             self.mqtt_client.disconnect()
 
+    def _trailing_stop_worker(self):
+        """追踪止损工作线程"""
+        while self.trailing_stop_running:
+            try:
+                time.sleep(10)  # 每10秒检查一次
+                self._check_trailing_stops()
+            except Exception as e:
+                self.logger.error(f"Error in trailing stop worker: {e}")
 
 def main():
     """入口函数"""

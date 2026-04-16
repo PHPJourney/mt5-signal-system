@@ -12,6 +12,12 @@ class MonitoringTab:
         self.frame = ttk.Frame(notebook)
         notebook.add(self.frame, text="📡 实时监控")
         
+        # 读取配置中的 enabled 状态
+        master_config = app.config_manager.load_config("master_config")
+        slave_config = app.config_manager.load_config("slave_config")
+        self.enable_master = master_config.get('enabled', True)
+        self.enable_slave = slave_config.get('enabled', True)
+        
         self.create_ui()
     
     def create_ui(self):
@@ -31,7 +37,7 @@ class MonitoringTab:
         self.mqtt_status_label.pack(anchor=tk.W)
 
         # Master 连接状态
-        if self.app.install_config.get('enable_master', True):
+        if self.enable_master:
             master_conn_frame = ttk.Frame(conn_inner)
             master_conn_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
             ttk.Label(master_conn_frame, text="Master:", font=("Microsoft YaHei", 10, "bold")).pack(anchor=tk.W)
@@ -39,7 +45,7 @@ class MonitoringTab:
             self.master_conn_label.pack(anchor=tk.W)
 
         # Slave 连接状态
-        if self.app.install_config.get('enable_slave', True):
+        if self.enable_slave:
             slave_conn_frame = ttk.Frame(conn_inner)
             slave_conn_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
             ttk.Label(slave_conn_frame, text="Slave:", font=("Microsoft YaHei", 10, "bold")).pack(anchor=tk.W)

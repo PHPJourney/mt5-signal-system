@@ -89,9 +89,12 @@ class TradingSignal:
     sl: Optional[float] = None       # 止损
     tp: Optional[float] = None       # 止盈
     ticket: Optional[int] = None     # 订单号(用于平仓/修改)
+    master_ticket: Optional[int] = None  # Master订单号（用于Slave跟踪）
     magic: Optional[int] = None      # 魔术数字
     comment: Optional[str] = None    # 注释
     timestamp: Optional[float] = None # 时间戳
+    master_balance: Optional[float] = None  # Master账户余额（用于余额倍率模式）
+    profit: Optional[float] = None   # 盈亏点数（用于盈利过滤）
 
     def __post_init__(self):
         if self.timestamp is None:

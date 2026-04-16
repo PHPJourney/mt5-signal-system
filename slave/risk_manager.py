@@ -4,7 +4,7 @@ Implements comprehensive risk control mechanisms
 """
 
 import MetaTrader5 as mt5
-from datetime import datetime, date, time
+from datetime import datetime, date, time, timedelta
 from typing import Dict, Optional, List
 from common.models import RiskStatus
 from common.utils import setup_logger
@@ -18,14 +18,18 @@ class RiskManager:
         初始化风险管理器
 
         Args:
-            config: 风险管理配置
+            config: 完整配置（包含 risk、filter、common 等所有分区）
         """
         self.config = config
+        self.risk_config = config.get('risk', {})
+        self.filter_config = config.get('filter', {})
+        self.common_config = config.get('common', {})
+        
         self.logger = setup_logger("risk_manager", "logs/risk_manager.log")
 
         # 基础风险状态
         self.risk_status = RiskStatus(
-            max_daily_loss=config.get('max_drawdown_usd', 1000.0),
+            max_daily_loss=self.risk_config.get('max_drawdown_usd', 1000.0),
             last_reset_date=date.today().isoformat()
         )
 
@@ -51,13 +55,14 @@ class RiskManager:
         self.position_count = 0
         self.total_lots = 0.0
 
-        # 订单跟踪
+        # 订单跟踪（用于重复检测）
         self.processed_orders = {}
 
         self.logger.info(f"Risk Manager initialized")
-        self.logger.info(f"Max daily loss: ${self.risk_status.max_daily_loss:.2f}")
-        self.logger.info(f"Max positions: {self.config.get('max_positions', 3)}")
-        self.logger.info(f"Lot mode: {self.config.get('lot_mode', 'multiplier')}")
+        self.logger.info(f"Max daily loss: ${self.risk_config.get('max_drawdown_usd', 1000.0):.2f}")
+        self.logger.info(f"Max positions: {self.risk_config.get('max_positions', 3)}")
+        self.logger.info(f"Lot mode: {self.risk_config.get('lot_mode', 'multiplier')}")
+        self.logger.info(f"Follow mode: {self.common_config.get('follow_mode', 'both')}")
 
     def check_risk_limits(self) -> bool:
         """
@@ -66,9 +71,6 @@ class RiskManager:
         Returns:
             是否允许交易
         """
-        if not self.config.get('enable_risk_management', True):
-            return True
-
         # 检查冷却期
         if self.cooldown_until and datetime.now() < self.cooldown_until:
             remaining = (self.cooldown_until - datetime.now()).total_seconds() / 60
@@ -108,11 +110,24 @@ class RiskManager:
             (是否允许, 原因)
         """
         # 检查多空过滤
-        follow_mode = self.config.get('follow_mode', 'both')
+        follow_mode = self.common_config.get('follow_mode', 'both')
         if follow_mode == 'long_only' and signal.get('type') == 'SELL':
             return False, "Filter: Long only mode"
         if follow_mode == 'short_only' and signal.get('type') == 'BUY':
             return False, "Filter: Short only mode"
+
+        # 检查订单类型过滤（市价单/挂单）
+        order_type = signal.get('order_type', 'market')
+        if order_type == 'pending' and not self.filter_config.get('follow_pending_orders', False):
+            return False, "Filter: Pending orders disabled"
+        if order_type == 'market' and not self.filter_config.get('follow_market_orders', True):
+            return False, "Filter: Market orders disabled"
+
+        # 检查重复跟单
+        master_ticket = signal.get('ticket', 0)
+        if not self.filter_config.get('allow_duplicate_follow', False):
+            if master_ticket in self.processed_orders:
+                return False, f"Filter: Duplicate order (ticket={master_ticket})"
 
         # 检查时间过滤
         if not self._check_time_window():
@@ -121,6 +136,10 @@ class RiskManager:
         # 检查订单年龄
         if not self._check_order_age(signal):
             return False, "Filter: Order too old"
+
+        # 检查价格偏差
+        if not self._check_price_deviation(signal):
+            return False, "Filter: Price deviation too large"
 
         # 检查盈利/亏损过滤
         if not self._check_profit_loss_filter(signal):
@@ -162,41 +181,41 @@ class RiskManager:
         Returns:
             计算后的手数
         """
-        lot_mode = self.config.get('lot_mode', 'multiplier')
+        lot_mode = self.risk_config.get('lot_mode', 'multiplier')
 
         if lot_mode == 'multiplier':
             # L1: 倍数模式
-            calculated_lot = master_volume * self.config.get('lot_multiplier', 1.0)
+            calculated_lot = master_volume * self.risk_config.get('lot_multiplier', 1.0)
         
         elif lot_mode == 'balance_ratio':
             # L2: 余额倍率模式
             if master_balance > 0:
                 ratio = slave_balance / master_balance
-                calculated_lot = master_volume * ratio * self.config.get('balance_ratio', 1.0)
+                calculated_lot = master_volume * ratio * self.risk_config.get('balance_ratio', 1.0)
             else:
                 calculated_lot = master_volume
         
         elif lot_mode == 'fixed':
             # L3: 固定手数
-            calculated_lot = self.config.get('fixed_lot', 0.1)
+            calculated_lot = self.risk_config.get('fixed_lot', 0.1)
         
         elif lot_mode == 'fixed_per_usd':
             # L4: 余额大小模式 (每 N 美元 0.01 手)
-            usd_per_lot = self.config.get('usd_per_lot', 1000.0)
+            usd_per_lot = self.risk_config.get('usd_per_lot', 1000.0)
             calculated_lot = (slave_balance / usd_per_lot) * 0.01
         
         elif lot_mode == 'incremental':
             # L5: 递增模式
-            base = self.config.get('incremental_base', 0.01)
-            step = self.config.get('incremental_step', 0.01)
+            base = self.risk_config.get('incremental_base', 0.01)
+            step = self.risk_config.get('incremental_step', 0.01)
             calculated_lot = base + (order_index * step)
         
         else:
             calculated_lot = master_volume
 
         # 应用最大/最小手数限制
-        min_lot = self.config.get('min_lot', 0.01)
-        max_lot = self.config.get('max_lot', 888.8)
+        min_lot = self.risk_config.get('min_lot', 0.01)
+        max_lot = self.risk_config.get('max_lot', 888.8)
         
         calculated_lot = max(min_lot, min(max_lot, calculated_lot))
 
@@ -242,11 +261,12 @@ class RiskManager:
         Returns:
             如果需要调整，返回 {sl: new_sl, tp: tp}，否则 None
         """
-        if not self.config.get('trailing_stop', {}).get('enabled', False):
+        trailing_config = self.config.get('trailing_stop', {})
+        if not trailing_config.get('enabled', False):
             return None
 
-        profit_points = self.config.get('trailing_stop', {}).get('profit_points', 0)
-        trail_points = self.config.get('trailing_stop', {}).get('trail_points', 0)
+        profit_points = trailing_config.get('profit_points', 0)
+        trail_points = trailing_config.get('trail_points', 0)
 
         if current_profit_points >= profit_points:
             # 启用追踪止损
@@ -268,18 +288,38 @@ class RiskManager:
         daily_loss = self.daily_start_balance - current_balance
         self.risk_status.daily_loss = max(0, daily_loss)
 
-        if self.risk_status.daily_loss >= self.risk_status.max_daily_loss:
+        max_drawdown_percent = self.risk_config.get('max_drawdown_percent', 0)
+        max_drawdown_usd = self.risk_config.get('max_drawdown_usd', 0)
+
+        # 检查百分比限制
+        if max_drawdown_percent > 0 and self.initial_balance > 0:
+            loss_percent = (daily_loss / self.initial_balance) * 100
+            if loss_percent >= max_drawdown_percent:
+                self.risk_status.trading_enabled = False
+                self.risk_status.blocked_reason = (
+                    f"Daily loss limit reached: {loss_percent:.2f}% / {max_drawdown_percent}%"
+                )
+                self.logger.warning(self.risk_status.blocked_reason)
+                
+                # 触发冷却期
+                cooldown_minutes = self.risk_config.get('cooldown_minutes', 0)
+                if cooldown_minutes > 0:
+                    self.cooldown_until = datetime.now() + timedelta(minutes=cooldown_minutes)
+                    self.logger.warning(f"Cooldown triggered: {cooldown_minutes} minutes")
+                
+                return False
+
+        # 检查金额限制
+        if max_drawdown_usd > 0 and daily_loss >= max_drawdown_usd:
             self.risk_status.trading_enabled = False
             self.risk_status.blocked_reason = (
-                f"Daily loss limit reached: ${self.risk_status.daily_loss:.2f} / "
-                f"${self.risk_status.max_daily_loss:.2f}"
+                f"Daily loss limit reached: ${daily_loss:.2f} / ${max_drawdown_usd:.2f}"
             )
             self.logger.warning(self.risk_status.blocked_reason)
             
             # 触发冷却期
-            cooldown_minutes = self.config.get('cooldown_minutes', 0)
+            cooldown_minutes = self.risk_config.get('cooldown_minutes', 0)
             if cooldown_minutes > 0:
-                from datetime import timedelta
                 self.cooldown_until = datetime.now() + timedelta(minutes=cooldown_minutes)
                 self.logger.warning(f"Cooldown triggered: {cooldown_minutes} minutes")
             
@@ -383,10 +423,42 @@ class RiskManager:
         except:
             return True
 
+    def _check_price_deviation(self, signal: Dict) -> bool:
+        """检查价格偏差"""
+        max_deviation = self.filter_config.get('max_price_deviation_points', 0)
+        if max_deviation == 0:
+            return True
+
+        try:
+            symbol = signal.get('symbol', '')
+            master_price = signal.get('price', 0)
+            
+            if not symbol or master_price == 0:
+                return True
+            
+            # 获取当前市场价格
+            tick = mt5.symbol_info_tick(symbol)
+            if not tick:
+                return True
+            
+            # 计算价格偏差（点数）
+            point = mt5.symbol_info(symbol).point
+            if point == 0:
+                return True
+            
+            current_price = tick.bid if signal.get('type') == 'BUY' else tick.ask
+            deviation_points = abs(current_price - master_price) / point
+            
+            return deviation_points <= max_deviation
+        
+        except Exception as e:
+            self.logger.error(f"Error checking price deviation: {e}")
+            return True
+            
     def _check_profit_loss_filter(self, signal: Dict) -> bool:
         """检查盈利/亏损过滤"""
-        require_profit = self.config.get('require_profit_points', 0)
-        require_loss = self.config.get('require_loss_points', 0)
+        require_profit = self.filter_config.get('require_profit_points', 0)
+        require_loss = self.filter_config.get('require_loss_points', 0)
 
         if require_profit == 0 and require_loss == 0:
             return True
@@ -462,6 +534,13 @@ class RiskManager:
         """更新持仓统计"""
         self.position_count = count
         self.total_lots = total_lots
+
+    def mark_order_processed(self, master_ticket: int, slave_ticket: int):
+        """标记订单已处理（用于重复检测）"""
+        self.processed_orders[master_ticket] = {
+            'slave_ticket': slave_ticket,
+            'timestamp': datetime.now().isoformat()
+        }
 
     def _get_account_balance(self) -> float:
         """获取账户余额"""
