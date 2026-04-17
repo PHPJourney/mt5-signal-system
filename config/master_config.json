@@ -1,21 +1,23 @@
 {
-    "mqtt": {
-        "broker": "localhost",
-        "port": 1883,
-        "username": "",
-        "password": "",
-        "topic_prefix": "mt5/signal",
-        "client_id": "master_server"
-    },
-    "signal": {
-        "send_interval_ms": 100,
-        "include_positions": true,
-        "include_orders": true
-    },
-    "logging": {
-        "level": "INFO",
-        "file": "logs/master.log",
-        "max_size_mb": 10,
-        "backup_count": 5
-    }
+  "mqtt": {
+    "broker": "192.168.1.100",
+    "port": 1883,
+    "client_id": "MT5_Master_001",
+    "topic_prefix": "trademind/signals",
+    "qos": 1,
+    "keepalive": 60
+  },
+  "account_reporter": {
+    "proxy_url": "http://localhost:5000",
+    "interval": 60
+  },
+  "common": {
+    "magic_number": 123456,
+    "slippage_points": 30,
+    "comment_prefix": "TM_"
+  },
+  "logging": {
+    "file": "logs/master.log",
+    "level": "INFO"
+  }
 }
