@@ -91,6 +91,9 @@ class MasterSignalSender:
             log_file = self.config['logging']['file']
             if not os.path.isabs(log_file):
                 self.config['logging']['file'] = str(base_dir / log_file)
+        
+        # 初始化所有组件（无论配置是否完整）
+        self._init_components(base_dir)
     
     def _is_config_complete(self, config: dict, template: dict) -> bool:
         """递归检查配置是否完整"""
@@ -113,6 +116,12 @@ class MasterSignalSender:
                 # 递归合并嵌套字典
                 self._merge_config(target[key], value)
 
+    def _init_components(self, base_dir):
+        """初始化组件（logger、MQTT等）"""
+        # 确保日志配置存在
+        if 'logging' not in self.config:
+            self.config['logging'] = {'file': 'logs/master.log', 'level': 'INFO'}
+        
         self.logger = setup_logger(
             "master_server",
             self.config['logging']['file'],
@@ -130,7 +139,7 @@ class MasterSignalSender:
 
         self.logger.info("Master Signal Sender initialized")
         self.logger.info(f"Base directory: {base_dir}")
-        self.logger.info(f"Config path: {config_path}")
+        self.logger.info(f"Config path: {base_dir / 'config' / 'master_config.json'}")
 
     def initialize_mt5(self) -> bool:
         """

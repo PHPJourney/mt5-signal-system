@@ -189,6 +189,9 @@ class SlaveSignalReceiver:
             log_file = self.config['logging']['file']
             if not os.path.isabs(log_file):
                 self.config['logging']['file'] = str(base_dir / log_file)
+        
+        # 初始化所有组件（无论配置是否完整）
+        self._init_components(base_dir)
     
     def _is_config_complete(self, config: dict, template: dict) -> bool:
         """递归检查配置是否完整"""
@@ -210,6 +213,24 @@ class SlaveSignalReceiver:
             elif isinstance(value, dict) and isinstance(target.get(key), dict):
                 # 递归合并嵌套字典
                 self._merge_config(target[key], value)
+
+    def _init_components(self, base_dir):
+        """初始化组件（logger、MQTT等）"""
+        # 确保日志配置存在
+        if 'logging' not in self.config:
+            self.config['logging'] = {'file': 'logs/slave.log', 'level': 'INFO'}
+        
+        # 确保 common 配置存在
+        if 'common' not in self.config:
+            self.config['common'] = {
+                'follow_mode': 'both',
+                'enable_alerts': True,
+                'stop_alert_on_price': False,
+                'reverse_trading': False,
+                'magic_number': 999999,
+                'slippage_points': 30,
+                'comment_prefix': 'TM_'
+            }
 
         self.logger = setup_logger(
             "slave_server",
@@ -234,10 +255,10 @@ class SlaveSignalReceiver:
         self.common_config = self.config.get('common', {})
         self.trailing_config = self.config.get('trailing_stop', {})
         
-        # 交易基础配置
+        # 交易基础配置（从 common_config 获取）
         self.reverse_trading = self.common_config.get('reverse_trading', False)
-        self.magic_number = self.config.get('magic_number', 999999)
-        self.slippage = self.config.get('slippage_points', 30)
+        self.magic_number = self.common_config.get('magic_number', 999999)
+        self.slippage = self.common_config.get('slippage_points', 30)
 
         # 跟踪已处理的订单
         self.processed_tickets: Dict[int, int] = {}  # {master_ticket: slave_ticket}

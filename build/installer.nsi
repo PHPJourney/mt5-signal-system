@@ -82,47 +82,30 @@ Section "$(SEC_PANEL_NAME)" SecPanel
     
     SetOutPath "$INSTDIR"
     
+    ; 复制管理面板 EXE（已打包所有代码和语言包）
     File "..\dist\MT5_Manager.exe"
     File "..\dist\icon.png"
     
-    ; 复制 UI 模块（打包在 exe 内，但需要外部目录结构）
-    SetOutPath "$INSTDIR\ui"
-    File "..\ui\__init__.py"
-    File "..\ui\dashboard.py"
-    File "..\ui\master_config.py"
-    File "..\ui\slave_config.py"
-    File "..\ui\monitoring.py"
-    File "..\ui\logs.py"
-    
-    ; 复制服务模块
-    SetOutPath "$INSTDIR\services"
-    File "..\services\__init__.py"
-    File "..\services\config_manager.py"
-    File "..\services\mt5_detector.py"
-    File "..\services\process_manager.py"
-    
-    ; 创建语言目录并复制语言文件
+    ; 复制语言文件（用于运行时切换语言）
     SetOutPath "$INSTDIR\lang"
     File "..\lang\Chinese.json"
     File "..\lang\English.json"
     
-    ; 复制国际化模块
-    SetOutPath "$INSTDIR\common"
-    File "..\common\i18n.py"
-    File "..\common\__init__.py"
-    File "..\common\models.py"
-    File "..\common\utils.py"
-    File "..\common\mqtt_client.py"
-    
-    SectionSetSize ${SecPanel} 15360
+    SectionSetSize ${SecPanel} 35000
 SectionEnd
 
 Section "$(SEC_MASTER_NAME)" SecMaster
     SetOutPath "$INSTDIR"
     
+    ; 复制 Master 服务 EXE（已打包所有代码和语言包）
     File "..\dist\MT5_Master.exe"
     
-    SectionSetSize ${SecMaster} 10240
+    ; 复制配置文件
+    SetOutPath "$INSTDIR\config"
+    IfFileExists "..\config\master_config.json" 0 +2
+        File "..\config\master_config.json"
+    
+    SectionSetSize ${SecMaster} 20480
     
     StrCpy $EnableMaster "true"
 SectionEnd
@@ -130,20 +113,17 @@ SectionEnd
 Section "$(SEC_SLAVE_NAME)" SecSlave
     SetOutPath "$INSTDIR"
     
+    ; 复制 Slave 服务 EXE（已打包所有代码和语言包）
     File "..\dist\MT5_Slave.exe"
     
-    SectionSetSize ${SecSlave} 10240
-    
-    StrCpy $EnableSlave "true"
-SectionEnd
-
-Section "$(SEC_CONFIG_NAME)" SecConfig
+    ; 复制配置文件
     SetOutPath "$INSTDIR\config"
-    
-    IfFileExists "..\config\master_config.json" 0 +2
-        File "..\config\master_config.json"
     IfFileExists "..\config\slave_config.json" 0 +2
         File "..\config\slave_config.json"
+    
+    SectionSetSize ${SecSlave} 20480
+    
+    StrCpy $EnableSlave "true"
 SectionEnd
 
 Section "$(SEC_DOCS_NAME)" SecDocs
@@ -158,139 +138,120 @@ SectionEnd
 ; Post-installation: generate config and copy files
 Section -Post
     SetOutPath "$INSTDIR"
-
-    ; Create directories
-    CreateDirectory "$INSTDIR\config"
-    CreateDirectory "$INSTDIR\logs"
-
-    ; Generate default master_config.json if not exists
-    IfFileExists "$INSTDIR\config\master_config.json" 0 gen_master
-    Goto check_slave
     
-    gen_master:
-    FileOpen $0 "$INSTDIR\config\master_config.json" w
-    FileWrite $0 "{$\r$\n"
-    FileWrite $0 '  "enabled": true,$\r$\n'
-    FileWrite $0 '  "mqtt": {$\r$\n'
-    FileWrite $0 '    "broker": "localhost",$\r$\n'
-    FileWrite $0 '    "port": 1883,$\r$\n'
-    FileWrite $0 '    "username": "master",$\r$\n'
-    FileWrite $0 '    "password": "",$\r$\n'
-    FileWrite $0 '    "client_id": "master_001",$\r$\n'
-    FileWrite $0 '    "topic_prefix": "mt5/signal"$\r$\n'
-    FileWrite $0 '  },$\r$\n'
-    FileWrite $0 '  "mt5": {$\r$\n'
-    FileWrite $0 '    "terminal_path": "",$\r$\n'
-    FileWrite $0 '    "auto_select": true$\r$\n'
-    FileWrite $0 '  },$\r$\n'
-    FileWrite $0 '  "signal": {$\r$\n'
-    FileWrite $0 '    "broadcast_interval": 1,$\r$\n'
-    FileWrite $0 '    "include_positions": true,$\r$\n'
-    FileWrite $0 '    "include_orders": true$\r$\n'
-    FileWrite $0 '  },$\r$\n'
-    FileWrite $0 '  "logging": {$\r$\n'
-    FileWrite $0 '    "file": "logs/master.log",$\r$\n'
-    FileWrite $0 '    "level": "INFO"$\r$\n'
-    FileWrite $0 '  }$\r$\n'
-    FileWrite $0 "}$\r$\n"
-    FileClose $0
+    ; 生成配置文件（如果不存在）
+    IfFileExists "$INSTDIR\config\master_config.json" config_exist_m 0
+        DetailPrint "Creating master_config.json..."
+        FileOpen $0 "$INSTDIR\config\master_config.json" w
+        FileWrite $0 "{$\r$\n"
+        FileWrite $0 '  "mqtt": {$\r$\n'
+        FileWrite $0 '    "host": "localhost",$\r$\n'
+        FileWrite $0 '    "port": 1883,$\r$\n'
+        FileWrite $0 '    "username": "",$\r$\n'
+        FileWrite $0 '    "password": "",$\r$\n'
+        FileWrite $0 '    "client_id": "MT5_Master_001",$\r$\n'
+        FileWrite $0 '    "topic_prefix": "trademind/",$\r$\n'
+        FileWrite $0 '    "qos": 1,$\r$\n'
+        FileWrite $0 '    "keepalive": 60$\r$\n'
+        FileWrite $0 '  },$\r$\n'
+        FileWrite $0 '  "mt5": {$\r$\n'
+        FileWrite $0 '    "login": 0,$\r$\n'
+        FileWrite $0 '    "password": "",$\r$\n'
+        FileWrite $0 '    "server": ""$\r$\n'
+        FileWrite $0 '  },$\r$\n'
+        FileWrite $0 '  "logging": {$\r$\n'
+        FileWrite $0 '    "file": "logs/master.log",$\r$\n'
+        FileWrite $0 '    "level": "INFO"$\r$\n'
+        FileWrite $0 '  },$\r$\n'
+        FileWrite $0 '  "common": {$\r$\n'
+        FileWrite $0 '    "check_interval": 5,$\r$\n'
+        FileWrite $0 '    "reconnect_delay": 10,$\r$\n'
+        FileWrite $0 '    "max_reconnect_attempts": 0$\r$\n'
+        FileWrite $0 '  },$\r$\n'
+        FileWrite $0 '  "alerts": {$\r$\n'
+        FileWrite $0 '    "enabled": true,$\r$\n'
+        FileWrite $0 '    "sound": true,$\r$\n'
+        FileWrite $0 '    "popup": true,$\r$\n'
+        FileWrite $0 '    "email": false,$\r$\n'
+        FileWrite $0 '    "email_to": ""$\r$\n'
+        FileWrite $0 '  }$\r$\n'
+        FileWrite $0 "}$\r$\n"
+        FileClose $0
+    config_exist_m:
     
-    check_slave:
-    IfFileExists "$INSTDIR\config\slave_config.json" 0 gen_slave
-    Goto create_links
-    
-    gen_slave:
-    FileOpen $0 "$INSTDIR\config\slave_config.json" w
-    FileWrite $0 "{$\r$\n"
-    FileWrite $0 '  "enabled": true,$\r$\n'
-    FileWrite $0 '  "mqtt": {$\r$\n'
-    FileWrite $0 '    "broker": "localhost",$\r$\n'
-    FileWrite $0 '    "port": 1883,$\r$\n'
-    FileWrite $0 '    "username": "slave",$\r$\n'
-    FileWrite $0 '    "password": "",$\r$\n'
-    FileWrite $0 '    "client_id": "slave_001",$\r$\n'
-    FileWrite $0 '    "topic_prefix": "mt5/signal"$\r$\n'
-    FileWrite $0 '  },$\r$\n'
-    FileWrite $0 '  "mt5": {$\r$\n'
-    FileWrite $0 '    "terminal_path": "",$\r$\n'
-    FileWrite $0 '    "auto_select": true$\r$\n'
-    FileWrite $0 '  },$\r$\n'
-    FileWrite $0 '  "subscription": {$\r$\n'
-    FileWrite $0 '    "master_id": "master_001"$\r$\n'
-    FileWrite $0 '  },$\r$\n'
-    FileWrite $0 '  "logging": {$\r$\n'
-    FileWrite $0 '    "file": "logs/slave.log",$\r$\n'
-    FileWrite $0 '    "level": "INFO"$\r$\n'
-    FileWrite $0 '  },$\r$\n'
-    FileWrite $0 '  "common": {$\r$\n'
-    FileWrite $0 '    "follow_mode": "both",$\r$\n'
-    FileWrite $0 '    "enable_alerts": true,$\r$\n'
-    FileWrite $0 '    "stop_alert_on_price": false,$\r$\n'
-    FileWrite $0 '    "reverse_trading": false,$\r$\n'
-    FileWrite $0 '    "magic_number": 999999,$\r$\n'
-    FileWrite $0 '    "slippage_points": 30,$\r$\n'
-    FileWrite $0 '    "comment_prefix": "TM_"$\r$\n'
-    FileWrite $0 '  },$\r$\n'
-    FileWrite $0 '  "security": {$\r$\n'
-    FileWrite $0 '    "allow_auto_trading": true,$\r$\n'
-    FileWrite $0 '    "allow_dll_import": false$\r$\n'
-    FileWrite $0 '  },$\r$\n'
-    FileWrite $0 '  "risk": {$\r$\n'
-    FileWrite $0 '    "max_drawdown_percent": 10.0,$\r$\n'
-    FileWrite $0 '    "max_drawdown_usd": 1000.0,$\r$\n'
-    FileWrite $0 '    "max_profit_percent": 20.0,$\r$\n'
-    FileWrite $0 '    "max_profit_usd": 2000.0,$\r$\n'
-    FileWrite $0 '    "session_loss_usd": 0.0,$\r$\n'
-    FileWrite $0 '    "session_profit_usd": 0.0,$\r$\n'
-    FileWrite $0 '    "cooldown_minutes": 0,$\r$\n'
-    FileWrite $0 '    "max_positions": 3,$\r$\n'
-    FileWrite $0 '    "max_total_lots": 10.0,$\r$\n'
-    FileWrite $0 '    "lot_mode": "multiplier",$\r$\n'
-    FileWrite $0 '    "lot_multiplier": 1.0,$\r$\n'
-    FileWrite $0 '    "fixed_lot": 0.1,$\r$\n'
-    FileWrite $0 '    "balance_ratio": 1.0,$\r$\n'
-    FileWrite $0 '    "usd_per_lot": 1000.0,$\r$\n'
-    FileWrite $0 '    "incremental_base": 0.01,$\r$\n'
-    FileWrite $0 '    "incremental_step": 0.01,$\r$\n'
-    FileWrite $0 '    "min_lot": 0.01,$\r$\n'
-    FileWrite $0 '    "max_lot": 888.8,$\r$\n'
-    FileWrite $0 '    "skip_lot_less_than": 0.01,$\r$\n'
-    FileWrite $0 '    "skip_lot_greater_than": 888.8$\r$\n'
-    FileWrite $0 '  },$\r$\n'
-    FileWrite $0 '  "filter": {$\r$\n'
-    FileWrite $0 '    "follow_buy": true,$\r$\n'
-    FileWrite $0 '    "follow_sell": true,$\r$\n'
-    FileWrite $0 '    "follow_market_orders": true,$\r$\n'
-    FileWrite $0 '    "follow_pending_orders": false,$\r$\n'
-    FileWrite $0 '    "follow_old_orders": false,$\r$\n'
-    FileWrite $0 '    "max_order_age_minutes": 0.0,$\r$\n'
-    FileWrite $0 '    "allow_duplicate_follow": false,$\r$\n'
-    FileWrite $0 '    "follow_close": true,$\r$\n'
-    FileWrite $0 '    "follow_sl_tp": false,$\r$\n'
-    FileWrite $0 '    "require_profit_points": 0,$\r$\n'
-    FileWrite $0 '    "require_loss_points": 0,$\r$\n'
-    FileWrite $0 '    "max_price_deviation_points": 0,$\r$\n'
-    FileWrite $0 '    "allowed_magics": [],$\r$\n'
-    FileWrite $0 '    "required_comments": [],$\r$\n'
-    FileWrite $0 '    "allowed_hours_start": "00:00:00",$\r$\n'
-    FileWrite $0 '    "allowed_hours_end": "23:59:59",$\r$\n'
-    FileWrite $0 '    "whitelist_symbols": [],$\r$\n'
-    FileWrite $0 '    "blacklist_symbols": []$\r$\n'
-    FileWrite $0 '  },$\r$\n'
-    FileWrite $0 '  "trailing_stop": {$\r$\n'
-    FileWrite $0 '    "enabled": false,$\r$\n'
-    FileWrite $0 '    "profit_points": 0,$\r$\n'
-    FileWrite $0 '    "trail_points": 0$\r$\n'
-    FileWrite $0 '  },$\r$\n'
-    FileWrite $0 '  "symbol_mapping": {},$\r$\n'
-    FileWrite $0 '  "advanced": {$\r$\n'
-    FileWrite $0 '    "refresh_interval_ms": 150,$\r$\n'
-    FileWrite $0 '    "auto_clear_traces": true,$\r$\n'
-    FileWrite $0 '    "disconnect_alert_seconds": 30,$\r$\n'
-    FileWrite $0 '    "custom_comment": ""$\r$\n'
-    FileWrite $0 '  }$\r$\n'
-    FileWrite $0 "}$\r$\n"
-    FileClose $0
+    IfFileExists "$INSTDIR\config\slave_config.json" config_exist_s 0
+        DetailPrint "Creating slave_config.json..."
+        FileOpen $0 "$INSTDIR\config\slave_config.json" w
+        FileWrite $0 "{$\r$\n"
+        FileWrite $0 '  "mqtt": {$\r$\n'
+        FileWrite $0 '    "host": "localhost",$\r$\n'
+        FileWrite $0 '    "port": 1883,$\r$\n'
+        FileWrite $0 '    "username": "",$\r$\n'
+        FileWrite $0 '    "password": "",$\r$\n'
+        FileWrite $0 '    "client_id": "MT5_Slave_001",$\r$\n'
+        FileWrite $0 '    "topic_prefix": "trademind/",$\r$\n'
+        FileWrite $0 '    "qos": 1,$\r$\n'
+        FileWrite $0 '    "keepalive": 60$\r$\n'
+        FileWrite $0 '  },$\r$\n'
+        FileWrite $0 '  "mt5": {$\r$\n'
+        FileWrite $0 '    "login": 0,$\r$\n'
+        FileWrite $0 '    "password": "",$\r$\n'
+        FileWrite $0 '    "server": ""$\r$\n'
+        FileWrite $0 '  },$\r$\n'
+        FileWrite $0 '  "logging": {$\r$\n'
+        FileWrite $0 '    "file": "logs/slave.log",$\r$\n'
+        FileWrite $0 '    "level": "INFO"$\r$\n'
+        FileWrite $0 '  },$\r$\n'
+        FileWrite $0 '  "common": {$\r$\n'
+        FileWrite $0 '    "follow_mode": "both",$\r$\n'
+        FileWrite $0 '    "enable_alerts": true,$\r$\n'
+        FileWrite $0 '    "stop_alert_on_price": false,$\r$\n'
+        FileWrite $0 '    "reverse_trading": false,$\r$\n'
+        FileWrite $0 '    "magic_number": 999999,$\r$\n'
+        FileWrite $0 '    "slippage_points": 30,$\r$\n'
+        FileWrite $0 '    "comment_prefix": "TM_"$\r$\n'
+        FileWrite $0 '  },$\r$\n'
+        FileWrite $0 '  "risk": {$\r$\n'
+        FileWrite $0 '    "lot_mode": "multiplier",$\r$\n'
+        FileWrite $0 '    "lot_multiplier": 1.0,$\r$\n'
+        FileWrite $0 '    "fixed_lot": 0.01,$\r$\n'
+        FileWrite $0 '    "min_lot": 0.01,$\r$\n'
+        FileWrite $0 '    "max_lot": 100.0,$\r$\n'
+        FileWrite $0 '    "lot_step": 0.01,$\r$\n'
+        FileWrite $0 '    "max_positions": 10,$\r$\n'
+        FileWrite $0 '    "max_daily_loss": 0,$\r$\n'
+        FileWrite $0 '    "max_drawdown_percent": 0,$\r$\n'
+        FileWrite $0 '    "stop_trading_on_loss": false$\r$\n'
+        FileWrite $0 '  },$\r$\n'
+        FileWrite $0 '  "filter": {$\r$\n'
+        FileWrite $0 '    "enabled": false,$\r$\n'
+        FileWrite $0 '    "min_lot": 0,$\r$\n'
+        FileWrite $0 '    "max_lot": 0,$\r$\n'
+        FileWrite $0 '    "require_profit_points": 0,$\r$\n'
+        FileWrite $0 '    "require_loss_points": 0,$\r$\n'
+        FileWrite $0 '    "max_price_deviation_points": 0,$\r$\n'
+        FileWrite $0 '    "allowed_magics": [],$\r$\n'
+        FileWrite $0 '    "required_comments": [],$\r$\n'
+        FileWrite $0 '    "allowed_hours_start": "00:00:00",$\r$\n'
+        FileWrite $0 '    "allowed_hours_end": "23:59:59",$\r$\n'
+        FileWrite $0 '    "whitelist_symbols": [],$\r$\n'
+        FileWrite $0 '    "blacklist_symbols": []$\r$\n'
+        FileWrite $0 '  },$\r$\n'
+        FileWrite $0 '  "trailing_stop": {$\r$\n'
+        FileWrite $0 '    "enabled": false,$\r$\n'
+        FileWrite $0 '    "profit_points": 0,$\r$\n'
+        FileWrite $0 '    "trail_points": 0$\r$\n'
+        FileWrite $0 '  },$\r$\n'
+        FileWrite $0 '  "symbol_mapping": {},$\r$\n'
+        FileWrite $0 '  "advanced": {$\r$\n'
+        FileWrite $0 '    "refresh_interval_ms": 150,$\r$\n'
+        FileWrite $0 '    "auto_clear_traces": true,$\r$\n'
+        FileWrite $0 '    "disconnect_alert_seconds": 30,$\r$\n'
+        FileWrite $0 '    "custom_comment": ""$\r$\n'
+        FileWrite $0 '  }$\r$\n'
+        FileWrite $0 "}$\r$\n"
+        FileClose $0
+    config_exist_s:
     
     create_links:
     ; Create shortcuts
