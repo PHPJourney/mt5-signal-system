@@ -112,13 +112,40 @@ class AccountReporter:
                 self.logger.debug("No account info, skip report")
                 return True
             
-            # 构建上报数据
+            # 获取当前持仓信息
+            positions = mt5.positions_get()
+            position_count = len(positions) if positions else 0
+            
+            # 构建持仓摘要
+            position_details = []
+            if positions:
+                for pos in positions:
+                    position_details.append({
+                        "symbol": pos.symbol,
+                        "type": "BUY" if pos.type == 0 else "SELL",
+                        "volume": pos.volume,
+                        "price_open": pos.price_open,
+                        "price_current": pos.price_current,
+                        "profit": pos.profit,
+                        "swap": pos.swap,
+                        "magic": pos.magic
+                    })
+            
+            # 构建上报数据（完整信息）
             payload = {
                 "account": self.mt5_account_id,
-                "balance": account_info.balance,
-                "equity": account_info.equity,
-                "margin": account_info.margin,
-                "marginFree": account_info.margin_free,
+                "server": account_info.server,              # 服务器
+                "company": account_info.company,            # 券商
+                "balance": account_info.balance,            # 余额
+                "equity": account_info.equity,              # 净值
+                "margin": account_info.margin,              # 占用保证金
+                "marginFree": account_info.margin_free,     # 可用保证金
+                "marginLevel": account_info.margin_level,   # 保证金比例
+                "asset": account_info.equity,               # 总资产（净值=总资产）
+                "profit": account_info.profit,              # 浮动盈亏
+                "swap": account_info.swap,                  # 累计掉期
+                "positionCount": position_count,            # 当前持仓数量
+                "positions": position_details,              # 持仓详情列表
                 "symbol": "",
                 "ea": "TradeMind-Follow-System-trademind-follow"
             }
@@ -145,7 +172,12 @@ class AccountReporter:
                     
                     return False  # 停止上报
                 
-                self.logger.debug(f"Reported account {self.mt5_account_id}: balance=${account_info.balance:.2f}")
+                self.logger.debug(
+                    f"Reported account {self.mt5_account_id}: "
+                    f"balance=${account_info.balance:.2f}, "
+                    f"equity=${account_info.equity:.2f}, "
+                    f"positions={position_count}"
+                )
                 return True
             else:
                 self.logger.debug(f"Report failed: HTTP {response.status_code}")
