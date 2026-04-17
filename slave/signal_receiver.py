@@ -495,13 +495,146 @@ class SlaveSignalReceiver:
 
     def handle_modify_signal(self, payload: Dict[str, Any]):
         """处理修改信号"""
-        self.logger.info(f"Modify signal received: {payload}")
-        # TODO: 实现订单修改逻辑
+        try:
+            action = payload.get('action')
+            ticket = payload.get('ticket')
+            
+            print(f"\n📥 收到修改信号: {action} ticket={ticket}")
+            
+            if not ticket:
+                self.logger.error("Missing ticket in modify signal")
+                print(f"   ❌ 缺少订单号")
+                return
+            
+            if action == 'modify_pending':
+                # 修改挂单
+                price = payload.get('price', 0.0)
+                sl = payload.get('sl', 0.0)
+                tp = payload.get('tp', 0.0)
+                
+                request = {
+                    "action": mt5.TRADE_ACTION_MODIFY,
+                    "order": ticket,
+                }
+                
+                if price > 0:
+                    request["price"] = price
+                if sl > 0:
+                    request["sl"] = sl
+                if tp > 0:
+                    request["tp"] = tp
+                
+                result = mt5.order_send(request)
+                
+                if result.retcode == mt5.TRADE_RETCODE_DONE:
+                    self.logger.info(f"Pending order modified: ticket={ticket}")
+                    print(f"   ✅ 挂单修改成功")
+                else:
+                    self.logger.error(f"Modify failed: {result.comment}")
+                    print(f"   ❌ 挂单修改失败: {result.comment}")
+            
+            elif action == 'modify_position':
+                # 修改持仓（止损/止盈）
+                sl = payload.get('sl', 0.0)
+                tp = payload.get('tp', 0.0)
+                
+                # 获取持仓信息
+                positions = mt5.positions_get(ticket=ticket)
+                if not positions:
+                    self.logger.error(f"Position not found: {ticket}")
+                    print(f"   ❌ 未找到持仓: {ticket}")
+                    return
+                
+                pos = positions[0]
+                
+                request = {
+                    "action": mt5.TRADE_ACTION_SLTP,
+                    "position": ticket,
+                    "sl": sl if sl > 0 else pos.sl,
+                    "tp": tp if tp > 0 else pos.tp,
+                }
+                
+                result = mt5.order_send(request)
+                
+                if result.retcode == mt5.TRADE_RETCODE_DONE:
+                    self.logger.info(f"Position SL/TP modified: ticket={ticket}")
+                    print(f"   ✅ 持仓止损/止盈修改成功")
+                else:
+                    self.logger.error(f"Modify SL/TP failed: {result.comment}")
+                    print(f"   ❌ 修改止损/止盈失败: {result.comment}")
+            
+            elif action == 'delete_pending':
+                # 删除挂单
+                request = {
+                    "action": mt5.TRADE_ACTION_REMOVE,
+                    "order": ticket,
+                }
+                
+                result = mt5.order_send(request)
+                
+                if result.retcode == mt5.TRADE_RETCODE_DONE:
+                    self.logger.info(f"Pending order deleted: ticket={ticket}")
+                    print(f"   ✅ 挂单删除成功")
+                else:
+                    self.logger.error(f"Delete failed: {result.comment}")
+                    print(f"   ❌ 挂单删除失败: {result.comment}")
+        
+        except Exception as e:
+            self.logger.error(f"Error handling modify signal: {e}", exc_info=True)
+            print(f"   ❌ 处理修改信号异常: {e}")
 
     def handle_close_signal(self, payload: Dict[str, Any]):
         """处理平仓信号"""
-        self.logger.info(f"Close signal received: {payload}")
-        # TODO: 实现平仓逻辑
+        try:
+            action = payload.get('action')
+            ticket = payload.get('ticket')
+            
+            print(f"\n📥 收到平仓信号: {action} ticket={ticket}")
+            
+            if not ticket:
+                self.logger.error("Missing ticket in close signal")
+                print(f"   ❌ 缺少订单号")
+                return
+            
+            if action == 'position_close':
+                # 平仓
+                positions = mt5.positions_get(ticket=ticket)
+                if not positions:
+                    self.logger.error(f"Position not found: {ticket}")
+                    print(f"   ❌ 未找到持仓: {ticket}")
+                    return
+                
+                pos = positions[0]
+                
+                # 构建平仓请求
+                request = {
+                    "action": mt5.TRADE_ACTION_DEAL,
+                    "symbol": pos.symbol,
+                    "volume": pos.volume,
+                    "type": mt5.ORDER_TYPE_SELL if pos.type == mt5.ORDER_TYPE_BUY else mt5.ORDER_TYPE_BUY,
+                    "position": ticket,
+                    "deviation": self.config.get('common', {}).get('slippage_points', 30),
+                    "magic": pos.magic,
+                    "comment": pos.comment,
+                }
+                
+                result = mt5.order_send(request)
+                
+                if result.retcode == mt5.TRADE_RETCODE_DONE:
+                    self.logger.info(f"Position closed: ticket={ticket}")
+                    print(f"   ✅ 平仓成功")
+                else:
+                    self.logger.error(f"Close failed: {result.comment}")
+                    print(f"   ❌ 平仓失败: {result.comment}")
+            
+            elif action == 'delete_pending':
+                # 删除挂单（已经在 handle_modify_signal 中处理）
+                self.logger.info(f"Pending order delete signal received: {ticket}")
+                print(f"   ℹ️  收到挂单删除信号")
+        
+        except Exception as e:
+            self.logger.error(f"Error handling close signal: {e}", exc_info=True)
+            print(f"   ❌ 处理平仓信号异常: {e}")
 
     def run(self):
         """运行从服务器"""

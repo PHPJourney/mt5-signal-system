@@ -55,36 +55,56 @@ class MT5Detector:
             login = "未知"
             server = "未知"
             
-            # 方法1: 从命令行参数获取
+            # 方法1: 从命令行参数获取（最可靠）
             try:
                 cmdline = proc.info.get('cmdline', [])
                 if not cmdline:
                     cmdline = proc.cmdline()
                 if cmdline:
                     cmd_str = ' '.join(cmdline)
+                    print(f"[DEBUG] MT5 cmdline: {cmd_str[:200]}")  # 调试输出
+                    
                     # 查找 server 参数
                     server_match = re.search(r'/server:([^\s]+)', cmd_str)
                     if server_match:
                         server = server_match.group(1)
-            except:
+                        print(f"[DEBUG] Found server from cmdline: {server}")
+                    
+                    # 查找 login 参数
+                    login_match = re.search(r'/login:(\d+)', cmd_str)
+                    if login_match:
+                        login = login_match.group(1)
+                        print(f"[DEBUG] Found login from cmdline: {login}")
+            except Exception as e:
+                print(f"[DEBUG] Failed to parse cmdline: {e}")
                 pass
             
-            # 方法2: 从配置文件获取信息
+            # 方法2: 从配置文件获取信息（Windows 专用）
             config_dir = Path(exe_path).parent / "config"
             
             if config_dir.exists():
+                print(f"[DEBUG] Config directory exists: {config_dir}")
+                
                 # 读取 common.ini (MT5 使用 UTF-16 LE 编码)
                 common_ini = config_dir / "common.ini"
                 
                 if common_ini.exists():
+                    print(f"[DEBUG] Found common.ini")
                     try:
                         with open(common_ini, 'rb') as f:
                             raw_content = f.read()
+                            print(f"[DEBUG] common.ini size: {len(raw_content)} bytes")
+                            
                             # 尝试 UTF-16 LE
                             try:
                                 content = raw_content.decode('utf-16-le')
+                                print(f"[DEBUG] Decoded as UTF-16 LE")
                             except:
                                 content = raw_content.decode('utf-8', errors='ignore')
+                                print(f"[DEBUG] Decoded as UTF-8")
+                            
+                            # 打印前 500 字符用于调试
+                            print(f"[DEBUG] common.ini preview: {content[:500]}")
                             
                             # 尝试多种可能的字段名
                             name_match = re.search(r'(?:Company|Server|Broker)\s*=\s*(.+)', content, re.IGNORECASE)
@@ -92,20 +112,29 @@ class MT5Detector:
                                 broker_name = name_match.group(1).strip()
                                 # 清理不可见字符
                                 broker_name = ''.join(c for c in broker_name if ord(c) > 31)
+                                print(f"[DEBUG] Found broker: {broker_name}")
                     except Exception as e:
-                        pass
+                        print(f"[DEBUG] Error reading common.ini: {e}")
+                        import traceback
+                        traceback.print_exc()
                 
                 # 读取 accounts.dat
                 accounts_dat = config_dir / "accounts.dat"
                 
                 if accounts_dat.exists():
+                    print(f"[DEBUG] Found accounts.dat")
                     try:
                         with open(accounts_dat, 'rb') as f:
                             raw_content = f.read()
+                            print(f"[DEBUG] accounts.dat size: {len(raw_content)} bytes")
+                            
                             try:
                                 content = raw_content.decode('utf-16-le')
                             except:
                                 content = raw_content.decode('utf-8', errors='ignore')
+                            
+                            # 打印前 500 字符用于调试
+                            print(f"[DEBUG] accounts.dat preview: {content[:500]}")
                             
                             # 查找登录信息
                             login_match = re.search(r'(?:Login|Account)\s*=\s*(\d+)', content, re.IGNORECASE)
@@ -113,6 +142,7 @@ class MT5Detector:
                             
                             if login_match:
                                 login = login_match.group(1)
+                                print(f"[DEBUG] Found login: {login}")
                                 
                             if server_match:
                                 srv = server_match.group(1).strip()
@@ -120,13 +150,20 @@ class MT5Detector:
                                 srv = ''.join(c for c in srv if ord(c) > 31)
                                 if srv and srv != "未知":
                                     server = srv
+                                    print(f"[DEBUG] Found server: {server}")
                     except Exception as e:
-                        pass
+                        print(f"[DEBUG] Error reading accounts.dat: {e}")
+                        import traceback
+                        traceback.print_exc()
+            else:
+                print(f"[DEBUG] Config directory does not exist: {config_dir}")
             
             # 清理所有字段的不可见字符
             broker_name = ''.join(c for c in broker_name if ord(c) > 31).strip() or "未知券商"
             login = ''.join(c for c in login if ord(c) > 31).strip() or "未知"
             server = ''.join(c for c in server if ord(c) > 31).strip() or "未知"
+            
+            print(f"[DEBUG] Final result - Broker: {broker_name}, Login: {login}, Server: {server}")
             
             return {
                 'pid': proc.pid,
@@ -138,6 +175,9 @@ class MT5Detector:
             }
             
         except Exception as e:
+            print(f"[DEBUG] Exception in _get_terminal_info: {e}")
+            import traceback
+            traceback.print_exc()
             return None
     
     @staticmethod
