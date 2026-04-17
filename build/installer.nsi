@@ -51,10 +51,6 @@ VIAddVersionKey "FileDescription" "Intelligent Trading Strategy Platform"
 !define MUI_LANGDLL_REGISTRY_KEY "Software\TradeMindMT5"
 !define MUI_LANGDLL_REGISTRY_VALUENAME "Installer Language"
 
-; Include language packs (relative to build/ directory)
-!include "..\lang\Chinese.nsh"
-!include "..\lang\English.nsh"
-
 ; Pages
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_LICENSE "..\LICENSE"
@@ -67,10 +63,14 @@ VIAddVersionKey "FileDescription" "Intelligent Trading Strategy Platform"
 !insertmacro MUI_UNPAGE_INSTFILES
 !insertmacro MUI_UNPAGE_FINISH
 
-; Language - Simplified Chinese first, then English
+; Language - MUST be defined BEFORE including language files
 !insertmacro MUI_LANGUAGE "SimpChinese"
 !insertmacro MUI_LANGUAGE "English"
 !insertmacro MUI_RESERVEFILE_LANGDLL
+
+; NOW include language packs (after MUI_LANGUAGE declarations)
+!include "..\lang\Chinese.nsh"
+!include "..\lang\English.nsh"
 
 ; Variables
 Var EnableMaster
