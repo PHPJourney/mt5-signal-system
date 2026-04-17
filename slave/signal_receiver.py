@@ -373,6 +373,21 @@ class SlaveSignalReceiver:
     def handle_order_signal(self, payload: Dict[str, Any]):
         """处理订单信号"""
         try:
+            # === 风控检查 ===
+            if not self.risk_manager.check_risk_limits():
+                reason = self.risk_manager.risk_status.blocked_reason
+                self.logger.warning(f"Risk limits exceeded: {reason}")
+                print(f"\n📥 收到交易信号: {payload.get('symbol', 'UNKNOWN')}")
+                print(f"   ⚠️  风控限制，忽略信号: {reason}")
+                return
+            
+            allowed, filter_reason = self.risk_manager.check_order_filter(payload)
+            if not allowed:
+                self.logger.info(f"Order filtered: {filter_reason}")
+                print(f"\n📥 收到交易信号: {payload.get('symbol', 'UNKNOWN')}")
+                print(f"   ⚠️  订单被过滤: {filter_reason}")
+                return
+
             order_type = payload.get('order_type')
             symbol = payload.get('symbol')
             volume = payload.get('volume', 0.01)
@@ -381,39 +396,37 @@ class SlaveSignalReceiver:
             tp = payload.get('tp', 0.0)
             magic = payload.get('magic', 0)
             comment = payload.get('comment', '')
+            master_ticket = payload.get('ticket', 0)
 
-            # 终端输出
             print(f"\n📥 收到交易信号: {symbol}")
 
-            # 检查是否允许交易此类型
-            follow_mode = self.config.get('common', {}).get('follow_mode', 'both')
-            if follow_mode == 'buy_only' and order_type in [mt5.ORDER_TYPE_SELL, mt5.ORDER_TYPE_SELL_LIMIT, mt5.ORDER_TYPE_SELL_STOP]:
-                self.logger.info(f"Ignoring SELL signal (mode: {follow_mode})")
-                print(f"   ⚠️  忽略卖出信号 (模式: {follow_mode})")
-                return
-            elif follow_mode == 'sell_only' and order_type in [mt5.ORDER_TYPE_BUY, mt5.ORDER_TYPE_BUY_LIMIT, mt5.ORDER_TYPE_BUY_STOP]:
-                self.logger.info(f"Ignoring BUY signal (mode: {follow_mode})")
-                print(f"   ⚠️  忽略买入信号 (模式: {follow_mode})")
-                return
-
-            # 映射品种
-            mapped_symbol = self.symbol_mapper.map_symbol(symbol)
+            # === 品种映射 ===
+            mapped_symbol, symbol_lot_multiplier = self.risk_manager.check_symbol_mapping(symbol)
             if not mapped_symbol:
                 self.logger.error(f"Symbol mapping failed for: {symbol}")
                 print(f"   ❌ 品种映射失败: {symbol}")
                 return
 
-            # 应用手数乘数
-            lot_multiplier = self.config.get('common', {}).get('lot_multiplier', 1.0)
-            adjusted_volume = volume * lot_multiplier
+            # === 手数计算 ===
+            try:
+                account_info = mt5.account_info()
+                slave_balance = account_info.balance if account_info else 0.0
+            except:
+                slave_balance = 0.0
             
-            max_lot = self.config.get('common', {}).get('max_lot', 100.0)
-            if adjusted_volume > max_lot:
-                self.logger.warning(f"Volume {adjusted_volume} exceeds max_lot {max_lot}, capping")
-                adjusted_volume = max_lot
-                print(f"   ⚠️  手数已调整: {adjusted_volume}")
+            order_index = len(self.risk_manager.processed_orders)
+            calculated_lot = self.risk_manager.calculate_lot_size(
+                master_volume=volume,
+                slave_balance=slave_balance,
+                order_index=order_index
+            )
+            
+            adjusted_volume = calculated_lot * symbol_lot_multiplier
+            
+            if abs(adjusted_volume - volume) > 0.001:
+                print(f"   📊 手数调整: {volume} → {adjusted_volume:.2f}")
 
-            # 执行交易
+            # === 执行交易 ===
             result = self.execute_order(
                 order_type=order_type,
                 symbol=mapped_symbol,
@@ -426,10 +439,13 @@ class SlaveSignalReceiver:
             )
 
             if result:
-                self.logger.info(f"Order executed successfully: {order_type} {mapped_symbol} {adjusted_volume}")
+                self.logger.info(f"Order executed: {mapped_symbol} {adjusted_volume}")
                 print(f"   ✅ 订单执行成功: {mapped_symbol} {adjusted_volume}")
+                
+                if master_ticket:
+                    self.risk_manager.mark_order_processed(master_ticket, result)
             else:
-                self.logger.error(f"Order execution failed: {order_type} {mapped_symbol}")
+                self.logger.error(f"Order execution failed: {mapped_symbol}")
                 print(f"   ❌ 订单执行失败: {mapped_symbol}")
 
         except Exception as e:
@@ -438,25 +454,14 @@ class SlaveSignalReceiver:
 
     def execute_order(self, order_type: int, symbol: str, volume: float,
                      price: float = 0.0, sl: float = 0.0, tp: float = 0.0,
-                     magic: int = 0, comment: str = '') -> bool:
+                     magic: int = 0, comment: str = '') -> Optional[int]:
         """
         执行订单
 
-        Args:
-            order_type: 订单类型
-            symbol: 交易品种
-            volume: 手数
-            price: 价格（市价单为0）
-            sl: 止损
-            tp: 止盈
-            magic: Magic Number
-            comment: 注释
-
         Returns:
-            bool: 是否成功
+            int: 订单号（成功）或 None（失败）
         """
         try:
-            # 准备请求
             request = {
                 "action": mt5.TRADE_ACTION_DEAL,
                 "symbol": symbol,
@@ -468,7 +473,6 @@ class SlaveSignalReceiver:
                 "comment": comment if comment else self.config.get('common', {}).get('comment_prefix', 'TM_'),
             }
 
-            # 添加价格相关字段
             if price > 0:
                 request["price"] = price
             if sl > 0:
@@ -476,22 +480,21 @@ class SlaveSignalReceiver:
             if tp > 0:
                 request["tp"] = tp
 
-            # 发送订单
             result = mt5.order_send(request)
             
             if result.retcode != mt5.TRADE_RETCODE_DONE:
                 self.logger.error(f"Order failed: {result.comment} (code: {result.retcode})")
                 print(f"   ❌ 订单失败: {result.comment} (代码: {result.retcode})")
-                return False
+                return None
 
-            self.logger.info(f"Order sent: ticket={result.order}, retcode={result.retcode}")
+            self.logger.info(f"Order sent: ticket={result.order}")
             print(f"   📤 订单已发送: ticket={result.order}")
-            return True
+            return result.order
 
         except Exception as e:
             self.logger.error(f"Error executing order: {e}", exc_info=True)
             print(f"   ❌ 执行订单异常: {e}")
-            return False
+            return None
 
     def handle_modify_signal(self, payload: Dict[str, Any]):
         """处理修改信号"""
@@ -683,23 +686,28 @@ class SlaveSignalReceiver:
 
         try:
             last_heartbeat = time.time()
-            heartbeat_interval = 30  # 每 30 秒输出一次心跳
+            heartbeat_interval = 30
+            last_position_update = time.time()
             
             while self.running:
                 current_time = time.time()
                 
-                # 每 30 秒输出一次心跳日志
                 if current_time - last_heartbeat >= heartbeat_interval:
                     elapsed = int(current_time - self.start_time)
                     hours = elapsed // 3600
                     minutes = (elapsed % 3600) // 60
                     seconds = elapsed % 60
                     
-                    self.logger.info(f"💓 Heartbeat - Running for {hours}h {minutes}m {seconds}s | "
-                                   f"Account: {self.mt5_account_id} | MQTT: {'Connected' if self.connected else 'Disconnected'} | "
-                                   f"Master: {self.config.get('master_account', 'N/A')}")
+                    positions = mt5.positions_get()
+                    position_count = len(positions) if positions else 0
+                    total_lots = sum(pos.volume for pos in positions) if positions else 0
                     
-                    # 写入心跳文件（用于外部检测进程存活）
+                    self.risk_manager.update_position_count(position_count, total_lots)
+                    
+                    self.logger.info(f"💓 Heartbeat - {hours}h {minutes}m {seconds}s | "
+                                   f"Account: {self.mt5_account_id} | "
+                                   f"Positions: {position_count} ({total_lots:.2f} lots)")
+                    
                     try:
                         heartbeat_file.parent.mkdir(exist_ok=True)
                         with open(heartbeat_file, 'w', encoding='utf-8') as f:
@@ -708,19 +716,30 @@ class SlaveSignalReceiver:
                             f.write(f"mqtt_connected={self.connected}\n")
                             f.write(f"uptime={elapsed}\n")
                             f.write(f"master_account={self.config.get('master_account', 'N/A')}\n")
+                            f.write(f"positions={position_count}\n")
+                            f.write(f"total_lots={total_lots:.2f}\n")
                     except Exception as e:
                         self.logger.debug(f"Failed to write heartbeat file: {e}")
                     
                     last_heartbeat = current_time
                 
+                if current_time - last_position_update >= 5.0:
+                    try:
+                        positions = mt5.positions_get()
+                        if positions is not None:
+                            position_count = len(positions)
+                            total_lots = sum(pos.volume for pos in positions)
+                            self.risk_manager.update_position_count(position_count, total_lots)
+                    except:
+                        pass
+                    last_position_update = current_time
+                
                 time.sleep(1)
                 
-                # 定期重连
                 if not self.mqtt_client.is_connected():
                     self.logger.warning("MQTT disconnected, reconnecting...")
                     print(f"⚠️  MQTT 断开连接，正在重连...")
                     self.connect_mqtt()
-                    
         except KeyboardInterrupt:
             self.logger.info("Shutdown requested by user")
             print(f"\n⚠️  收到关闭信号，正在停止...")

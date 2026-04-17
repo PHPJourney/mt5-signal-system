@@ -47,6 +47,7 @@ class SlaveConfigTab:
         self.max_profit_percent_var = tk.DoubleVar()
         self.max_profit_usd_var = tk.DoubleVar()
         self.session_loss_var = tk.DoubleVar()
+        self.session_profit_var = tk.DoubleVar()
         self.cooldown_var = tk.IntVar()
         self.max_positions_var = tk.IntVar()
         self.max_total_lots_var = tk.DoubleVar()
@@ -71,8 +72,17 @@ class SlaveConfigTab:
         self.follow_pending_var = tk.BooleanVar(value=False)
         self.max_order_age_var = tk.DoubleVar()
         self.follow_close_var = tk.BooleanVar(value=True)
+        self.follow_sl_tp_var = tk.BooleanVar(value=False)
+        self.allow_duplicate_var = tk.BooleanVar(value=False)
+        self.require_profit_var = tk.IntVar()
+        self.require_loss_var = tk.IntVar()
+        self.max_price_deviation_var = tk.IntVar()
+        self.allowed_hours_start_var = tk.StringVar(value="00:00:00")
+        self.allowed_hours_end_var = tk.StringVar(value="23:59:59")
         self.whitelist_symbols_var = tk.StringVar()
         self.blacklist_symbols_var = tk.StringVar()
+        self.allowed_magics_var = tk.StringVar()
+        self.required_comments_var = tk.StringVar()
         
         # 追踪止损
         self.trailing_enabled_var = tk.BooleanVar(value=False)
@@ -113,6 +123,7 @@ class SlaveConfigTab:
         self.max_profit_percent_var.set(risk_config.get('max_profit_percent', 20.0))
         self.max_profit_usd_var.set(risk_config.get('max_profit_usd', 2000.0))
         self.session_loss_var.set(risk_config.get('session_loss_usd', 0.0))
+        self.session_profit_var.set(risk_config.get('session_profit_usd', 0.0))
         self.cooldown_var.set(risk_config.get('cooldown_minutes', 0))
         self.max_positions_var.set(risk_config.get('max_positions', 3))
         self.max_total_lots_var.set(risk_config.get('max_total_lots', 10.0))
@@ -136,10 +147,19 @@ class SlaveConfigTab:
         self.follow_sell_var.set(filter_config.get('follow_sell', True))
         self.follow_market_var.set(filter_config.get('follow_market_orders', True))
         self.follow_pending_var.set(filter_config.get('follow_pending_orders', False))
-        self.max_order_age_var.set(filter_config.get('max_order_age_minutes', 0.0))
         self.follow_close_var.set(filter_config.get('follow_close', True))
+        self.follow_sl_tp_var.set(filter_config.get('follow_sl_tp', False))
+        self.allow_duplicate_var.set(filter_config.get('allow_duplicate_follow', False))
+        self.max_order_age_var.set(filter_config.get('max_order_age_minutes', 0.0))
+        self.require_profit_var.set(filter_config.get('require_profit_points', 0))
+        self.require_loss_var.set(filter_config.get('require_loss_points', 0))
+        self.max_price_deviation_var.set(filter_config.get('max_price_deviation_points', 0))
+        self.allowed_hours_start_var.set(filter_config.get('allowed_hours_start', '00:00:00'))
+        self.allowed_hours_end_var.set(filter_config.get('allowed_hours_end', '23:59:59'))
         self.whitelist_symbols_var.set(','.join(filter_config.get('whitelist_symbols', [])))
         self.blacklist_symbols_var.set(','.join(filter_config.get('blacklist_symbols', [])))
+        self.allowed_magics_var.set(','.join(str(m) for m in filter_config.get('allowed_magics', [])))
+        self.required_comments_var.set(','.join(filter_config.get('required_comments', [])))
         
         # 追踪止损
         trailing_config = self.config.get('trailing_stop', {})
@@ -405,10 +425,34 @@ class SlaveConfigTab:
         row += 1
 
         ttk.Checkbutton(filter_frame, text=_("CONFIG_FOLLOW_CLOSE"), variable=self.follow_close_var).grid(row=row, column=0, sticky=tk.W, pady=2)
+        ttk.Checkbutton(filter_frame, text="跟随 SL/TP 修改", variable=self.follow_sl_tp_var).grid(row=row, column=1, sticky=tk.W, pady=2)
         row += 1
 
-        ttk.Label(filter_frame, text=_("CONFIG_MAX_ORDER_AGE")).grid(row=row, column=0, sticky=tk.W, pady=2)
+        ttk.Checkbutton(filter_frame, text="允许重复跟单", variable=self.allow_duplicate_var).grid(row=row, column=0, sticky=tk.W, pady=2)
+        row += 1
+
+        ttk.Label(filter_frame, text="最大订单年龄(分钟)").grid(row=row, column=0, sticky=tk.W, pady=2)
         ttk.Spinbox(filter_frame, from_=0, to=1440, increment=0.1, textvariable=self.max_order_age_var, width=38).grid(row=row, column=1, padx=5)
+        row += 1
+
+        ttk.Label(filter_frame, text="最小盈利点数(只跟盈利)").grid(row=row, column=0, sticky=tk.W, pady=2)
+        ttk.Spinbox(filter_frame, from_=0, to=10000, textvariable=self.require_profit_var, width=38).grid(row=row, column=1, padx=5)
+        row += 1
+
+        ttk.Label(filter_frame, text="最大亏损点数(只跟亏损)").grid(row=row, column=0, sticky=tk.W, pady=2)
+        ttk.Spinbox(filter_frame, from_=0, to=10000, textvariable=self.require_loss_var, width=38).grid(row=row, column=1, padx=5)
+        row += 1
+
+        ttk.Label(filter_frame, text="最大价格偏差(点数)").grid(row=row, column=0, sticky=tk.W, pady=2)
+        ttk.Spinbox(filter_frame, from_=0, to=1000, textvariable=self.max_price_deviation_var, width=38).grid(row=row, column=1, padx=5)
+        row += 1
+
+        ttk.Label(filter_frame, text="允许交易时间段").grid(row=row, column=0, sticky=tk.W, pady=2)
+        time_frame = ttk.Frame(filter_frame)
+        time_frame.grid(row=row, column=1, padx=5, sticky=tk.W)
+        ttk.Entry(time_frame, textvariable=self.allowed_hours_start_var, width=10).pack(side=tk.LEFT)
+        ttk.Label(time_frame, text=" - ").pack(side=tk.LEFT)
+        ttk.Entry(time_frame, textvariable=self.allowed_hours_end_var, width=10).pack(side=tk.LEFT)
         row += 1
 
         ttk.Label(filter_frame, text=_("CONFIG_WHITELIST_SYMBOLS")).grid(row=row, column=0, sticky=tk.W, pady=2)
@@ -418,6 +462,16 @@ class SlaveConfigTab:
 
         ttk.Label(filter_frame, text=_("CONFIG_BLACKLIST_SYMBOLS")).grid(row=row, column=0, sticky=tk.W, pady=2)
         ttk.Entry(filter_frame, textvariable=self.blacklist_symbols_var, width=40).grid(row=row, column=1, padx=5)
+        ttk.Label(filter_frame, text="(逗号分隔)").grid(row=row, column=2, sticky=tk.W)
+        row += 1
+
+        ttk.Label(filter_frame, text="允许的 Magic Numbers").grid(row=row, column=0, sticky=tk.W, pady=2)
+        ttk.Entry(filter_frame, textvariable=self.allowed_magics_var, width=40).grid(row=row, column=1, padx=5)
+        ttk.Label(filter_frame, text="(逗号分隔，如: 123456,789012)").grid(row=row, column=2, sticky=tk.W)
+        row += 1
+
+        ttk.Label(filter_frame, text="必需的订单注释").grid(row=row, column=0, sticky=tk.W, pady=2)
+        ttk.Entry(filter_frame, textvariable=self.required_comments_var, width=40).grid(row=row, column=1, padx=5)
         ttk.Label(filter_frame, text="(逗号分隔)").grid(row=row, column=2, sticky=tk.W)
     
     def _create_trailing_section(self, parent):
@@ -453,6 +507,8 @@ class SlaveConfigTab:
         # 解析符号列表
         whitelist = [s.strip() for s in self.whitelist_symbols_var.get().split(',') if s.strip()]
         blacklist = [s.strip() for s in self.blacklist_symbols_var.get().split(',') if s.strip()]
+        allowed_magics = [int(m.strip()) for m in self.allowed_magics_var.get().split(',') if m.strip() and m.strip().isdigit()]
+        required_comments = [c.strip() for c in self.required_comments_var.get().split(',') if c.strip()]
         
         config = {
             "enabled": True,
@@ -485,7 +541,7 @@ class SlaveConfigTab:
                 "max_profit_percent": self.max_profit_percent_var.get(),
                 "max_profit_usd": self.max_profit_usd_var.get(),
                 "session_loss_usd": self.session_loss_var.get(),
-                "session_profit_usd": 0.0,
+                "session_profit_usd": self.session_profit_var.get(),
                 "cooldown_minutes": self.cooldown_var.get(),
                 "max_positions": self.max_positions_var.get(),
                 "max_total_lots": self.max_total_lots_var.get(),
@@ -508,16 +564,16 @@ class SlaveConfigTab:
                 "follow_pending_orders": self.follow_pending_var.get(),
                 "follow_old_orders": False,
                 "max_order_age_minutes": self.max_order_age_var.get(),
-                "allow_duplicate_follow": False,
+                "allow_duplicate_follow": self.allow_duplicate_var.get(),
                 "follow_close": self.follow_close_var.get(),
-                "follow_sl_tp": False,
-                "require_profit_points": 0,
-                "require_loss_points": 0,
-                "max_price_deviation_points": 0,
-                "allowed_magics": [],
-                "required_comments": [],
-                "allowed_hours_start": "00:00:00",
-                "allowed_hours_end": "23:59:59",
+                "follow_sl_tp": self.follow_sl_tp_var.get(),
+                "require_profit_points": self.require_profit_var.get(),
+                "require_loss_points": self.require_loss_var.get(),
+                "max_price_deviation_points": self.max_price_deviation_var.get(),
+                "allowed_magics": allowed_magics,
+                "required_comments": required_comments,
+                "allowed_hours_start": self.allowed_hours_start_var.get(),
+                "allowed_hours_end": self.allowed_hours_end_var.get(),
                 "whitelist_symbols": whitelist,
                 "blacklist_symbols": blacklist
             },
