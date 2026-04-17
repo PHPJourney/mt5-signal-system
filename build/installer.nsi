@@ -85,12 +85,26 @@ Section "$(SEC_PANEL_NAME)" SecPanel
     File "..\dist\MT5_Manager.exe"
     File "..\dist\icon.png"
     
+    ; 复制 UI 模块（打包在 exe 内，但需要外部目录结构）
+    SetOutPath "$INSTDIR\ui"
+    File "..\ui\__init__.py"
+    File "..\ui\dashboard.py"
+    File "..\ui\master_config.py"
+    File "..\ui\slave_config.py"
+    File "..\ui\monitoring.py"
+    File "..\ui\logs.py"
+    
+    ; 复制服务模块
+    SetOutPath "$INSTDIR\services"
+    File "..\services\__init__.py"
+    File "..\services\config_manager.py"
+    File "..\services\mt5_detector.py"
+    File "..\services\process_manager.py"
+    
     ; 创建语言目录并复制语言文件
     SetOutPath "$INSTDIR\lang"
     File "..\lang\Chinese.json"
     File "..\lang\English.json"
-    File "..\lang\Chinese.nsh"
-    File "..\lang\English.nsh"
     
     ; 复制国际化模块
     SetOutPath "$INSTDIR\common"

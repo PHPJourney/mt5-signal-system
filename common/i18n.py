@@ -5,8 +5,24 @@ Multi-language support for GUI application
 
 import json
 import os
+import sys
 from pathlib import Path
 from typing import Dict, Optional
+
+
+def get_resource_path(relative_path: str) -> Path:
+    """
+    获取资源文件的绝对路径
+    支持 PyInstaller 打包后的内部资源访问
+    """
+    if getattr(sys, 'frozen', False):
+        # PyInstaller 打包后的临时目录
+        base_path = Path(sys._MEIPASS)
+    else:
+        # 开发环境
+        base_path = Path(__file__).parent.parent
+    
+    return base_path / relative_path
 
 
 class I18nManager:
@@ -14,21 +30,34 @@ class I18nManager:
     
     def __init__(self, base_dir: Optional[Path] = None):
         self.base_dir = base_dir or Path(__file__).parent.parent
-        self.lang_dir = self.base_dir / "lang"
+        # 使用资源路径获取语言目录（支持 PyInstaller）
+        self.lang_dir = get_resource_path("lang")
         self.current_language = "zh_CN"  # Default to Simplified Chinese
         self.translations: Dict[str, Dict[str, str]] = {}
         
+        # Debug: Print paths
+        print(f"[i18n] base_dir: {self.base_dir}")
+        print(f"[i18n] lang_dir: {self.lang_dir}")
+        print(f"[i18n] frozen: {getattr(sys, 'frozen', False)}")
+        if getattr(sys, 'frozen', False):
+            print(f"[i18n] _MEIPASS: {sys._MEIPASS}")
+        
         # Load available languages
         self.available_languages = self._detect_languages()
+        print(f"[i18n] Available languages: {self.available_languages}")
         
         # Load default language
-        self.load_language(self.current_language)
+        success = self.load_language(self.current_language)
+        print(f"[i18n] Load language '{self.current_language}': {'SUCCESS' if success else 'FAILED'}")
+        if success:
+            print(f"[i18n] Loaded {len(self.translations.get(self.current_language, {}))} translation keys")
     
     def _detect_languages(self) -> Dict[str, str]:
         """Detect available language files"""
         languages = {}
         
         if not self.lang_dir.exists():
+            print(f"Warning: Language directory not found: {self.lang_dir}")
             return languages
         
         # Map language codes to display names
@@ -37,56 +66,41 @@ class I18nManager:
             "English": "en_US"
         }
         
-        # Look for JSON files instead of NSH files
+        # Look for JSON files
         for json_file in self.lang_dir.glob("*.json"):
             lang_name = json_file.stem
             if lang_name in lang_mapping:
                 languages[lang_mapping[lang_name]] = lang_name
+        
+        if not languages:
+            print(f"Warning: No language files found in {self.lang_dir}")
         
         return languages
     
     def load_language(self, lang_code: str) -> bool:
         """Load translations for specified language"""
         if lang_code not in self.available_languages:
+            print(f"Warning: Language '{lang_code}' not available")
             return False
         
         lang_file_name = self.available_languages[lang_code]
         lang_file = self.lang_dir / f"{lang_file_name}.json"
         
-        # Try to load JSON translation file first
+        # Load JSON translation file
         if lang_file.exists():
             try:
                 with open(lang_file, 'r', encoding='utf-8') as f:
                     self.translations[lang_code] = json.load(f)
                 self.current_language = lang_code
+                print(f"Loaded language: {lang_code} ({len(self.translations[lang_code])} keys)")
                 return True
             except Exception as e:
                 print(f"Error loading JSON language file: {e}")
+                import traceback
+                traceback.print_exc()
         
+        print(f"Error: Language file not found: {lang_file}")
         return False
-    
-    def _parse_nsh_file(self, nsh_file: Path, lang_code: str):
-        """Parse NSH language file and extract translations"""
-        translations = {}
-        
-        try:
-            with open(nsh_file, 'r', encoding='utf-8-sig') as f:
-                for line in f:
-                    line = line.strip()
-                    if line.startswith('LangString'):
-                        parts = line.split(None, 3)
-                        if len(parts) >= 4:
-                            key = parts[1]
-                            # Extract the string value (remove quotes)
-                            value = parts[3].strip('"')
-                            # Handle escape sequences
-                            value = value.replace('\\n', '\n')
-                            value = value.replace('\\r\\n', '\n')
-                            translations[key] = value
-            
-            self.translations[lang_code] = translations
-        except Exception as e:
-            print(f"Error parsing NSH file {nsh_file}: {e}")
     
     def get_text(self, key: str, default: Optional[str] = None) -> str:
         """Get translated text by key"""

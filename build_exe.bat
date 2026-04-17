@@ -43,6 +43,44 @@ if exist "*.spec" del /q "*.spec"
 echo [OK] Cleaned
 echo.
 
+REM Build Manager Panel EXE
+echo ===============================================
+echo Building Manager Panel EXE...
+echo ===============================================
+echo.
+
+pyinstaller --name="MT5_Manager" ^
+    --onedir ^
+    --windowed ^
+    --icon=NONE ^
+    --add-data "lang;lang" ^
+    --hidden-import=tkinter ^
+    --hidden-import=tkinter.ttk ^
+    --hidden-import=common ^
+    --hidden-import=common.i18n ^
+    --hidden-import=common.models ^
+    --hidden-import=common.utils ^
+    --hidden-import=services ^
+    --hidden-import=services.mt5_detector ^
+    --hidden-import=services.process_manager ^
+    --hidden-import=services.config_manager ^
+    --hidden-import=ui ^
+    --hidden-import=ui.dashboard ^
+    --hidden-import=ui.master_config ^
+    --hidden-import=ui.slave_config ^
+    --hidden-import=ui.monitoring ^
+    --hidden-import=ui.logs ^
+    mt5_manager.py
+
+if %errorlevel% neq 0 (
+    echo [ERROR] Failed to build Manager Panel
+    pause
+    exit /b 1
+)
+
+echo [OK] Manager Panel built successfully
+echo.
+
 REM Build Master Server EXE
 echo ===============================================
 echo Building Master Server EXE...

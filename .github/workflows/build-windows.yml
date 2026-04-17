@@ -194,6 +194,7 @@ jobs:
           pyinstaller --clean --onefile --windowed `
             --name "MT5_Manager" `
             --icon "icon.ico" `
+            --add-data "lang;lang" `
             --hidden-import "services" `
             --hidden-import "services.mt5_detector" `
             --hidden-import "services.process_manager" `
@@ -206,6 +207,7 @@ jobs:
             --hidden-import "ui.logs" `
             --hidden-import "common" `
             --hidden-import "common.utils" `
+            --hidden-import "common.i18n" `
             --hidden-import "paho.mqtt.client" `
             --hidden-import "paho.mqtt" `
             --hidden-import "numpy" `
@@ -239,6 +241,7 @@ jobs:
             --name "MT5_Master" `
             --icon "icon.ico" `
             --add-data "config;config" `
+            --add-data "lang;lang" `
             --add-data "common;common" `
             --add-data "master;master" `
             --hidden-import "MetaTrader5" `
@@ -273,6 +276,7 @@ jobs:
             --name "MT5_Slave" `
             --icon "icon.ico" `
             --add-data "config;config" `
+            --add-data "lang;lang" `
             --add-data "common;common" `
             --add-data "slave;slave" `
             --hidden-import "MetaTrader5" `
@@ -314,17 +318,13 @@ jobs:
           Copy-Item "icon.ico" "artifact/"
           Copy-Item "icon.png" "artifact/"
           
-          # Copy language files
-          if (Test-Path "lang") {
-            New-Item -Path "artifact/lang" -ItemType Directory -Force
-            Copy-Item "lang/*.json" "artifact/lang/"
-            Write-Host "✓ Language files copied"
-          }
+          # Language files are now bundled inside EXEs via --add-data
+          # No need to copy them separately anymore
           
-          # Copy common module (includes i18n)
+          # Copy common module (includes i18n) - still needed for reference
           if (Test-Path "common") {
             Copy-Item -Recurse "common" "artifact/common"
-            Write-Host "✓ Common module copied"
+            Write-Host "✓ Common module copied (for reference)"
           }
           
           if (Test-Path "README.md") {
