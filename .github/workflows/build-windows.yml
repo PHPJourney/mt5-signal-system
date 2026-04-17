@@ -208,12 +208,14 @@ jobs:
             --hidden-import "common" `
             --hidden-import "common.utils" `
             --hidden-import "common.i18n" `
+            --hidden-import "common.account_reporter" `
             --hidden-import "paho.mqtt.client" `
             --hidden-import "paho.mqtt" `
             --hidden-import "numpy" `
             --hidden-import "psutil" `
             --hidden-import "ttkbootstrap" `
             --hidden-import "ttkbootstrap.style" `
+            --hidden-import "requests" `
             mt5_manager.py
           
           Write-Host "Verifying MT5_Manager.exe..."
@@ -249,6 +251,7 @@ jobs:
             --hidden-import "paho.mqtt" `
             --hidden-import "numpy" `
             --hidden-import "datetime" `
+            --hidden-import "requests" `
             master/signal_sender.py
           
           Write-Host "Verifying MT5_Master.exe..."
@@ -284,6 +287,7 @@ jobs:
             --hidden-import "paho.mqtt" `
             --hidden-import "numpy" `
             --hidden-import "datetime" `
+            --hidden-import "requests" `
             slave/signal_receiver.py
           
           Write-Host "Verifying MT5_Slave.exe..."

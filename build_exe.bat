@@ -56,10 +56,12 @@ pyinstaller --name="MT5_Manager" ^
     --add-data "lang;lang" ^
     --hidden-import=tkinter ^
     --hidden-import=tkinter.ttk ^
+    --hidden-import=requests ^
     --hidden-import=common ^
     --hidden-import=common.i18n ^
     --hidden-import=common.models ^
     --hidden-import=common.utils ^
+    --hidden-import=common.account_reporter ^
     --hidden-import=services ^
     --hidden-import=services.mt5_detector ^
     --hidden-import=services.process_manager ^
