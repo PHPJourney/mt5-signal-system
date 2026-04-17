@@ -176,6 +176,11 @@ class SlaveSignalReceiver:
         Args:
             reason: 禁用原因
         """
+        # 终端输出
+        print(f"\n{'='*60}")
+        print(f"⚠️  账户已被禁用: {reason}")
+        print(f"{'='*60}")
+        
         self.logger.error(f"⚠️  ACCOUNT DISABLED: {reason}")
         self.logger.error("Stopping all trading activities...")
         
@@ -198,10 +203,15 @@ class SlaveSignalReceiver:
         except Exception as e:
             self.logger.error(f"Error checking positions: {e}")
         
-        # 4. 退出程序
-        self.logger.error("Program will exit in 5 seconds...")
+        # 4. 终端提示
+        print(f"\n⚠️  所有交易活动已停止")
+        print(f"⚠️  程序将在 10 秒后退出...")
+        print(f"{'='*60}\n")
+        
+        # 5. 退出程序
+        self.logger.error("Program will exit in 10 seconds...")
         import sys
-        time.sleep(5)
+        time.sleep(10)
         sys.exit(1)
 
     def initialize_mt5(self) -> bool:
@@ -211,6 +221,11 @@ class SlaveSignalReceiver:
         支持指定 Terminal 路径（不同券商的终端）
         """
         try:
+            # 终端输出启动状态
+            print(f"\n{'='*60}")
+            print(f"🚀 启动 Slave 信号接收器...")
+            print(f"{'='*60}")
+            
             self.logger.info("Attempting to initialize MetaTrader5...")
             self.logger.info(f"Python executable: {sys.executable}")
             self.logger.info(f"Current working directory: {os.getcwd()}")
@@ -220,9 +235,11 @@ class SlaveSignalReceiver:
             
             if terminal_path:
                 self.logger.info(f"Connecting to MT5 Terminal: {terminal_path}")
+                print(f"📡 连接 MT5 终端: {terminal_path}")
                 initialized = mt5.initialize(path=terminal_path)
             else:
                 self.logger.info("Connecting to default MT5 Terminal")
+                print(f"📡 连接默认 MT5 终端")
                 initialized = mt5.initialize()
             
             self.logger.info(f"MT5 initialize() returned: {initialized}")
@@ -236,6 +253,16 @@ class SlaveSignalReceiver:
                 self.logger.error("1. MT5 Terminal is installed")
                 self.logger.error("2. You are logged in to MT5")
                 self.logger.error("3. MT5 Terminal is running")
+                
+                # 终端输出
+                print(f"\n❌ MT5 初始化失败!")
+                print(f"   错误码: {error_code}")
+                print(f"   错误信息: {error_msg}")
+                print(f"\n请确保:")
+                print(f"1. 已安装 MT5 终端")
+                print(f"2. MT5 终端已登录账号")
+                print(f"3. MT5 终端正在运行")
+                print(f"{'='*60}\n")
                 return False
 
             # 直接读取当前登录的账号信息（不需要 login）
@@ -246,14 +273,32 @@ class SlaveSignalReceiver:
                 self.logger.error(f"Error code: {error_code}")
                 self.logger.error(f"Error message: {error_msg}")
                 self.logger.error("Please ensure you are logged in to MT5 Terminal.")
+                
+                # 终端输出
+                print(f"\n❌ 无法获取账户信息!")
+                print(f"   错误码: {error_code}")
+                print(f"   错误信息: {error_msg}")
+                print(f"\n请确保 MT5 终端已登录账号")
+                print(f"{'='*60}\n")
                 return False
 
             self.mt5_account_id = account_info.login
             
+            # 终端输出账户信息
+            print(f"\n✅ MT5 连接成功!")
+            print(f"   账号: {self.mt5_account_id}")
+            print(f"   券商: {account_info.company}")
+            print(f"   服务器: {account_info.server}")
+            print(f"   余额: ${account_info.balance:.2f}")
+            print(f"   净值: ${account_info.equity:.2f}")
+            print(f"{'='*60}\n")
+            
             self.logger.info("="*60)
             self.logger.info(f"✓ 检测到 MT5 账号: {self.mt5_account_id}")
-            self.logger.info(f"  券商: {account_info.server}")
+            self.logger.info(f"  券商: {account_info.company}")
+            self.logger.info(f"  服务器: {account_info.server}")
             self.logger.info(f"  余额: ${account_info.balance:.2f}")
+            self.logger.info(f"  净值: ${account_info.equity:.2f}")
             self.logger.info("="*60)
             
             # 设置 MQTT 认证信息（使用 MT5 账号作为 username）
@@ -267,15 +312,20 @@ class SlaveSignalReceiver:
 
         except Exception as e:
             self.logger.error(f"Error initializing MT5: {e}", exc_info=True)
+            print(f"\n❌ MT5 初始化异常: {e}")
+            print(f"{'='*60}\n")
             return False
 
     def connect_mqtt(self) -> bool:
         """连接到MQTT代理"""
         try:
+            print(f"\n🔌 连接 MQTT 服务器...")
+            
             # 订阅主账户的主题
             master_account = self.config.get('master_account')
             if not master_account:
                 self.logger.error("master_account not configured!")
+                print(f"❌ 未配置 master_account!")
                 return False
 
             topic = f"{self.config['mqtt']['topic_prefix']}/{master_account}/#"
@@ -284,11 +334,17 @@ class SlaveSignalReceiver:
             if success:
                 self.connected = True
                 self.logger.info(f"Subscribed to master account: {master_account}")
+                print(f"✅ MQTT 连接成功!")
+                print(f"   订阅主账户: {master_account}")
+            else:
+                print(f"❌ MQTT 连接失败!")
+                self.logger.error("MQTT connection failed!")
             
             return success
 
         except Exception as e:
             self.logger.error(f"Error connecting to MQTT: {e}", exc_info=True)
+            print(f"❌ MQTT 连接异常: {e}")
             return False
 
     def on_message(self, topic: str, payload: Dict[str, Any]):
@@ -326,19 +382,25 @@ class SlaveSignalReceiver:
             magic = payload.get('magic', 0)
             comment = payload.get('comment', '')
 
+            # 终端输出
+            print(f"\n📥 收到交易信号: {symbol}")
+
             # 检查是否允许交易此类型
             follow_mode = self.config.get('common', {}).get('follow_mode', 'both')
             if follow_mode == 'buy_only' and order_type in [mt5.ORDER_TYPE_SELL, mt5.ORDER_TYPE_SELL_LIMIT, mt5.ORDER_TYPE_SELL_STOP]:
                 self.logger.info(f"Ignoring SELL signal (mode: {follow_mode})")
+                print(f"   ⚠️  忽略卖出信号 (模式: {follow_mode})")
                 return
             elif follow_mode == 'sell_only' and order_type in [mt5.ORDER_TYPE_BUY, mt5.ORDER_TYPE_BUY_LIMIT, mt5.ORDER_TYPE_BUY_STOP]:
                 self.logger.info(f"Ignoring BUY signal (mode: {follow_mode})")
+                print(f"   ⚠️  忽略买入信号 (模式: {follow_mode})")
                 return
 
             # 映射品种
             mapped_symbol = self.symbol_mapper.map_symbol(symbol)
             if not mapped_symbol:
                 self.logger.error(f"Symbol mapping failed for: {symbol}")
+                print(f"   ❌ 品种映射失败: {symbol}")
                 return
 
             # 应用手数乘数
@@ -349,6 +411,7 @@ class SlaveSignalReceiver:
             if adjusted_volume > max_lot:
                 self.logger.warning(f"Volume {adjusted_volume} exceeds max_lot {max_lot}, capping")
                 adjusted_volume = max_lot
+                print(f"   ⚠️  手数已调整: {adjusted_volume}")
 
             # 执行交易
             result = self.execute_order(
@@ -364,11 +427,14 @@ class SlaveSignalReceiver:
 
             if result:
                 self.logger.info(f"Order executed successfully: {order_type} {mapped_symbol} {adjusted_volume}")
+                print(f"   ✅ 订单执行成功: {mapped_symbol} {adjusted_volume}")
             else:
                 self.logger.error(f"Order execution failed: {order_type} {mapped_symbol}")
+                print(f"   ❌ 订单执行失败: {mapped_symbol}")
 
         except Exception as e:
             self.logger.error(f"Error handling order signal: {e}", exc_info=True)
+            print(f"   ❌ 处理订单信号异常: {e}")
 
     def execute_order(self, order_type: int, symbol: str, volume: float,
                      price: float = 0.0, sl: float = 0.0, tp: float = 0.0,
@@ -415,13 +481,16 @@ class SlaveSignalReceiver:
             
             if result.retcode != mt5.TRADE_RETCODE_DONE:
                 self.logger.error(f"Order failed: {result.comment} (code: {result.retcode})")
+                print(f"   ❌ 订单失败: {result.comment} (代码: {result.retcode})")
                 return False
 
             self.logger.info(f"Order sent: ticket={result.order}, retcode={result.retcode}")
+            print(f"   📤 订单已发送: ticket={result.order}")
             return True
 
         except Exception as e:
             self.logger.error(f"Error executing order: {e}", exc_info=True)
+            print(f"   ❌ 执行订单异常: {e}")
             return False
 
     def handle_modify_signal(self, payload: Dict[str, Any]):
@@ -439,20 +508,36 @@ class SlaveSignalReceiver:
         self.logger.info("="*60)
         self.logger.info("Starting MT5 Slave Signal Receiver")
         self.logger.info("="*60)
+        
+        # 终端输出
+        print(f"\n{'='*60}")
+        print(f"📦 MT5 Slave 信号接收器")
+        print(f"{'='*60}")
 
         # 初始化MT5
         if not self.initialize_mt5():
             self.logger.error("Failed to initialize MT5")
+            print(f"\n❌ Slave 启动失败: MT5 初始化失败")
+            print(f"{'='*60}\n")
             return
 
         # 连接MQTT
         if not self.connect_mqtt():
             self.logger.error("Failed to connect to MQTT")
+            print(f"\n❌ Slave 启动失败: MQTT 连接失败")
+            print(f"{'='*60}\n")
             return
 
         self.running = True
         self.logger.info("Slave receiver started successfully")
         self.logger.info("Heartbeat started (every 30 seconds)")
+        
+        # 终端输出启动成功
+        print(f"\n✅ Slave 启动成功!")
+        print(f"   账号: {self.mt5_account_id}")
+        print(f"   MQTT: 已连接")
+        print(f"   状态: 等待交易信号...")
+        print(f"{'='*60}\n")
         
         # 记录启动时间
         self.start_time = time.time()
@@ -500,18 +585,23 @@ class SlaveSignalReceiver:
                 # 定期重连
                 if not self.mqtt_client.is_connected():
                     self.logger.warning("MQTT disconnected, reconnecting...")
+                    print(f"⚠️  MQTT 断开连接，正在重连...")
                     self.connect_mqtt()
                     
         except KeyboardInterrupt:
             self.logger.info("Shutdown requested by user")
+            print(f"\n⚠️  收到关闭信号，正在停止...")
         except Exception as e:
             self.logger.error(f"Unexpected error: {e}", exc_info=True)
+            print(f"\n❌ 发生错误: {e}")
         finally:
             self.shutdown()
 
     def shutdown(self):
         """关闭服务"""
         self.logger.info("Shutting down...")
+        print(f"\n{'='*60}")
+        print(f"⏹️  Slave 正在关闭...")
         self.running = False
         
         # 停止账户上报器
@@ -526,6 +616,8 @@ class SlaveSignalReceiver:
         mt5.shutdown()
         
         self.logger.info("Shutdown complete")
+        print(f"✅ Slave 已关闭")
+        print(f"{'='*60}\n")
 
 
 def main():

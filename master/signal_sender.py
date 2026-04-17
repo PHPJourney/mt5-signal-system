@@ -142,12 +142,23 @@ class MasterSignalSender:
         注意：不需要登录，直接读取当前 MT5 Terminal 中已登录的账号
         """
         try:
+            # 终端输出启动状态
+            print(f"\n{'='*60}")
+            print(f"🚀 启动 Master 信号发送器...")
+            print(f"{'='*60}")
+            
             # 记录启动时间
             self.start_time = time.time()
             
             # 连接到默认 Terminal
+            print(f"📡 连接 MT5 终端...")
             if not mt5.initialize():
+                error_code, error_msg = mt5.last_error()
                 self.logger.error(f"MT5 initialization failed: {mt5.last_error()}")
+                print(f"\n❌ MT5 初始化失败!")
+                print(f"   错误码: {error_code}")
+                print(f"   错误信息: {error_msg}")
+                print(f"{'='*60}\n")
                 return False
 
             # 读取当前登录的账号信息
@@ -158,13 +169,30 @@ class MasterSignalSender:
                 self.logger.error("1. MT5 Terminal is installed")
                 self.logger.error("2. You are logged in to MT5")
                 self.logger.error("3. MT5 Terminal is running")
+                
+                print(f"\n❌ 无法获取账户信息!")
+                print(f"\n请确保:")
+                print(f"1. 已安装 MT5 终端")
+                print(f"2. MT5 终端已登录账号")
+                print(f"3. MT5 终端正在运行")
+                print(f"{'='*60}\n")
                 return False
 
             self.mt5_account_id = account_info.login
             
+            # 终端输出账户信息
+            print(f"\n✅ MT5 连接成功!")
+            print(f"   账号: {self.mt5_account_id}")
+            print(f"   券商: {account_info.company}")
+            print(f"   服务器: {account_info.server}")
+            print(f"   余额: ${account_info.balance:.2f}")
+            print(f"   净值: ${account_info.equity:.2f}")
+            print(f"{'='*60}\n")
+            
             self.logger.info("="*60)
             self.logger.info(f"✓ 检测到 MT5 账号: {self.mt5_account_id}")
-            self.logger.info(f"  券商: {account_info.server}")
+            self.logger.info(f"  券商: {account_info.company}")
+            self.logger.info(f"  服务器: {account_info.server}")
             self.logger.info(f"  余额: ${account_info.balance:.2f}")
             self.logger.info("="*60)
             
@@ -180,6 +208,8 @@ class MasterSignalSender:
 
         except Exception as e:
             self.logger.error(f"Error initializing MT5: {e}", exc_info=True)
+            print(f"\n❌ MT5 初始化异常: {e}")
+            print(f"{'='*60}\n")
             import traceback
             self.logger.error(f"Traceback:\n{traceback.format_exc()}")
             return False
@@ -187,13 +217,18 @@ class MasterSignalSender:
     def connect_mqtt(self) -> bool:
         """连接到MQTT代理"""
         try:
+            print(f"\n🔌 连接 MQTT 服务器...")
             success = self.mqtt_client.connect()
             if success:
                 self.connected = True
                 self.logger.info("Connected to MQTT broker")
+                print(f"✅ MQTT 连接成功!")
+            else:
+                print(f"❌ MQTT 连接失败!")
             return success
         except Exception as e:
             self.logger.error(f"Error connecting to MQTT: {e}")
+            print(f"❌ MQTT 连接异常: {e}")
             return False
 
     def send_signal(self, signal_data: Dict[str, Any]) -> bool:
@@ -208,6 +243,7 @@ class MasterSignalSender:
         """
         if not self.connected:
             self.logger.warning("Not connected to MQTT, cannot send signal")
+            print(f"⚠️  无法发送信号: MQTT 未连接")
             return False
         
         try:
@@ -220,14 +256,18 @@ class MasterSignalSender:
             if success:
                 action = signal_data.get('action', 'UNKNOWN')
                 symbol = signal_data.get('symbol', 'UNKNOWN')
-                self.logger.info(f"✓ Signal sent: {action} {symbol}")
+                volume = signal_data.get('volume', 0)
+                self.logger.info(f"✓ Signal sent: {action} {symbol} {volume}")
+                print(f"📤 信号已发送: {action} {symbol} {volume}")
             else:
                 self.logger.error("✗ Failed to send signal")
+                print(f"❌ 信号发送失败")
             
             return success
             
         except Exception as e:
             self.logger.error(f"Error sending signal: {e}", exc_info=True)
+            print(f"❌ 信号发送异常: {e}")
             return False
 
     def run(self):
@@ -235,18 +275,33 @@ class MasterSignalSender:
         self.logger.info("Starting Master Signal Sender...")
         self.running = True
         
+        print(f"\n{'='*60}")
+        print(f"📦 MT5 Master 信号发送器")
+        print(f"{'='*60}")
+        
         # 初始化 MT5
         if not self.initialize_mt5():
             self.logger.error("Failed to initialize MT5")
+            print(f"\n❌ Master 启动失败: MT5 初始化失败")
+            print(f"{'='*60}\n")
             return
         
         # 连接 MQTT
         if not self.connect_mqtt():
             self.logger.error("Failed to connect to MQTT")
+            print(f"\n❌ Master 启动失败: MQTT 连接失败")
+            print(f"{'='*60}\n")
             return
         
         self.logger.info("Master Signal Sender is running...")
         self.logger.info("Heartbeat started (every 30 seconds)")
+        
+        # 终端输出启动成功
+        print(f"\n✅ Master 启动成功!")
+        print(f"   账号: {self.mt5_account_id}")
+        print(f"   MQTT: 已连接")
+        print(f"   状态: 正在监控交易信号...")
+        print(f"{'='*60}\n")
         
         # 创建心跳文件路径
         if getattr(sys, 'frozen', False):
@@ -288,14 +343,18 @@ class MasterSignalSender:
                 
         except KeyboardInterrupt:
             self.logger.info("Received shutdown signal")
+            print(f"\n⚠️  收到关闭信号，正在停止...")
         except Exception as e:
             self.logger.error(f"Error in main loop: {e}", exc_info=True)
+            print(f"\n❌ 发生错误: {e}")
         finally:
             self.shutdown()
 
     def shutdown(self):
         """关闭服务"""
         self.logger.info("Shutting down Master Signal Sender...")
+        print(f"\n{'='*60}")
+        print(f"⏹️  Master 正在关闭...")
         self.running = False
         
         # 停止账户上报器
@@ -307,6 +366,8 @@ class MasterSignalSender:
         
         mt5.shutdown()
         self.logger.info("Master Signal Sender stopped")
+        print(f"✅ Master 已关闭")
+        print(f"{'='*60}\n")
 
 
 def main():

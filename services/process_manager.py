@@ -42,25 +42,13 @@ class ProcessManager:
             # 查找 Master exe
             master_exe = self._find_executable("MT5_Master")
             if not master_exe:
-                return {'success': False, 'error': '找不到 MT5_Master.exe'}
+                return {'success': False, 'error': f'找不到 Master 可执行文件 (尝试过: MT5_Master_Panel.exe, MT5_Master.exe)'}
             
-            # 启动进程
+            # 启动进程（不捕获输出，让它在独立终端显示）
             self.master_process = subprocess.Popen(
                 [str(master_exe), '--config', str(config_path)],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
                 creationflags=subprocess.CREATE_NEW_CONSOLE if sys.platform == 'win32' else 0
             )
-            
-            # 等待 2 秒，检查进程是否立即崩溃
-            time.sleep(2)
-            if not self._check_process_alive(self.master_process):
-                # 进程已退出，读取错误输出
-                try:
-                    stderr_output = self.master_process.stderr.read().decode('utf-8', errors='ignore')
-                    return {'success': False, 'error': f'Master 启动失败: {stderr_output[:200]}'}
-                except:
-                    return {'success': False, 'error': 'Master 启动后立即退出'}
             
             self.master_running = True
             return {'success': True, 'pid': self.master_process.pid}
@@ -99,25 +87,13 @@ class ProcessManager:
             # 查找 Slave exe
             slave_exe = self._find_executable("MT5_Slave")
             if not slave_exe:
-                return {'success': False, 'error': '找不到 MT5_Slave.exe'}
+                return {'success': False, 'error': f'找不到 Slave 可执行文件 (尝试过: MT5_Slave_Panel.exe, MT5_Slave.exe)'}
             
-            # 启动进程
+            # 启动进程（不捕获输出，让它在独立终端显示）
             self.slave_process = subprocess.Popen(
                 [str(slave_exe), '--config', str(config_path)],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
                 creationflags=subprocess.CREATE_NEW_CONSOLE if sys.platform == 'win32' else 0
             )
-            
-            # 等待 2 秒，检查进程是否立即崩溃
-            time.sleep(2)
-            if not self._check_process_alive(self.slave_process):
-                # 进程已退出，读取错误输出
-                try:
-                    stderr_output = self.slave_process.stderr.read().decode('utf-8', errors='ignore')
-                    return {'success': False, 'error': f'Slave 启动失败: {stderr_output[:200]}'}
-                except:
-                    return {'success': False, 'error': 'Slave 启动后立即退出'}
             
             self.slave_running = True
             return {'success': True, 'pid': self.slave_process.pid}
@@ -177,6 +153,7 @@ class ProcessManager:
                         if current_time - last_heartbeat_time < 60:
                             master_alive = True
                             self.master_running = True
+                            # 只有心跳文件有效时才标记为运行
                         else:
                             # 心跳超时，进程可能卡死
                             self.master_running = False
@@ -223,6 +200,7 @@ class ProcessManager:
     def _find_executable(self, name):
         """查找可执行文件"""
         possible_names = [
+            f"{name}_Panel.exe",     # GitHub Actions 打包的实际名称
             f"{name}.exe",
             name,
         ]

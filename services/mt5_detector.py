@@ -71,72 +71,62 @@ class MT5Detector:
             
             # 方法2: 从配置文件获取信息
             config_dir = Path(exe_path).parent / "config"
-            print(f"[MT5探测器] 配置文件目录: {config_dir}")
-            print(f"[MT5探测器] config_dir.exists(): {config_dir.exists()}")
             
             if config_dir.exists():
                 # 读取 common.ini (MT5 使用 UTF-16 LE 编码)
                 common_ini = config_dir / "common.ini"
-                print(f"[MT5探测器] common.ini 存在: {common_ini.exists()}")
                 
                 if common_ini.exists():
                     try:
                         with open(common_ini, 'rb') as f:
                             raw_content = f.read()
-                            print(f"[MT5探测器] common.ini 文件大小: {len(raw_content)} 字节")
                             # 尝试 UTF-16 LE
                             try:
                                 content = raw_content.decode('utf-16-le')
-                                print(f"[MT5探测器] 使用 UTF-16 LE 解码成功")
                             except:
                                 content = raw_content.decode('utf-8', errors='ignore')
-                                print(f"[MT5探测器] 使用 UTF-8 解码")
                             
-                            name_match = re.search(r'Company\s*=\s*(.+)', content)
+                            # 尝试多种可能的字段名
+                            name_match = re.search(r'(?:Company|Server|Broker)\s*=\s*(.+)', content, re.IGNORECASE)
                             if name_match:
                                 broker_name = name_match.group(1).strip()
-                                print(f"[MT5探测器] 券商名称: {broker_name}")
-                            else:
-                                print(f"[MT5探测器] 未找到 Company 字段")
+                                # 清理不可见字符
+                                broker_name = ''.join(c for c in broker_name if ord(c) > 31)
                     except Exception as e:
-                        print(f"[MT5探测器] 读取 common.ini 失败: {e}")
+                        pass
                 
                 # 读取 accounts.dat
                 accounts_dat = config_dir / "accounts.dat"
-                print(f"[MT5探测器] accounts.dat 存在: {accounts_dat.exists()}")
                 
                 if accounts_dat.exists():
                     try:
                         with open(accounts_dat, 'rb') as f:
                             raw_content = f.read()
-                            print(f"[MT5探测器] accounts.dat 文件大小: {len(raw_content)} 字节")
                             try:
                                 content = raw_content.decode('utf-16-le')
-                                print(f"[MT5探测器] accounts.dat 使用 UTF-16 LE 解码")
                             except:
                                 content = raw_content.decode('utf-8', errors='ignore')
-                                print(f"[MT5探测器] accounts.dat 使用 UTF-8 解码")
                             
-                            login_match = re.search(r'Login\s*=\s*(\d+)', content)
-                            server_match = re.search(r'Server\s*=\s*(.+?)(?:\r?\n|$)', content)
+                            # 查找登录信息
+                            login_match = re.search(r'(?:Login|Account)\s*=\s*(\d+)', content, re.IGNORECASE)
+                            server_match = re.search(r'(?:Server)\s*=\s*(.+?)(?:\r?\n|$)', content, re.IGNORECASE)
                             
                             if login_match:
                                 login = login_match.group(1)
-                                print(f"[MT5探测器] 账号: {login}")
-                            else:
-                                print(f"[MT5探测器] 未找到 Login 字段")
                                 
                             if server_match:
                                 srv = server_match.group(1).strip()
+                                # 清理不可见字符
+                                srv = ''.join(c for c in srv if ord(c) > 31)
                                 if srv and srv != "未知":
                                     server = srv
-                                    print(f"[MT5探测器] 服务器: {server}")
-                                else:
-                                    print(f"[MT5探测器] Server 字段为空")
-                            else:
-                                print(f"[MT5探测器] 未找到 Server 字段")
                     except Exception as e:
-                        print(f"[MT5探测器] 读取 accounts.dat 失败: {e}")
+                        pass
+            
+            # 清理所有字段的不可见字符
+            broker_name = ''.join(c for c in broker_name if ord(c) > 31).strip() or "未知券商"
+            login = ''.join(c for c in login if ord(c) > 31).strip() or "未知"
+            server = ''.join(c for c in server if ord(c) > 31).strip() or "未知"
             
             return {
                 'pid': proc.pid,
@@ -148,9 +138,6 @@ class MT5Detector:
             }
             
         except Exception as e:
-            print(f"获取终端信息失败: {e}")
-            import traceback
-            traceback.print_exc()
             return None
     
     @staticmethod
