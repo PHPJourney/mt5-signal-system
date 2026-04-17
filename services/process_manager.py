@@ -2,6 +2,7 @@
 """进程管理服务"""
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 
@@ -15,9 +16,26 @@ class ProcessManager:
         self.master_running = False
         self.slave_running = False
     
+    def _check_process_alive(self, process):
+        """
+        检查进程是否仍然存活
+        
+        Args:
+            process: subprocess.Popen 对象
+            
+        Returns:
+            bool: True=进程存活, False=进程已退出
+        """
+        if process is None:
+            return False
+        
+        # poll() 返回 None 表示进程仍在运行
+        # 返回退出码表示进程已退出
+        return process.poll() is None
+    
     def start_master(self, config_path):
         """启动 Master 服务"""
-        if self.master_running:
+        if self.master_running and self._check_process_alive(self.master_process):
             return {'success': False, 'error': 'Master 已在运行'}
         
         try:
@@ -34,10 +52,21 @@ class ProcessManager:
                 creationflags=subprocess.CREATE_NEW_CONSOLE if sys.platform == 'win32' else 0
             )
             
+            # 等待 2 秒，检查进程是否立即崩溃
+            time.sleep(2)
+            if not self._check_process_alive(self.master_process):
+                # 进程已退出，读取错误输出
+                try:
+                    stderr_output = self.master_process.stderr.read().decode('utf-8', errors='ignore')
+                    return {'success': False, 'error': f'Master 启动失败: {stderr_output[:200]}'}
+                except:
+                    return {'success': False, 'error': 'Master 启动后立即退出'}
+            
             self.master_running = True
             return {'success': True, 'pid': self.master_process.pid}
             
         except Exception as e:
+            self.master_running = False
             return {'success': False, 'error': str(e)}
     
     def stop_master(self):
@@ -48,9 +77,14 @@ class ProcessManager:
         try:
             if self.master_process:
                 self.master_process.terminate()
-                self.master_process.wait(timeout=5)
+                try:
+                    self.master_process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    self.master_process.kill()
+                    self.master_process.wait()
             
             self.master_running = False
+            self.master_process = None
             return {'success': True}
             
         except Exception as e:
@@ -58,7 +92,7 @@ class ProcessManager:
     
     def start_slave(self, config_path):
         """启动 Slave 服务"""
-        if self.slave_running:
+        if self.slave_running and self._check_process_alive(self.slave_process):
             return {'success': False, 'error': 'Slave 已在运行'}
         
         try:
@@ -75,10 +109,21 @@ class ProcessManager:
                 creationflags=subprocess.CREATE_NEW_CONSOLE if sys.platform == 'win32' else 0
             )
             
+            # 等待 2 秒，检查进程是否立即崩溃
+            time.sleep(2)
+            if not self._check_process_alive(self.slave_process):
+                # 进程已退出，读取错误输出
+                try:
+                    stderr_output = self.slave_process.stderr.read().decode('utf-8', errors='ignore')
+                    return {'success': False, 'error': f'Slave 启动失败: {stderr_output[:200]}'}
+                except:
+                    return {'success': False, 'error': 'Slave 启动后立即退出'}
+            
             self.slave_running = True
             return {'success': True, 'pid': self.slave_process.pid}
             
         except Exception as e:
+            self.slave_running = False
             return {'success': False, 'error': str(e)}
     
     def stop_slave(self):
@@ -89,13 +134,91 @@ class ProcessManager:
         try:
             if self.slave_process:
                 self.slave_process.terminate()
-                self.slave_process.wait(timeout=5)
+                try:
+                    self.slave_process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    self.slave_process.kill()
+                    self.slave_process.wait()
             
             self.slave_running = False
+            self.slave_process = None
             return {'success': True}
             
         except Exception as e:
             return {'success': False, 'error': str(e)}
+    
+    def check_all_processes(self):
+        """
+        检查所有进程的真实状态
+        优先使用心跳文件检测，其次使用 poll() 检测
+        """
+        import time
+        
+        # 检查 Master 进程
+        master_alive = False
+        if self.master_process:
+            # 方法1: 检查进程是否存活
+            if self._check_process_alive(self.master_process):
+                master_alive = True
+            else:
+                self.master_running = False
+                self.master_process = None
+        
+        # 方法2: 检查心跳文件（更可靠）
+        master_heartbeat = self.base_dir / 'logs' / 'master.heartbeat'
+        if master_heartbeat.exists():
+            try:
+                with open(master_heartbeat, 'r', encoding='utf-8') as f:
+                    lines = f.readlines()
+                    if lines:
+                        last_heartbeat_time = float(lines[0].strip())
+                        current_time = time.time()
+                        # 如果心跳文件在 60 秒内更新过，认为进程存活
+                        if current_time - last_heartbeat_time < 60:
+                            master_alive = True
+                            self.master_running = True
+                        else:
+                            # 心跳超时，进程可能卡死
+                            self.master_running = False
+                            self.master_process = None
+            except Exception:
+                pass
+        
+        if not master_alive:
+            self.master_running = False
+        
+        # 检查 Slave 进程
+        slave_alive = False
+        if self.slave_process:
+            # 方法1: 检查进程是否存活
+            if self._check_process_alive(self.slave_process):
+                slave_alive = True
+            else:
+                self.slave_running = False
+                self.slave_process = None
+        
+        # 方法2: 检查心跳文件（更可靠）
+        slave_heartbeat = self.base_dir / 'logs' / 'slave.heartbeat'
+        if slave_heartbeat.exists():
+            try:
+                with open(slave_heartbeat, 'r', encoding='utf-8') as f:
+                    lines = f.readlines()
+                    if lines:
+                        last_heartbeat_time = float(lines[0].strip())
+                        current_time = time.time()
+                        # 如果心跳文件在 60 秒内更新过，认为进程存活
+                        if current_time - last_heartbeat_time < 60:
+                            slave_alive = True
+                            self.slave_running = True
+                        else:
+                            # 心跳超时，进程可能卡死
+                            self.slave_running = False
+                            self.slave_process = None
+            except Exception:
+                pass
+        
+        if not slave_alive:
+            self.slave_running = False
     
     def _find_executable(self, name):
         """查找可执行文件"""

@@ -137,6 +137,9 @@ class DashboardTab:
         """刷新状态"""
         self.detect_mt5()
         
+        # 先通过日志文件检查进程状态
+        self.app.process_manager.check_process_status()
+        
         # 更新 Master 状态
         if hasattr(self, 'master_status_label'):
             if self.app.process_manager.master_running:

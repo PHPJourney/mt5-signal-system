@@ -211,6 +211,10 @@ class SlaveSignalReceiver:
         支持指定 Terminal 路径（不同券商的终端）
         """
         try:
+            self.logger.info("Attempting to initialize MetaTrader5...")
+            self.logger.info(f"Python executable: {sys.executable}")
+            self.logger.info(f"Current working directory: {os.getcwd()}")
+            
             # 获取 Terminal 路径（从配置或命令行参数）
             terminal_path = self.config.get('mt5_terminal_path')
             
@@ -221,14 +225,27 @@ class SlaveSignalReceiver:
                 self.logger.info("Connecting to default MT5 Terminal")
                 initialized = mt5.initialize()
             
+            self.logger.info(f"MT5 initialize() returned: {initialized}")
+            
             if not initialized:
-                self.logger.error(f"MT5 initialization failed: {mt5.last_error()}")
+                error_code, error_msg = mt5.last_error()
+                self.logger.error(f"MT5 initialization failed!")
+                self.logger.error(f"Error code: {error_code}")
+                self.logger.error(f"Error message: {error_msg}")
+                self.logger.error("Please ensure:")
+                self.logger.error("1. MT5 Terminal is installed")
+                self.logger.error("2. You are logged in to MT5")
+                self.logger.error("3. MT5 Terminal is running")
                 return False
 
             # 直接读取当前登录的账号信息（不需要 login）
             account_info = mt5.account_info()
             if account_info is None:
-                self.logger.error("Failed to get account info. Please ensure you are logged in to MT5.")
+                error_code, error_msg = mt5.last_error()
+                self.logger.error("Failed to get account info.")
+                self.logger.error(f"Error code: {error_code}")
+                self.logger.error(f"Error message: {error_msg}")
+                self.logger.error("Please ensure you are logged in to MT5 Terminal.")
                 return False
 
             self.mt5_account_id = account_info.login
@@ -435,9 +452,49 @@ class SlaveSignalReceiver:
 
         self.running = True
         self.logger.info("Slave receiver started successfully")
+        self.logger.info("Heartbeat started (every 30 seconds)")
+        
+        # 记录启动时间
+        self.start_time = time.time()
+        
+        # 创建心跳文件路径
+        if getattr(sys, 'frozen', False):
+            heartbeat_file = Path(sys.executable).parent / 'logs' / 'slave.heartbeat'
+        else:
+            heartbeat_file = Path(__file__).parent.parent / 'logs' / 'slave.heartbeat'
 
         try:
+            last_heartbeat = time.time()
+            heartbeat_interval = 30  # 每 30 秒输出一次心跳
+            
             while self.running:
+                current_time = time.time()
+                
+                # 每 30 秒输出一次心跳日志
+                if current_time - last_heartbeat >= heartbeat_interval:
+                    elapsed = int(current_time - self.start_time)
+                    hours = elapsed // 3600
+                    minutes = (elapsed % 3600) // 60
+                    seconds = elapsed % 60
+                    
+                    self.logger.info(f"💓 Heartbeat - Running for {hours}h {minutes}m {seconds}s | "
+                                   f"Account: {self.mt5_account_id} | MQTT: {'Connected' if self.connected else 'Disconnected'} | "
+                                   f"Master: {self.config.get('master_account', 'N/A')}")
+                    
+                    # 写入心跳文件（用于外部检测进程存活）
+                    try:
+                        heartbeat_file.parent.mkdir(exist_ok=True)
+                        with open(heartbeat_file, 'w', encoding='utf-8') as f:
+                            f.write(f"{current_time}\n")
+                            f.write(f"account_id={self.mt5_account_id}\n")
+                            f.write(f"mqtt_connected={self.connected}\n")
+                            f.write(f"uptime={elapsed}\n")
+                            f.write(f"master_account={self.config.get('master_account', 'N/A')}\n")
+                    except Exception as e:
+                        self.logger.debug(f"Failed to write heartbeat file: {e}")
+                    
+                    last_heartbeat = current_time
+                
                 time.sleep(1)
                 
                 # 定期重连

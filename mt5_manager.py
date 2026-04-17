@@ -119,11 +119,33 @@ class MT5ManagerApp:
         self.notebook.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
         # 始终显示所有选项卡
-        DashboardTab(self.notebook, self)
+        self.dashboard_tab = DashboardTab(self.notebook, self)
         MasterConfigTab(self.notebook, self)
         SlaveConfigTab(self.notebook, self)
-        MonitoringTab(self.notebook, self)
+        self.monitoring_tab = MonitoringTab(self.notebook, self)
         LogsTab(self.notebook, self)
+        
+        # 启动定期进程状态检测（每 3 秒检查一次）
+        self.schedule_process_check()
+
+    def schedule_process_check(self):
+        """定期检测进程真实状态"""
+        try:
+            # 检查进程状态
+            self.process_manager.check_all_processes()
+            
+            # 刷新 UI 显示
+            if hasattr(self, 'dashboard_tab'):
+                self.dashboard_tab.refresh_status()
+            
+            if hasattr(self, 'monitoring_tab'):
+                self.monitoring_tab.refresh_status()
+                
+        except Exception as e:
+            pass
+        finally:
+            # 每 3 秒检查一次
+            self.root.after(3000, self.schedule_process_check)
 
     def update_status(self, message):
         """更新状态栏消息"""

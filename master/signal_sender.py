@@ -142,6 +142,9 @@ class MasterSignalSender:
         注意：不需要登录，直接读取当前 MT5 Terminal 中已登录的账号
         """
         try:
+            # 记录启动时间
+            self.start_time = time.time()
+            
             # 连接到默认 Terminal
             if not mt5.initialize():
                 self.logger.error(f"MT5 initialization failed: {mt5.last_error()}")
@@ -150,7 +153,11 @@ class MasterSignalSender:
             # 读取当前登录的账号信息
             account_info = mt5.account_info()
             if account_info is None:
-                self.logger.error("Failed to get account info. Please ensure you are logged in to MT5.")
+                self.logger.error("Failed to get account info.")
+                self.logger.error("Please ensure:")
+                self.logger.error("1. MT5 Terminal is installed")
+                self.logger.error("2. You are logged in to MT5")
+                self.logger.error("3. MT5 Terminal is running")
                 return False
 
             self.mt5_account_id = account_info.login
@@ -173,6 +180,8 @@ class MasterSignalSender:
 
         except Exception as e:
             self.logger.error(f"Error initializing MT5: {e}", exc_info=True)
+            import traceback
+            self.logger.error(f"Traceback:\n{traceback.format_exc()}")
             return False
 
     def connect_mqtt(self) -> bool:
@@ -237,11 +246,44 @@ class MasterSignalSender:
             return
         
         self.logger.info("Master Signal Sender is running...")
+        self.logger.info("Heartbeat started (every 30 seconds)")
+        
+        # 创建心跳文件路径
+        if getattr(sys, 'frozen', False):
+            heartbeat_file = Path(sys.executable).parent / 'logs' / 'master.heartbeat'
+        else:
+            heartbeat_file = Path(__file__).parent.parent / 'logs' / 'master.heartbeat'
         
         try:
+            last_heartbeat = time.time()
+            heartbeat_interval = 30  # 每 30 秒输出一次心跳
+            
             while self.running:
-                # 这里可以添加监控 MT5 交易的逻辑
-                # 目前只是一个占位符
+                current_time = time.time()
+                
+                # 每 30 秒输出一次心跳日志
+                if current_time - last_heartbeat >= heartbeat_interval:
+                    elapsed = int(current_time - self.start_time)
+                    hours = elapsed // 3600
+                    minutes = (elapsed % 3600) // 60
+                    seconds = elapsed % 60
+                    
+                    self.logger.info(f"💓 Heartbeat - Running for {hours}h {minutes}m {seconds}s | "
+                                   f"Account: {self.mt5_account_id} | MQTT: {'Connected' if self.connected else 'Disconnected'}")
+                    
+                    # 写入心跳文件（用于外部检测进程存活）
+                    try:
+                        heartbeat_file.parent.mkdir(exist_ok=True)
+                        with open(heartbeat_file, 'w', encoding='utf-8') as f:
+                            f.write(f"{current_time}\n")
+                            f.write(f"account_id={self.mt5_account_id}\n")
+                            f.write(f"mqtt_connected={self.connected}\n")
+                            f.write(f"uptime={elapsed}\n")
+                    except Exception as e:
+                        self.logger.debug(f"Failed to write heartbeat file: {e}")
+                    
+                    last_heartbeat = current_time
+                
                 time.sleep(1)
                 
         except KeyboardInterrupt:
