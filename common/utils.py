@@ -13,6 +13,27 @@ def get_base_dir():
         return Path(__file__).parent.parent
 
 
+def get_resource_path(relative_path: str) -> Path:
+    """
+    获取资源文件的绝对路径
+    支持 PyInstaller 打包后的内部资源访问
+    
+    Args:
+        relative_path: 相对路径（如 "lang/Chinese.json"）
+        
+    Returns:
+        资源的绝对路径
+    """
+    if getattr(sys, 'frozen', False):
+        # PyInstaller 打包后的临时目录
+        base_path = Path(sys._MEIPASS)
+    else:
+        # 开发环境
+        base_path = Path(__file__).parent.parent
+    
+    return base_path / relative_path
+
+
 def format_file_size(size_bytes):
     """格式化文件大小"""
     for unit in ['B', 'KB', 'MB', 'GB']:
