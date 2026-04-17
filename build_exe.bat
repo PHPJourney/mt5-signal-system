@@ -54,8 +54,14 @@ pyinstaller --name="MT5_Manager" ^
     --windowed ^
     --icon=NONE ^
     --add-data "lang;lang" ^
+    --add-data "ui;ui" ^
+    --add-data "services;services" ^
+    --add-data "common;common" ^
     --hidden-import=tkinter ^
     --hidden-import=tkinter.ttk ^
+    --hidden-import=tkinter.scrolledtext ^
+    --hidden-import=tkinter.messagebox ^
+    --hidden-import=tkinter.filedialog ^
     --hidden-import=requests ^
     --hidden-import=common ^
     --hidden-import=common.i18n ^

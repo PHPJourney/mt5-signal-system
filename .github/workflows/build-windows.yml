@@ -195,6 +195,20 @@ jobs:
             --name "MT5_Manager" `
             --icon "icon.ico" `
             --add-data "lang;lang" `
+            --add-data "ui;ui" `
+            --add-data "services;services" `
+            --add-data "common;common" `
+            --hidden-import "tkinter" `
+            --hidden-import "tkinter.ttk" `
+            --hidden-import "tkinter.scrolledtext" `
+            --hidden-import "tkinter.messagebox" `
+            --hidden-import "tkinter.filedialog" `
+            --hidden-import "requests" `
+            --hidden-import "common" `
+            --hidden-import "common.i18n" `
+            --hidden-import "common.models" `
+            --hidden-import "common.utils" `
+            --hidden-import "common.account_reporter" `
             --hidden-import "services" `
             --hidden-import "services.mt5_detector" `
             --hidden-import "services.process_manager" `
@@ -205,17 +219,12 @@ jobs:
             --hidden-import "ui.slave_config" `
             --hidden-import "ui.monitoring" `
             --hidden-import "ui.logs" `
-            --hidden-import "common" `
-            --hidden-import "common.utils" `
-            --hidden-import "common.i18n" `
-            --hidden-import "common.account_reporter" `
             --hidden-import "paho.mqtt.client" `
             --hidden-import "paho.mqtt" `
             --hidden-import "numpy" `
             --hidden-import "psutil" `
             --hidden-import "ttkbootstrap" `
             --hidden-import "ttkbootstrap.style" `
-            --hidden-import "requests" `
             mt5_manager.py
           
           Write-Host "Verifying MT5_Manager.exe..."
