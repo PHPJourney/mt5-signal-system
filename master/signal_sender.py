@@ -271,7 +271,7 @@ class MasterSignalSender:
             return False
 
     def run(self):
-        """运行主循环"""
+        """运行主循环 - 自适应轮询策略"""
         self.logger.info("Starting Master Signal Sender...")
         self.running = True
         
@@ -279,14 +279,12 @@ class MasterSignalSender:
         print(f"📦 MT5 Master 信号发送器")
         print(f"{'='*60}")
         
-        # 初始化 MT5
         if not self.initialize_mt5():
             self.logger.error("Failed to initialize MT5")
             print(f"\n❌ Master 启动失败: MT5 初始化失败")
             print(f"{'='*60}\n")
             return
         
-        # 连接 MQTT
         if not self.connect_mqtt():
             self.logger.error("Failed to connect to MQTT")
             print(f"\n❌ Master 启动失败: MQTT 连接失败")
@@ -294,16 +292,18 @@ class MasterSignalSender:
             return
         
         self.logger.info("Master Signal Sender is running...")
-        self.logger.info("Heartbeat started (every 30 seconds)")
+        self.logger.info("Adaptive polling strategy activated")
+        self.logger.info("- Orders/Positions: 0.1s (ultra-high frequency)")
+        self.logger.info("- History deals: 1.0s (medium frequency)")
+        self.logger.info("- Account info: 5.0s (low frequency)")
         
-        # 终端输出启动成功
         print(f"\n✅ Master 启动成功!")
         print(f"   账号: {self.mt5_account_id}")
         print(f"   MQTT: 已连接")
-        print(f"   状态: 正在监控交易信号...")
+        print(f"   监控策略: 自适应轮询（0.1s/1s/5s）")
         print(f"{'='*60}\n")
         
-        # 创建心跳文件路径
+        # 心跳文件路径
         if getattr(sys, 'frozen', False):
             heartbeat_file = Path(sys.executable).parent / 'logs' / 'master.heartbeat'
         else:
@@ -311,22 +311,33 @@ class MasterSignalSender:
         
         try:
             last_heartbeat = time.time()
-            heartbeat_interval = 30  # 每 30 秒输出一次心跳
+            last_history_check = time.time()
+            last_account_check = time.time()
+            
+            # 订单监控状态
+            last_orders = {}
+            last_positions = {}
+            last_deals = set()
+            last_history_orders = set()
+            
+            # 检测是否有活跃交易（用于动态调整频率）
+            has_active_trading = False
             
             while self.running:
                 current_time = time.time()
                 
-                # 每 30 秒输出一次心跳日志
-                if current_time - last_heartbeat >= heartbeat_interval:
+                # === 1. 心跳日志（30 秒）===
+                if current_time - last_heartbeat >= 30:
                     elapsed = int(current_time - self.start_time)
                     hours = elapsed // 3600
                     minutes = (elapsed % 3600) // 60
                     seconds = elapsed % 60
                     
-                    self.logger.info(f"💓 Heartbeat - Running for {hours}h {minutes}m {seconds}s | "
-                                   f"Account: {self.mt5_account_id} | MQTT: {'Connected' if self.connected else 'Disconnected'}")
+                    self.logger.info(f"💓 Heartbeat - {hours}h {minutes}m {seconds}s | "
+                                   f"Account: {self.mt5_account_id} | "
+                                   f"MQTT: {'Connected' if self.connected else 'Disconnected'} | "
+                                   f"Active Trading: {has_active_trading}")
                     
-                    # 写入心跳文件（用于外部检测进程存活）
                     try:
                         heartbeat_file.parent.mkdir(exist_ok=True)
                         with open(heartbeat_file, 'w', encoding='utf-8') as f:
@@ -334,12 +345,34 @@ class MasterSignalSender:
                             f.write(f"account_id={self.mt5_account_id}\n")
                             f.write(f"mqtt_connected={self.connected}\n")
                             f.write(f"uptime={elapsed}\n")
+                            f.write(f"active_trading={has_active_trading}\n")
                     except Exception as e:
                         self.logger.debug(f"Failed to write heartbeat file: {e}")
                     
                     last_heartbeat = current_time
                 
-                time.sleep(1)
+                # === 2. 实时监控挂单和持仓（0.1 秒 - 超高频）===
+                trading_detected = self.monitor_trades_ultra_fast(last_orders, last_positions)
+                if trading_detected:
+                    has_active_trading = True
+                
+                # === 3. 监控历史成交（1 秒 - 中频）===
+                if current_time - last_history_check >= 1.0:
+                    self.monitor_history_deals(last_deals, last_history_orders)
+                    last_history_check = current_time
+                
+                # === 4. 监控账户信息（5 秒 - 低频）===
+                if current_time - last_account_check >= 5.0:
+                    self.check_account_status()
+                    last_account_check = current_time
+                
+                # === 5. 如果没有活跃交易，降低频率到 0.5 秒 ===
+                sleep_time = 0.1 if has_active_trading else 0.5
+                time.sleep(sleep_time)
+                
+                # 重置活跃交易标志（如果一段时间没有检测到变化）
+                if has_active_trading and current_time - last_heartbeat > 10:
+                    has_active_trading = False
                 
         except KeyboardInterrupt:
             self.logger.info("Received shutdown signal")
@@ -349,6 +382,264 @@ class MasterSignalSender:
             print(f"\n❌ 发生错误: {e}")
         finally:
             self.shutdown()
+
+    def monitor_trades_ultra_fast(self, last_orders: dict, last_positions: dict) -> bool:
+        """
+        超高频监控挂单和持仓（0.1 秒间隔）
+        
+        Returns:
+            bool: 是否检测到交易活动
+        """
+        trading_detected = False
+        
+        try:
+            # 1. 监控挂单
+            orders = mt5.orders_get()
+            if orders:
+                current_orders = {order.ticket: order for order in orders}
+                trading_detected = True
+                
+                # 新挂单
+                for ticket, order in current_orders.items():
+                    if ticket not in last_orders:
+                        self.logger.info(f"🆕 NEW PENDING ORDER: {ticket}")
+                        print(f"📋 [0.1s] 新挂单: {order.symbol} {self._order_type_to_str(order.type)} "
+                              f"vol={order.volume_current} price={order.price_open}")
+                        
+                        self.send_signal({
+                            'signal_type': 'order',
+                            'action': 'pending_order',
+                            'order_type': order.type,
+                            'symbol': order.symbol,
+                            'volume': order.volume_current,
+                            'price': order.price_open,
+                            'sl': order.sl,
+                            'tp': order.tp,
+                            'magic': order.magic,
+                            'comment': order.comment,
+                            'ticket': ticket,
+                            'timestamp': time.time()
+                        })
+                
+                # 挂单修改
+                for ticket, order in current_orders.items():
+                    if ticket in last_orders:
+                        last_order = last_orders[ticket]
+                        changes = []
+                        
+                        if abs(order.price_open - last_order.price_open) > 0.00001:
+                            changes.append(f"price:{last_order.price_open:.5f}→{order.price_open:.5f}")
+                        if abs(order.sl - last_order.sl) > 0.00001:
+                            changes.append(f"SL:{last_order.sl:.5f}→{order.sl:.5f}")
+                        if abs(order.tp - last_order.tp) > 0.00001:
+                            changes.append(f"TP:{last_order.tp:.5f}→{order.tp:.5f}")
+                        
+                        if changes:
+                            self.logger.info(f"✏️ PENDING MODIFIED: {ticket}")
+                            print(f"✏️ [0.1s] 挂单修改: {order.symbol} #{ticket} | {', '.join(changes)}")
+                            
+                            self.send_signal({
+                                'signal_type': 'modify',
+                                'action': 'modify_pending',
+                                'ticket': ticket,
+                                'symbol': order.symbol,
+                                'price': order.price_open,
+                                'sl': order.sl,
+                                'tp': order.tp,
+                                'timestamp': time.time()
+                            })
+                
+                # 挂单删除
+                for ticket in last_orders:
+                    if ticket not in current_orders:
+                        self.logger.info(f"🗑️ PENDING DELETED: {ticket}")
+                        print(f"🗑️ [0.1s] 挂单删除: #{ticket}")
+                        
+                        self.send_signal({
+                            'signal_type': 'close',
+                            'action': 'delete_pending',
+                            'ticket': ticket,
+                            'timestamp': time.time()
+                        })
+                
+                last_orders.clear()
+                last_orders.update(current_orders)
+            
+            # 2. 监控持仓
+            positions = mt5.positions_get()
+            if positions:
+                current_positions = {pos.ticket: pos for pos in positions}
+                trading_detected = True
+                
+                # 新开仓
+                for ticket, pos in current_positions.items():
+                    if ticket not in last_positions:
+                        self.logger.info(f"🚀 NEW POSITION: {ticket}")
+                        print(f"📈 [0.1s] 新开仓: {pos.symbol} {self._position_type_to_str(pos.type)} "
+                              f"vol={pos.volume} price={pos.price_open:.5f}")
+                        
+                        self.send_signal({
+                            'signal_type': 'order',
+                            'action': 'position_open',
+                            'order_type': pos.type,
+                            'symbol': pos.symbol,
+                            'volume': pos.volume,
+                            'price': pos.price_open,
+                            'sl': pos.sl,
+                            'tp': pos.tp,
+                            'magic': pos.magic,
+                            'comment': pos.comment,
+                            'ticket': ticket,
+                            'timestamp': time.time()
+                        })
+                
+                # 持仓修改（SL/TP）
+                for ticket, pos in current_positions.items():
+                    if ticket in last_positions:
+                        last_pos = last_positions[ticket]
+                        changes = []
+                        
+                        if abs(pos.sl - last_pos.sl) > 0.00001:
+                            changes.append(f"SL:{last_pos.sl:.5f}→{pos.sl:.5f}")
+                        if abs(pos.tp - last_pos.tp) > 0.00001:
+                            changes.append(f"TP:{last_pos.tp:.5f}→{pos.tp:.5f}")
+                        
+                        if changes:
+                            self.logger.info(f"✏️ POSITION MODIFIED: {ticket}")
+                            print(f"✏️ [0.1s] 持仓修改: {pos.symbol} #{ticket} | {', '.join(changes)}")
+                            
+                            self.send_signal({
+                                'signal_type': 'modify',
+                                'action': 'modify_position',
+                                'ticket': ticket,
+                                'symbol': pos.symbol,
+                                'sl': pos.sl,
+                                'tp': pos.tp,
+                                'timestamp': time.time()
+                            })
+                
+                # 平仓
+                for ticket in last_positions:
+                    if ticket not in current_positions:
+                        self.logger.info(f"📉 POSITION CLOSED: {ticket}")
+                        print(f"📉 [0.1s] 平仓: #{ticket}")
+                        
+                        deal_info = self._get_close_deal_info(ticket)
+                        
+                        self.send_signal({
+                            'signal_type': 'close',
+                            'action': 'position_close',
+                            'ticket': ticket,
+                            'close_price': deal_info.get('price', 0),
+                            'profit': deal_info.get('profit', 0),
+                            'commission': deal_info.get('commission', 0),
+                            'swap': deal_info.get('swap', 0),
+                            'timestamp': time.time()
+                        })
+                
+                last_positions.clear()
+                last_positions.update(current_positions)
+            
+            return trading_detected
+            
+        except Exception as e:
+            self.logger.error(f"Error in ultra-fast monitoring: {e}", exc_info=True)
+            return False
+
+    def check_account_status(self):
+        """检查账户状态（余额、净值等）"""
+        try:
+            account_info = mt5.account_info()
+            if account_info:
+                self.logger.info(f"💰 Account: Balance=${account_info.balance:.2f} "
+                               f"Equity=${account_info.equity:.2f} "
+                               f"Profit=${account_info.profit:.2f}")
+        except Exception as e:
+            self.logger.debug(f"Failed to check account status: {e}")
+
+    def monitor_history_deals(self, last_deals: set, last_history_orders: set):
+        """
+        监控历史成交记录（检测挂单成交、部分成交等）
+        
+        Args:
+            last_deals: 已处理的成交单 ID 集合
+            last_history_orders: 已处理的历史订单 ID 集合
+        """
+        try:
+            # 获取最近的成交记录（过去 10 秒）
+            from datetime import datetime, timedelta
+            time_from = datetime.now() - timedelta(seconds=10)
+            time_to = datetime.now()
+            
+            deals = mt5.history_deals_get(time_from, time_to)
+            if deals:
+                for deal in deals:
+                    if deal.deal not in last_deals:
+                        last_deals.add(deal.deal)
+                        
+                        # 判断成交类型
+                        if deal.entry == mt5.DEAL_ENTRY_IN:
+                            # 开仓成交
+                            self.logger.info(f"💰 Deal IN: {deal.symbol} deal={deal.deal} volume={deal.volume}")
+                            print(f"💰 成交开仓: {deal.symbol} vol={deal.volume} price={deal.price}")
+                        
+                        elif deal.entry == mt5.DEAL_ENTRY_OUT:
+                            # 平仓成交
+                            self.logger.info(f"💸 Deal OUT: {deal.symbol} deal={deal.deal} profit={deal.profit}")
+                            print(f"💸 成交平仓: {deal.symbol} profit=${deal.profit:.2f}")
+                        
+                        elif deal.entry == mt5.DEAL_ENTRY_INOUT:
+                            # 反向开仓（先平后开）
+                            self.logger.info(f"🔄 Deal INOUT: {deal.symbol} deal={deal.deal}")
+                            print(f"🔄 反向开仓: {deal.symbol}")
+            
+            # 限制集合大小，避免内存泄漏
+            if len(last_deals) > 1000:
+                # 保留最近 500 个
+                deals_list = sorted(last_deals)[-500:]
+                last_deals.clear()
+                last_deals.update(deals_list)
+            
+        except Exception as e:
+            self.logger.error(f"Error monitoring history deals: {e}", exc_info=True)
+
+    def _get_close_deal_info(self, position_ticket: int) -> dict:
+        """获取平仓成交的详细信息"""
+        try:
+            from datetime import datetime, timedelta
+            time_from = datetime.now() - timedelta(seconds=30)
+            time_to = datetime.now()
+            
+            deals = mt5.history_deals_get(time_from, time_to)
+            if deals:
+                for deal in deals:
+                    if deal.position_id == position_ticket and deal.entry == mt5.DEAL_ENTRY_OUT:
+                        return {
+                            'price': deal.price,
+                            'profit': deal.profit,
+                            'commission': deal.commission,
+                            'swap': deal.swap
+                        }
+        except Exception as e:
+            self.logger.debug(f"Failed to get close deal info: {e}")
+        
+        return {}
+
+    def _order_type_to_str(self, order_type: int) -> str:
+        """将订单类型转换为字符串"""
+        type_map = {
+            0: "BUY",
+            1: "SELL",
+            2: "BUY_LIMIT",
+            3: "SELL_LIMIT",
+            4: "BUY_STOP",
+            5: "SELL_STOP"
+        }
+        return type_map.get(order_type, f"UNKNOWN({order_type})")
+
+    def _position_type_to_str(self, position_type: int) -> str:
+        """将持仓类型转换为字符串"""
+        return "BUY" if position_type == 0 else "SELL"
 
     def shutdown(self):
         """关闭服务"""
@@ -378,3 +669,8 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+
+
+
