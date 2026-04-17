@@ -128,19 +128,17 @@ class DashboardTab:
         
         if terminals:
             for terminal in terminals:
-                display = f"{terminal.get('broker', 'Unknown')} - {terminal.get('login', 'N/A')} ({terminal.get('path', 'N/A')})"
+                # 显示: 券商 - 账号 | 服务器
+                display = f"{terminal.get('broker', 'Unknown')} - 账号:{terminal.get('login', 'N/A')} | 服务器:{terminal.get('server', 'N/A')}"
                 self.mt5_listbox.insert(tk.END, display)
         else:
             self.mt5_listbox.insert(tk.END, _("NO_MT5_DETECTED"))
-
+    
     def refresh_status(self):
         """刷新状态"""
         self.detect_mt5()
         
-        # 先通过心跳文件检查进程状态
-        self.app.process_manager.check_all_processes()
-        
-        # 更新 Master 状态
+        # 更新 Master 状态（根据 process_manager 的标记）
         if hasattr(self, 'master_status_label'):
             if self.app.process_manager.master_running:
                 self.master_status_label.config(text=_("STATUS_RUNNING"), foreground="green")
@@ -151,7 +149,7 @@ class DashboardTab:
                 self.master_start_btn.config(state=tk.NORMAL)
                 self.master_stop_btn.config(state=tk.DISABLED)
         
-        # 更新 Slave 状态
+        # 更新 Slave 状态（根据 process_manager 的标记）
         if hasattr(self, 'slave_status_label'):
             if self.app.process_manager.slave_running:
                 self.slave_status_label.config(text=_("STATUS_RUNNING"), foreground="green")

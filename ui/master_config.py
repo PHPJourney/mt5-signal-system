@@ -218,7 +218,8 @@ class MasterConfigTab:
         self.terminals_data = terminals  # 保存原始数据
         
         for term in terminals:
-            display_text = f"{term['broker']} - 账号: {term['login']} ({term['path']})"
+            # 显示: 券商 - 账号: xxx | 服务器: xxx
+            display_text = f"{term['broker']} - 账号: {term['login']} | 服务器: {term['server']}"
             terminal_options.append(display_text)
         
         # 更新下拉框
@@ -236,13 +237,13 @@ class MasterConfigTab:
         """当用户选择终端时"""
         selection = self.mt5_terminal_combo.get()
         if selection and hasattr(self, 'terminals_data'):
-            import re
-            path_match = re.search(r'\((.+)\)$', selection)
-            if path_match:
-                path = path_match.group(1)
-                self.mt5_path_var.set(path)
+            # 根据选择找到对应的终端路径
+            idx = self.mt5_terminal_combo.current()
+            if idx >= 0 and idx < len(self.terminals_data):
+                terminal = self.terminals_data[idx]
+                self.mt5_path_var.set(terminal['path'])
                 self.terminal_info_label.config(
-                    text=f"{_('STATUS_RUNNING')}: {selection}",
+                    text=f"已选择: {terminal['broker']} | 账号: {terminal['login']} | 服务器: {terminal['server']}",
                     foreground="green"
                 )
     

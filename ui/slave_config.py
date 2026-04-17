@@ -221,6 +221,40 @@ class SlaveConfigTab:
         mt5_terminal_frame = ttk.LabelFrame(parent, text=_("CONFIG_MT5_SETTINGS"), padding=10)
         mt5_terminal_frame.pack(fill=tk.X, padx=10, pady=5)
 
+        # 终端下拉框
+        terminal_list_frame = ttk.Frame(mt5_terminal_frame)
+        terminal_list_frame.pack(fill=tk.X, pady=5)
+
+        ttk.Label(terminal_list_frame, text=_("CONFIG_TERMINAL_PATH")).pack(side=tk.LEFT, padx=5)
+        
+        # MT5 终端下拉框
+        self.mt5_terminal_combo = ttk.Combobox(
+            terminal_list_frame, 
+            textvariable=self.mt5_terminal_var,
+            width=50,
+            state="readonly"
+        )
+        self.mt5_terminal_combo.pack(side=tk.LEFT, padx=5, fill=tk.X, expand=True)
+        
+        # 刷新按钮
+        ttk.Button(
+            terminal_list_frame,
+            text=_("BTN_REFRESH"),
+            command=self.refresh_terminals,
+            width=10
+        ).pack(side=tk.LEFT, padx=5)
+
+        # 显示终端详细信息
+        self.terminal_info_label = ttk.Label(
+            mt5_terminal_frame,
+            text=_("BTN_DETECT_MT5"),
+            foreground="gray",
+            wraplength=600,
+            justify=tk.LEFT
+        )
+        self.terminal_info_label.pack(anchor=tk.W, pady=5)
+        
+        # MT5 路径（手动输入）
         path_frame = ttk.Frame(mt5_terminal_frame)
         path_frame.pack(fill=tk.X, pady=5)
         
@@ -505,3 +539,45 @@ class SlaveConfigTab:
             self.app.update_status(_("MSG_CONFIG_SAVED"))
         else:
             messagebox.showerror(_("MSG_ERROR"), f"{_('CONFIG_ERROR')}: {_('MSG_CONFIG_SAVE_FAILED')}")
+    
+    def refresh_terminals(self):
+        """刷新 MT5 终端列表"""
+        terminals = self.app.mt5_detector.detect_terminals()
+        
+        if not terminals:
+            messagebox.showwarning(_("MSG_WARNING"), _("NO_MT5_DETECTED"))
+            return
+        
+        # 格式化终端信息
+        terminal_options = []
+        self.terminals_data = terminals  # 保存原始数据
+        
+        for term in terminals:
+            # 显示: 券商 - 账号: xxx | 服务器: xxx
+            display_text = f"{term['broker']} - 账号: {term['login']} | 服务器: {term['server']}"
+            terminal_options.append(display_text)
+        
+        # 更新下拉框
+        self.mt5_terminal_combo['values'] = terminal_options
+        if terminal_options:
+            self.mt5_terminal_combo.current(0)
+            self.on_terminal_selected(None)
+        
+        # 绑定选择事件
+        self.mt5_terminal_combo.bind('<<ComboboxSelected>>', self.on_terminal_selected)
+        
+        messagebox.showinfo(_("MSG_SUCCESS"), f"{_('BTN_DETECT_MT5')}: {len(terminals)}")
+    
+    def on_terminal_selected(self, event):
+        """当用户选择终端时"""
+        selection = self.mt5_terminal_combo.get()
+        if selection and hasattr(self, 'terminals_data'):
+            # 根据选择找到对应的终端路径
+            idx = self.mt5_terminal_combo.current()
+            if idx >= 0 and idx < len(self.terminals_data):
+                terminal = self.terminals_data[idx]
+                self.mt5_path_var.set(terminal['path'])
+                self.terminal_info_label.config(
+                    text=f"已选择: {terminal['broker']} | 账号: {terminal['login']} | 服务器: {terminal['server']}",
+                    foreground="green"
+                )
