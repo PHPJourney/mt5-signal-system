@@ -97,10 +97,12 @@ pyinstaller --name="MT5_Master_Server" ^
     --add-data "lang;lang" ^
     --hidden-import=paho.mqtt.client ^
     --hidden-import=MetaTrader5 ^
+    --hidden-import=requests ^
     --hidden-import=common ^
     --hidden-import=common.models ^
     --hidden-import=common.utils ^
     --hidden-import=common.mqtt_client ^
+    --hidden-import=common.account_reporter ^
     master\signal_sender.py
 
 if %errorlevel% neq 0 (
@@ -126,10 +128,12 @@ pyinstaller --name="MT5_Slave_Server" ^
     --add-data "lang;lang" ^
     --hidden-import=paho.mqtt.client ^
     --hidden-import=MetaTrader5 ^
+    --hidden-import=requests ^
     --hidden-import=common ^
     --hidden-import=common.models ^
     --hidden-import=common.utils ^
     --hidden-import=common.mqtt_client ^
+    --hidden-import=common.account_reporter ^
     --hidden-import=slave ^
     --hidden-import=slave.symbol_mapper ^
     --hidden-import=slave.risk_manager ^

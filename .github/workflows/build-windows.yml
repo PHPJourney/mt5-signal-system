@@ -41,7 +41,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pyinstaller paho-mqtt numpy psutil ttkbootstrap pillow MetaTrader5
+          pip install pyinstaller paho-mqtt numpy psutil ttkbootstrap pillow MetaTrader5 requests
         shell: pwsh
 
       - name: Generate icon
