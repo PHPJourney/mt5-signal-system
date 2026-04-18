@@ -365,7 +365,7 @@ jobs:
           }
         shell: pwsh
 
-      - name: Prepare artifacts for upload
+      - name: Prepare files for NSIS installer
         run: |
           # Create a clean directory without path prefixes
           New-Item -Path "artifact" -ItemType Directory -Force
@@ -378,9 +378,6 @@ jobs:
           # Copy icon files
           Copy-Item "icon.ico" "artifact/"
           Copy-Item "icon.png" "artifact/"
-          
-          # Copy language files for installer
-          Copy-Item "lang\*.nsh" -Destination "lang\" -Force
           
           # Copy copyright files for installer
           Copy-Item "版权说明_zh.txt" -Destination "." -Force
