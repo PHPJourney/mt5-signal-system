@@ -1,7 +1,4 @@
 ; TradeMind MT5 - Unified Installer
-; 文件编码: UTF-8 with BOM
-
-; TradeMind MT5 Installer Script
 
 !define PRODUCT_NAME "TradeMind MT5"
 !define PRODUCT_VERSION "1.0.0"
@@ -12,16 +9,10 @@
 
 SetCompressor /SOLID lzma
 
-; MUI 2.0
 !include "MUI2.nsh"
 !include "LogicLib.nsh"
 !include "FileFunc.nsh"
-!include "WinMessages.nsh"
 
-; DO NOT change directory - work from build/
-; !cd ".."
-
-; General settings
 Name "TradeMind MT5"
 OutFile "..\dist\TradeMind_MT5_Installer.exe"
 InstallDir "$PROGRAMFILES\TradeMindMT5"
@@ -29,7 +20,6 @@ RequestExecutionLevel admin
 ShowInstDetails show
 ShowUninstDetails show
 
-; Fixed version number (no git hash)
 !define VERSION "2.0.0"
 VIProductVersion "${VERSION}.0"
 VIAddVersionKey "ProductName" "TradeMind MT5"
@@ -41,55 +31,41 @@ VIAddVersionKey "LegalTrademarks" "TradeMind MT5"
 VIAddVersionKey "CompanyName" "TradeMind"
 VIAddVersionKey "Comments" "官方网站: https://mt5data.cidhub.com"
 
-; UI settings - icon is in dist/ directory
 !define MUI_ABORTWARNING
 !define MUI_ICON "..\dist\icon.ico"
 !define MUI_UNICON "..\dist\icon.ico"
 
-; Language settings - Default to Simplified Chinese
 !define MUI_LANGDLL_REGISTRY_ROOT "HKLM"
 !define MUI_LANGDLL_REGISTRY_KEY "Software\TradeMindMT5"
 !define MUI_LANGDLL_REGISTRY_VALUENAME "Installer Language"
 
-; Pages
+!define MUI_FINISHPAGE_NOAUTOCLOSE
+!define MUI_FINISHPAGE_RUN "$INSTDIR\MT5_Manager.exe"
+!define MUI_FINISHPAGE_RUN_TEXT "运行管理面板"
+!define MUI_FINISHPAGE_SHOWREADME "$INSTDIR\README.md"
+!define MUI_FINISHPAGE_SHOWREADME_TEXT "查看README"
+
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_LICENSE "..\LICENSE"
 !insertmacro MUI_PAGE_COMPONENTS
 !insertmacro MUI_PAGE_DIRECTORY
-
-; Custom finish page function
-!define MUI_PAGE_CUSTOMFUNCTION_SHOW ShowFinishPage
+!insertmacro MUI_PAGE_INSTFILES
 !insertmacro MUI_PAGE_FINISH
 
-; Uninstaller pages
 !insertmacro MUI_UNPAGE_CONFIRM
 !insertmacro MUI_UNPAGE_INSTFILES
 !insertmacro MUI_UNPAGE_FINISH
 
-; Language declarations - MUST be before including language files
 !insertmacro MUI_LANGUAGE "SimpChinese"
 !insertmacro MUI_LANGUAGE "English"
 !insertmacro MUI_RESERVEFILE_LANGDLL
 
-; Include language packs
 !include "..\lang\Chinese.nsh"
 !include "..\lang\English.nsh"
 
-; Custom finish page display function
-Function ShowFinishPage
-    FindWindow $R0 "#32770" "" $HWNDPARENT
-    GetDlgItem $R1 $R0 1006
-    
-    ${If} $R1 != 0
-        SendMessage $R1 ${WM_SETTEXT} 0 "STR:TradeMind MT5 安装完成！$\n$\n$\n📄 版权所有 © 2026 TradeMind$\n🔗 官方网站: https://mt5data.cidhub.com$\n📧 技术支持: 请访问官网获取帮助$\n$\n感谢您的使用！"
-    ${EndIf}
-FunctionEnd
-
-; Variables
 Var EnableMaster
 Var EnableSlave
 
-; Component sections
 Section "$(SEC_PANEL_NAME)" SecPanel
     SectionIn RO
     
@@ -171,13 +147,11 @@ Section "$(SEC_DOCS_NAME)" SecDocs
     DetailPrint "$(MSG_DOCS_COMPLETE)"
 SectionEnd
 
-; Post-installation section
 Section -Post
     SetOutPath "$INSTDIR"
     
     DetailPrint "$(MSG_GENERATING_CONFIG)"
     
-    ; Generate master config if not exists
     IfFileExists "$INSTDIR\config\master_config.json" config_exist_m 0
         DetailPrint "$(MSG_CREATING_MASTER_CONFIG)"
         CreateDirectory "$INSTDIR\config"
@@ -219,7 +193,6 @@ Section -Post
         DetailPrint "$(MSG_MASTER_CONFIG_CREATED)"
     config_exist_m:
     
-    ; Generate slave config if not exists
     IfFileExists "$INSTDIR\config\slave_config.json" config_exist_s 0
         DetailPrint "$(MSG_CREATING_SLAVE_CONFIG)"
         CreateDirectory "$INSTDIR\config"
@@ -296,7 +269,6 @@ Section -Post
         DetailPrint "$(MSG_SLAVE_CONFIG_CREATED)"
     config_exist_s:
     
-    ; Create shortcuts
     DetailPrint "$(MSG_CREATING_SHORTCUTS)"
     CreateDirectory "$SMPROGRAMS\$(SHORTCUT_FOLDER_NAME)"
     CreateShortCut "$SMPROGRAMS\$(SHORTCUT_FOLDER_NAME)\$(SHORTCUT_MANAGER).lnk" "$INSTDIR\MT5_Manager.exe"
@@ -305,7 +277,6 @@ Section -Post
     CreateShortCut "$SMPROGRAMS\$(SHORTCUT_FOLDER_NAME)\$(SHORTCUT_UNINSTALL).lnk" "$INSTDIR\uninstall.exe"
     CreateShortCut "$SMPROGRAMS\$(SHORTCUT_FOLDER_NAME)\$(SHORTCUT_WEBSITE).lnk" "https://mt5data.cidhub.com"
 
-    ; Write uninstall information
     DetailPrint "$(MSG_REGISTERING_UNINSTALL)"
     WriteRegStr HKLM "${PRODUCT_UNINST_KEY}" "DisplayName" "${PRODUCT_NAME}"
     WriteRegStr HKLM "${PRODUCT_UNINST_KEY}" "UninstallString" "$INSTDIR\uninstall.exe"
@@ -315,14 +286,12 @@ Section -Post
     WriteRegStr HKLM "${PRODUCT_UNINST_KEY}" "URLInfoAbout" "https://mt5data.cidhub.com"
     WriteRegStr HKLM "${PRODUCT_UNINST_KEY}" "URLUpdateInfo" "https://mt5data.cidhub.com"
 
-    ; Create uninstaller
     DetailPrint "$(MSG_CREATING_UNINSTALLER)"
     WriteUninstaller "$INSTDIR\uninstall.exe"
     
     DetailPrint "$(MSG_POST_INSTALL_COMPLETE)"
 SectionEnd
 
-; Uninstall section
 Section Uninstall
     Delete "$INSTDIR\MT5_Manager.exe"
     Delete "$INSTDIR\MT5_Master.exe"
@@ -346,7 +315,6 @@ Section Uninstall
     DeleteRegKey /ifempty HKLM "Software\TradeMindMT5"
 SectionEnd
 
-; Descriptions
 !insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
     !insertmacro MUI_DESCRIPTION_TEXT ${SecPanel} "$(SEC_PANEL_DESC)"
     !insertmacro MUI_DESCRIPTION_TEXT ${SecMaster} "$(SEC_MASTER_DESC)"
@@ -354,7 +322,6 @@ SectionEnd
     !insertmacro MUI_DESCRIPTION_TEXT ${SecDocs} "$(SEC_DOCS_DESC)"
 !insertmacro MUI_FUNCTION_DESCRIPTION_END
 
-; Validation function
 Function .onLeaveComponents
     SectionGetFlags ${SecMaster} $R0
     IntOp $R0 $R0 & ${SF_SELECTED}
@@ -375,12 +342,9 @@ Function .onLeaveComponents
     skip_check:
 FunctionEnd
 
-; Initialization function
 Function .onInit
     StrCpy $EnableMaster "false"
     StrCpy $EnableSlave "false"
-    
-    !insertmacro MUI_LANGDLL_DISPLAY
     
     SectionSetFlags ${SecPanel} ${SF_SELECTED}
     SectionSetFlags ${SecMaster} ${SF_SELECTED}
@@ -388,7 +352,6 @@ Function .onInit
     SectionSetFlags ${SecDocs} ${SF_SELECTED}
 FunctionEnd
 
-; Uninstaller initialization
 Function un.onInit
     !insertmacro MUI_UNGETLANGUAGE
     
