@@ -83,21 +83,51 @@ Section "$(SEC_PANEL_NAME)" SecPanel
     
     DetailPrint "$(MSG_INSTALLING_COPYRIGHT)"
     SetOutPath "$INSTDIR"
-    ; 复制预定义的版权文件（UTF-8 编码，避免乱码）
-    !ifmacrodef MUI_LANGDLL_DISPLAY
-        ; 根据选择的语言复制对应版本
-        ${If} $LANGUAGE == ${LANG_SimpChinese}
-            File "..\版权说明_zh.txt"
-            Rename "$INSTDIR\版权说明_zh.txt" "$INSTDIR\版权说明.txt"
-        ${Else}
-            File "..\版权说明_en.txt"
-            Rename "$INSTDIR\版权说明_en.txt" "$INSTDIR\版权说明.txt"
-        ${EndIf}
-    !else
-        ; 默认复制中文版
-        File "..\版权说明_zh.txt"
-        Rename "$INSTDIR\版权说明_zh.txt" "$INSTDIR\版权说明.txt"
-    !endif
+    
+    ; 直接创建版权文件（避免依赖外部文件，解决路径问题）
+    FileOpen $0 "$INSTDIR\版权说明.txt" w
+    ${If} $LANGUAGE == ${LANG_SimpChinese}
+        ; 中文版版权说明
+        FileWrite $0 "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$\r$\n"
+        FileWrite $0 "   TradeMind MT5 - 智能交易策略跟单系统$\r$\n"
+        FileWrite $0 "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$\r$\n$\r$\n"
+        FileWrite $0 "版权所有 © 2026 TradeMind$\r$\n$\r$\n"
+        FileWrite $0 "官方网站: https://mt5data.cidhub.com$\r$\n"
+        FileWrite $0 "技术支持: 请访问官网获取帮助$\r$\n$\r$\n"
+        FileWrite $0 "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$\r$\n$\r$\n"
+        FileWrite $0 "功能说明：$\r$\n"
+        FileWrite $0 "- Master 策略引擎：监控 MT5 交易信号并推送$\r$\n"
+        FileWrite $0 "- Slave 执行节点：接收信号并执行跟单交易$\r$\n"
+        FileWrite $0 "- 管理面板：可视化配置和监控$\r$\n$\r$\n"
+        FileWrite $0 "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$\r$\n$\r$\n"
+        FileWrite $0 "授权说明：$\r$\n"
+        FileWrite $0 "本软件为商业软件，需要购买有效授权方可使用。$\r$\n"
+        FileWrite $0 "未经授权或授权过期后，软件将自动停止服务。$\r$\n$\r$\n"
+        FileWrite $0 "购买授权请访问：https://mt5data.cidhub.com/pricing$\r$\n$\r$\n"
+        FileWrite $0 "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$\r$\n$\r$\n"
+        FileWrite $0 "© 2026 TradeMind. All Rights Reserved.$\r$\n"
+    ${Else}
+        ; 英文版版权说明
+        FileWrite $0 "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$\r$\n"
+        FileWrite $0 "   TradeMind MT5 - Intelligent Trading Signal System$\r$\n"
+        FileWrite $0 "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$\r$\n$\r$\n"
+        FileWrite $0 "Copyright © 2026 TradeMind$\r$\n$\r$\n"
+        FileWrite $0 "Official Website: https://mt5data.cidhub.com$\r$\n"
+        FileWrite $0 "Technical Support: Visit website for help$\r$\n$\r$\n"
+        FileWrite $0 "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$\r$\n$\r$\n"
+        FileWrite $0 "Features:$\r$\n"
+        FileWrite $0 "- Master Engine: Monitor MT5 trading signals and broadcast$\r$\n"
+        FileWrite $0 "- Slave Node: Receive signals and execute copy trading$\r$\n"
+        FileWrite $0 "- Management Panel: Visual configuration and monitoring$\r$\n$\r$\n"
+        FileWrite $0 "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$\r$\n$\r$\n"
+        FileWrite $0 "License:$\r$\n"
+        FileWrite $0 "This is commercial software requiring a valid license.$\r$\n"
+        FileWrite $0 "Service will automatically stop without valid license.$\r$\n$\r$\n"
+        FileWrite $0 "Purchase license at: https://mt5data.cidhub.com/pricing$\r$\n$\r$\n"
+        FileWrite $0 "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$\r$\n$\r$\n"
+        FileWrite $0 "© 2026 TradeMind. All Rights Reserved.$\r$\n"
+    ${EndIf}
+    FileClose $0
     
     DetailPrint "$(MSG_INSTALLING_LANG)"
     SetOutPath "$INSTDIR\lang"

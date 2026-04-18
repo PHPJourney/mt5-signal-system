@@ -529,6 +529,8 @@ jobs:
               [System.IO.File]::WriteAllText("$PWD/lang/English.nsh", $content, $utf8BOM)
               Write-Host "✓ Fixed English.nsh encoding to UTF-8 BOM"
           }
+          
+          Write-Host "=== Language files encoding fixed ==="
       - name: Calculate version
         id: version
         run: |
