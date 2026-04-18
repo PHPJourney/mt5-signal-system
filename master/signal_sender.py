@@ -529,6 +529,27 @@ class MasterSignalSender:
                                 'timestamp': time.time()
                             })
                 
+                # 持仓修改（手数变化 = 部分平仓）
+                for ticket, pos in current_positions.items():
+                    if ticket in last_positions:
+                        last_pos = last_positions[ticket]
+                        
+                        # 检测部分平仓（手数减少）
+                        if pos.volume < last_pos.volume:
+                            closed_volume = last_pos.volume - pos.volume
+                            self.logger.info(f"📊 PARTIAL CLOSE: {ticket} vol={closed_volume}")
+                            print(f"📊 [0.1s] 部分平仓: {pos.symbol} #{ticket} 平{closed_volume} 剩{pos.volume}")
+                            
+                            self.send_signal({
+                                'signal_type': 'close',
+                                'action': 'partial_close',
+                                'ticket': ticket,
+                                'symbol': pos.symbol,
+                                'volume': closed_volume,  # 平仓数量
+                                'remaining_volume': pos.volume,  # 剩余数量
+                                'timestamp': time.time()
+                            })
+                
                 # 平仓
                 for ticket in last_positions:
                     if ticket not in current_positions:
@@ -539,7 +560,7 @@ class MasterSignalSender:
                         
                         self.send_signal({
                             'signal_type': 'close',
-                            'action': 'position_close',
+                            'action': 'close_position',
                             'ticket': ticket,
                             'close_price': deal_info.get('price', 0),
                             'profit': deal_info.get('profit', 0),
@@ -680,6 +701,8 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
 
 
 
