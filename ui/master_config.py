@@ -99,6 +99,9 @@ class MasterConfigTab:
         # MT5 终端选择
         self._create_mt5_terminal_section(scrollable_frame)
         
+        # 自动检测 MT5 终端
+        self.auto_detect_terminals()
+        
         # 策略配置
         self._create_strategy_section(scrollable_frame)
         
@@ -130,6 +133,45 @@ class MasterConfigTab:
             command=self.save_config,
             width=20
         ).pack(side=tk.RIGHT, padx=5)
+    
+    def auto_detect_terminals(self):
+        """自动检测 MT5 终端（静默模式，不显示提示框）"""
+        try:
+            terminals = self.app.mt5_detector.detect_terminals()
+            
+            if not terminals:
+                # 没有检测到终端，保持默认显示
+                return
+            
+            # 格式化终端信息
+            terminal_options = []
+            self.terminals_data = terminals
+            
+            for term in terminals:
+                display_text = f"{term['broker']} - 账号: {term['login']} | 服务器: {term['server']}"
+                terminal_options.append(display_text)
+            
+            # 更新下拉框
+            self.mt5_terminal_combo['values'] = terminal_options
+            if terminal_options:
+                # 尝试匹配已保存的路径
+                saved_path = self.mt5_path_var.get()
+                if saved_path:
+                    for idx, term in enumerate(terminals):
+                        if term['path'] == saved_path:
+                            self.mt5_terminal_combo.current(idx)
+                            self.on_terminal_selected(None)
+                            return
+                
+                # 如果没有保存的路径，选择第一个
+                self.mt5_terminal_combo.current(0)
+                self.on_terminal_selected(None)
+            
+            # 绑定选择事件
+            self.mt5_terminal_combo.bind('<<ComboboxSelected>>', self.on_terminal_selected)
+            
+        except Exception as e:
+            print(f"自动检测 MT5 终端失败: {e}")
     
     def reload_config(self):
         """重新加载配置"""
@@ -273,31 +315,43 @@ class MasterConfigTab:
     
     def refresh_terminals(self):
         """刷新 MT5 终端列表"""
-        terminals = self.app.mt5_detector.detect_terminals()
-        
-        if not terminals:
-            messagebox.showwarning(_("MSG_WARNING"), _("NO_MT5_DETECTED"))
-            return
-        
-        # 格式化终端信息
-        terminal_options = []
-        self.terminals_data = terminals  # 保存原始数据
-        
-        for term in terminals:
-            # 显示: 券商 - 账号: xxx | 服务器: xxx
-            display_text = f"{term['broker']} - 账号: {term['login']} | 服务器: {term['server']}"
-            terminal_options.append(display_text)
-        
-        # 更新下拉框
-        self.mt5_terminal_combo['values'] = terminal_options
-        if terminal_options:
-            self.mt5_terminal_combo.current(0)
-            self.on_terminal_selected(None)
-        
-        # 绑定选择事件
-        self.mt5_terminal_combo.bind('<<ComboboxSelected>>', self.on_terminal_selected)
-        
-        messagebox.showinfo(_("MSG_SUCCESS"), f"{_('BTN_DETECT_MT5')}: {len(terminals)}")
+        try:
+            terminals = self.app.mt5_detector.detect_terminals()
+            
+            if not terminals:
+                messagebox.showwarning(
+                    _("MSG_WARNING"), 
+                    "未检测到运行中的 MT5 终端\n\n"
+                    "请确保：\n"
+                    "1. MT5 终端正在运行\n"
+                    "2. 终端已登录交易账号\n"
+                    "3. 以管理员权限运行本程序（如果需要）"
+                )
+                return
+            
+            # 格式化终端信息
+            terminal_options = []
+            self.terminals_data = terminals
+            
+            for term in terminals:
+                display_text = f"{term['broker']} - 账号: {term['login']} | 服务器: {term['server']}"
+                terminal_options.append(display_text)
+            
+            # 更新下拉框
+            self.mt5_terminal_combo['values'] = terminal_options
+            if terminal_options:
+                self.mt5_terminal_combo.current(0)
+                self.on_terminal_selected(None)
+            
+            # 绑定选择事件
+            self.mt5_terminal_combo.bind('<<ComboboxSelected>>', self.on_terminal_selected)
+            
+            messagebox.showinfo(_("MSG_SUCCESS"), f"检测到 {len(terminals)} 个 MT5 终端")
+            
+        except Exception as e:
+            messagebox.showerror("错误", f"检测 MT5 终端失败:\n{e}")
+            import traceback
+            traceback.print_exc()
     
     def on_terminal_selected(self, event):
         """当用户选择终端时"""
