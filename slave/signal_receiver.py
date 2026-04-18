@@ -131,6 +131,16 @@ class SlaveSignalReceiver:
             level=getattr(self.config['logging'], 'level', 'INFO')
         )
 
+        # 自动生成 Client ID（基于机器码）
+        from common.utils import get_machine_code
+        machine_code = get_machine_code()
+        auto_client_id = f"{machine_code}_Slave"
+        
+        # 如果配置中没有指定 client_id，使用自动生成的
+        if 'client_id' not in self.config.get('mqtt', {}):
+            self.config.setdefault('mqtt', {})['client_id'] = auto_client_id
+            self.logger.info(f"Auto-generated client_id: {auto_client_id}")
+
         # 初始化MQTT客户端
         self.mqtt_client = MQTTClient(self.config['mqtt'], is_master=False)
 
@@ -139,7 +149,7 @@ class SlaveSignalReceiver:
 
         # 风险管理器
         from slave.risk_manager import RiskManager
-        self.risk_manager = RiskManager(self.config.get('risk_management', {}))
+        self.risk_manager = RiskManager(self.config)
 
         # 品种映射器
         from slave.symbol_mapper import SymbolMapper
@@ -321,21 +331,24 @@ class SlaveSignalReceiver:
         try:
             print(f"\n🔌 连接 MQTT 服务器...")
             
-            # 订阅主账户的主题
-            master_account = self.config.get('master_account')
-            if not master_account:
-                self.logger.error("master_account not configured!")
-                print(f"❌ 未配置 master_account!")
+            # 使用 strategy_id 订阅（统一频道）
+            strategy_id = self.config.get('strategy_id')
+            if not strategy_id:
+                self.logger.error("strategy_id not configured!")
+                self.logger.error("Please add 'strategy_id' to config (e.g., 'STRATEGY_001')")
+                print(f"❌ 未配置 strategy_id!")
+                print(f"   请在配置文件中添加:")
+                print(f'   "strategy_id": "STRATEGY_001"')
                 return False
 
-            topic = f"{self.config['mqtt']['topic_prefix']}/{master_account}/#"
+            topic = f"{self.config['mqtt']['topic_prefix']}/{strategy_id}/#"
             success = self.mqtt_client.connect_and_subscribe(topic)
             
             if success:
                 self.connected = True
-                self.logger.info(f"Subscribed to master account: {master_account}")
+                self.logger.info(f"Subscribed to strategy: {strategy_id}")
                 print(f"✅ MQTT 连接成功!")
-                print(f"   订阅主账户: {master_account}")
+                print(f"   订阅策略: {strategy_id}")
             else:
                 print(f"❌ MQTT 连接失败!")
                 self.logger.error("MQTT connection failed!")

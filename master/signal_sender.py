@@ -102,6 +102,16 @@ class MasterSignalSender:
             level=getattr(self.config['logging'], 'level', 'INFO')
         )
 
+        # 自动生成 Client ID（基于机器码）
+        from common.utils import get_machine_code
+        machine_code = get_machine_code()
+        auto_client_id = f"{machine_code}_Master"
+        
+        # 如果配置中没有指定 client_id，使用自动生成的
+        if 'client_id' not in self.config.get('mqtt', {}):
+            self.config.setdefault('mqtt', {})['client_id'] = auto_client_id
+            self.logger.info(f"Auto-generated client_id: {auto_client_id}")
+
         # 初始化MQTT客户端
         self.mqtt_client = MQTTClient(self.config['mqtt'], is_master=True)
 
@@ -247,8 +257,9 @@ class MasterSignalSender:
             return False
         
         try:
-            # 发送到 {topic_prefix}/{mt5_account_id}/trade
-            topic = f"{self.mqtt_client.topic_prefix}/{self.mt5_account_id}/trade"
+            # 使用 strategy_id 作为主题（而不是 MT5 账号）
+            strategy_id = self.config.get('strategy_id', 'DEFAULT')
+            topic = f"{self.mqtt_client.topic_prefix}/{strategy_id}/trade"
             payload = json.dumps(signal_data, ensure_ascii=False)
             
             success = self.mqtt_client.publish(topic, payload, qos=1)
@@ -257,7 +268,7 @@ class MasterSignalSender:
                 action = signal_data.get('action', 'UNKNOWN')
                 symbol = signal_data.get('symbol', 'UNKNOWN')
                 volume = signal_data.get('volume', 0)
-                self.logger.info(f"✓ Signal sent: {action} {symbol} {volume}")
+                self.logger.info(f"✓ Signal sent: {action} {symbol} {volume} [Strategy: {strategy_id}]")
                 print(f"📤 信号已发送: {action} {symbol} {volume}")
             else:
                 self.logger.error("✗ Failed to send signal")
@@ -669,6 +680,10 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+
+
 
 
 

@@ -49,6 +49,8 @@ Thumbs.db
 # MQTT Deploy Package (entire directory excluded from git)
 mqtt-deploy-package/
 
+ip_manager/
+
 # Temporary files
 tmp/
 temp/

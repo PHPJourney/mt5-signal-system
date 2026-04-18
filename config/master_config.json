@@ -1,21 +1,27 @@
 {
+  "_comment": "Master 配置",
+  
+  "strategy_id": "STRATEGY_001",  
+  
   "mqtt": {
-    "broker": "192.168.1.100",
+    "broker": "154.36.184.20",
     "port": 1883,
-    "client_id": "MT5_Master_001",
     "topic_prefix": "trademind/signals",
     "qos": 1,
     "keepalive": 60
   },
+  
   "account_reporter": {
-    "proxy_url": "http://localhost:5000",
+    "proxy_url": "http://154.36.184.20:5000",
     "interval": 60
   },
+  
   "common": {
     "magic_number": 123456,
     "slippage_points": 30,
     "comment_prefix": "TM_"
   },
+  
   "logging": {
     "file": "logs/master.log",
     "level": "INFO"

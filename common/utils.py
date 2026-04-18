@@ -12,7 +12,51 @@ def get_base_dir():
     else:
         return Path(__file__).parent.parent
 
-
+def get_machine_code() -> str:
+    """
+    获取机器唯一标识
+    
+    Returns:
+        str: 机器码（基于硬件信息生成的哈希）
+    """
+    import platform
+    import hashlib
+    
+    # 收集硬件信息
+    info = []
+    
+    # CPU 信息
+    try:
+        if platform.system() == 'Windows':
+            import subprocess
+            result = subprocess.check_output('wmic cpu get processorid', shell=True)
+            cpu_id = result.decode().strip().split('\n')[1].strip()
+            info.append(cpu_id)
+        else:
+            # Linux/Mac
+            result = subprocess.check_output(['cat', '/proc/cpuinfo'])
+            cpu_info = result.decode()
+            for line in cpu_info.split('\n'):
+                if 'serial' in line.lower():
+                    info.append(line.split(':')[1].strip())
+                    break
+    except:
+        info.append(platform.processor())
+    
+    # MAC 地址
+    try:
+        mac = ':'.join(['{:02x}'.format((uuid.getnode() >> elements) & 0xff) 
+                       for elements in range(0,2*6,2)][::-1])
+        info.append(mac)
+    except:
+        pass
+    
+    # 生成哈希
+    machine_info = '|'.join(info)
+    machine_code = hashlib.md5(machine_info.encode()).hexdigest()[:8].upper()
+    
+    return machine_code
+    
 def get_resource_path(relative_path: str) -> Path:
     """
     获取资源文件的绝对路径
