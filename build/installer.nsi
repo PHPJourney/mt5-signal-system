@@ -102,10 +102,13 @@ Section "$(SEC_PANEL_NAME)" SecPanel
     SetOutPath "$INSTDIR"
     
     ; 复制管理面板 EXE（已打包所有代码和语言包）
+    DetailPrint "$(MSG_INSTALLING_PANEL)"
     File "..\dist\MT5_Manager.exe"
+    DetailPrint "$(MSG_INSTALLING_ICON)"
     File "..\dist\icon.png"
     
     ; 创建版权信息文件
+    DetailPrint "$(MSG_CREATING_COPYRIGHT)"
     FileOpen $0 "$INSTDIR\版权说明.txt" w
     FileWrite $0 "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$\r$\n"
     FileWrite $0 "   TradeMind MT5 - 智能交易策略跟单系统$\r$\n"
@@ -122,10 +125,12 @@ Section "$(SEC_PANEL_NAME)" SecPanel
     FileClose $0
     
     ; 复制语言文件（用于运行时切换语言）
+    DetailPrint "$(MSG_INSTALLING_LANG)"
     SetOutPath "$INSTDIR\lang"
     File "..\lang\Chinese.json"
     File "..\lang\English.json"
     
+    DetailPrint "$(MSG_PANEL_COMPLETE)"
     SectionSetSize ${SecPanel} 35000
 SectionEnd
 
@@ -133,13 +138,16 @@ Section "$(SEC_MASTER_NAME)" SecMaster
     SetOutPath "$INSTDIR"
     
     ; 复制 Master 服务 EXE（已打包所有代码和语言包）
+    DetailPrint "$(MSG_INSTALLING_MASTER)"
     File "..\dist\MT5_Master.exe"
     
     ; 复制配置文件
+    DetailPrint "$(MSG_INSTALLING_MASTER_CONFIG)"
     SetOutPath "$INSTDIR\config"
     IfFileExists "..\config\master_config.json" 0 +2
         File "..\config\master_config.json"
     
+    DetailPrint "$(MSG_MASTER_COMPLETE)"
     SectionSetSize ${SecMaster} 20480
     
     StrCpy $EnableMaster "true"
@@ -149,13 +157,16 @@ Section "$(SEC_SLAVE_NAME)" SecSlave
     SetOutPath "$INSTDIR"
     
     ; 复制 Slave 服务 EXE（已打包所有代码和语言包）
+    DetailPrint "$(MSG_INSTALLING_SLAVE)"
     File "..\dist\MT5_Slave.exe"
     
     ; 复制配置文件
+    DetailPrint "$(MSG_INSTALLING_SLAVE_CONFIG)"
     SetOutPath "$INSTDIR\config"
     IfFileExists "..\config\slave_config.json" 0 +2
         File "..\config\slave_config.json"
     
+    DetailPrint "$(MSG_SLAVE_COMPLETE)"
     SectionSetSize ${SecSlave} 20480
     
     StrCpy $EnableSlave "true"
@@ -164,19 +175,25 @@ SectionEnd
 Section "$(SEC_DOCS_NAME)" SecDocs
     SetOutPath "$INSTDIR"
     
+    DetailPrint "$(MSG_INSTALLING_DOCS)"
     IfFileExists "..\README.md" 0 +2
         File "..\README.md"
     IfFileExists "..\QUICKSTART.md" 0 +2
         File "..\QUICKSTART.md"
+    
+    DetailPrint "$(MSG_DOCS_COMPLETE)"
 SectionEnd
 
 ; Post-installation: generate config and copy files
 Section -Post
     SetOutPath "$INSTDIR"
     
+    DetailPrint "$(MSG_GENERATING_CONFIG)"
+    
     ; 生成配置文件（如果不存在）
     IfFileExists "$INSTDIR\config\master_config.json" config_exist_m 0
-        DetailPrint "Creating master_config.json..."
+        DetailPrint "$(MSG_CREATING_MASTER_CONFIG)"
+        CreateDirectory "$INSTDIR\config"
         FileOpen $0 "$INSTDIR\config\master_config.json" w
         FileWrite $0 "{$\r$\n"
         FileWrite $0 '  "mqtt": {$\r$\n'
@@ -212,10 +229,12 @@ Section -Post
         FileWrite $0 '  }$\r$\n'
         FileWrite $0 "}$\r$\n"
         FileClose $0
+        DetailPrint "$(MSG_MASTER_CONFIG_CREATED)"
     config_exist_m:
     
     IfFileExists "$INSTDIR\config\slave_config.json" config_exist_s 0
-        DetailPrint "Creating slave_config.json..."
+        DetailPrint "$(MSG_CREATING_SLAVE_CONFIG)"
+        CreateDirectory "$INSTDIR\config"
         FileOpen $0 "$INSTDIR\config\slave_config.json" w
         FileWrite $0 "{$\r$\n"
         FileWrite $0 '  "mqtt": {$\r$\n'
@@ -286,8 +305,10 @@ Section -Post
         FileWrite $0 '  }$\r$\n'
         FileWrite $0 "}$\r$\n"
         FileClose $0
+        DetailPrint "$(MSG_SLAVE_CONFIG_CREATED)"
     config_exist_s:
     
+    DetailPrint "$(MSG_CREATING_SHORTCUTS)"
     create_links:
     ; Create shortcuts
     CreateDirectory "$SMPROGRAMS\$(SHORTCUT_FOLDER_NAME)"
@@ -297,6 +318,7 @@ Section -Post
     CreateShortCut "$SMPROGRAMS\$(SHORTCUT_FOLDER_NAME)\$(SHORTCUT_UNINSTALL).lnk" "$INSTDIR\uninstall.exe"
     CreateShortCut "$SMPROGRAMS\$(SHORTCUT_FOLDER_NAME)\$(SHORTCUT_WEBSITE).lnk" "https://mt5data.cidhub.com"
 
+    DetailPrint "$(MSG_REGISTERING_UNINSTALL)"
     ; Write uninstall information
     WriteRegStr HKLM "${PRODUCT_UNINST_KEY}" "DisplayName" "${PRODUCT_NAME}"
     WriteRegStr HKLM "${PRODUCT_UNINST_KEY}" "UninstallString" "$INSTDIR\uninstall.exe"
@@ -306,8 +328,11 @@ Section -Post
     WriteRegStr HKLM "${PRODUCT_UNINST_KEY}" "URLInfoAbout" "https://mt5data.cidhub.com"
     WriteRegStr HKLM "${PRODUCT_UNINST_KEY}" "URLUpdateInfo" "https://mt5data.cidhub.com"
 
+    DetailPrint "$(MSG_CREATING_UNINSTALLER)"
     ; Create uninstaller
     WriteUninstaller "$INSTDIR\uninstall.exe"
+    
+    DetailPrint "$(MSG_POST_INSTALL_COMPLETE)"
 SectionEnd
 
 ; Uninstall section
@@ -339,7 +364,6 @@ SectionEnd
     !insertmacro MUI_DESCRIPTION_TEXT ${SecPanel} "$(SEC_PANEL_DESC)"
     !insertmacro MUI_DESCRIPTION_TEXT ${SecMaster} "$(SEC_MASTER_DESC)"
     !insertmacro MUI_DESCRIPTION_TEXT ${SecSlave} "$(SEC_SLAVE_DESC)"
-    !insertmacro MUI_DESCRIPTION_TEXT ${SecConfig} "$(SEC_CONFIG_DESC)"
     !insertmacro MUI_DESCRIPTION_TEXT ${SecDocs} "$(SEC_DOCS_DESC)"
 !insertmacro MUI_FUNCTION_DESCRIPTION_END
 
@@ -372,13 +396,6 @@ Function .onInit
     ; Initialize variables
     StrCpy $EnableMaster "false"
     StrCpy $EnableSlave "false"
-    
-    ; Set default selections
-    SectionSetFlags ${SecPanel} ${SF_SELECTED}
-    SectionSetFlags ${SecMaster} ${SF_SELECTED}
-    SectionSetFlags ${SecSlave} ${SF_SELECTED}
-    ; Deleted:SectionSetFlags ${SecConfig} ${SF_SELECTED}
-    SectionSetFlags ${SecDocs} ${SF_SELECTED}
     
     ; Display language selection dialog
     !insertmacro MUI_LANGDLL_DISPLAY
