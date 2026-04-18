@@ -73,17 +73,16 @@ LangString VALIDATION_MASTER_SLAVE_REQUIRED ${LANG_SimpChinese} "请至少选择
 
 ; 快捷方式和目录名称
 LangString SHORTCUT_FOLDER_NAME ${LANG_SimpChinese} "TradeMind MT5"
-LangString SHORTCUT_MANAGER ${LANG_SimpChinese} "TradeMind Manager"
+LangString SHORTCUT_MANAGER ${LANG_SimpChinese} "管理面板"
+LangString SHORTCUT_MASTER ${LANG_SimpChinese} "Master 引擎"
+LangString SHORTCUT_SLAVE ${LANG_SimpChinese} "Slave 节点"
 LangString SHORTCUT_README ${LANG_SimpChinese} "README"
-LangString SHORTCUT_UNINSTALL ${LANG_SimpChinese} "卸载"
+LangString SHORTCUT_UNINSTALL ${LANG_SimpChinese} "卸载程序"
 LangString SHORTCUT_WEBSITE ${LANG_SimpChinese} "官方网站"
 
-; Slave 授权相关消息
-LangString SLAVE_AUTH_CHECK_TITLE ${LANG_SimpChinese} "授权验证"
-LangString SLAVE_AUTH_CHECK_MSG ${LANG_SimpChinese} "正在验证服务授权..."
-LangString SLAVE_AUTH_REQUIRED ${LANG_SimpChinese} "⚠️  服务未授权$\n$\n当前 MT5 跟单服务需要授权才能使用。$\n$\n请前往以下网址购买或续费服务：$\n🔗 https://mt5data.cidhub.com$\n$\n完成授权后，请重新启动 Slave 服务。"
-LangString SLAVE_AUTH_EXPIRED ${LANG_SimpChinese} "⚠️  服务已过期$\n$\n您的 MT5 跟单服务授权已过期。$\n$\n请前往以下网址续费服务：$\n🔗 https://mt5data.cidhub.com$\n$\n完成续费后，请重新启动 Slave 服务。"
-LangString SLAVE_AUTH_VALID ${LANG_SimpChinese} "✅ 授权验证成功"
+; 完成页面文本
+LangString FINISHPAGE_RUN_TEXT ${LANG_SimpChinese} "运行管理面板"
+LangString FINISHPAGE_SHOWREADME_TEXT ${LANG_SimpChinese} "查看README"
 
 ; 安装进度消息
 LangString MSG_INSTALLING_PANEL ${LANG_SimpChinese} "正在安装管理面板..."
@@ -108,3 +107,6 @@ LangString MSG_CREATING_SHORTCUTS ${LANG_SimpChinese} "正在创建快捷方式.
 LangString MSG_REGISTERING_UNINSTALL ${LANG_SimpChinese} "正在注册卸载信息..."
 LangString MSG_CREATING_UNINSTALLER ${LANG_SimpChinese} "正在创建卸载程序..."
 LangString MSG_POST_INSTALL_COMPLETE ${LANG_SimpChinese} "安装后处理完成"
+```
+
+```

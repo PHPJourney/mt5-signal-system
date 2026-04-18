@@ -71,19 +71,18 @@ LangString SEC_DOCS_DESC ${LANG_English} "User Manual"
 ; Validation messages
 LangString VALIDATION_MASTER_SLAVE_REQUIRED ${LANG_English} "Please select at least one: Master Strategy Engine or Slave Execution Node!$\n$\nBoth cannot be unselected."
 
-; Shortcuts and directory names
+; Shortcut and directory names
 LangString SHORTCUT_FOLDER_NAME ${LANG_English} "TradeMind MT5"
-LangString SHORTCUT_MANAGER ${LANG_English} "TradeMind Manager"
+LangString SHORTCUT_MANAGER ${LANG_English} "Manager"
+LangString SHORTCUT_MASTER ${LANG_English} "Master Engine"
+LangString SHORTCUT_SLAVE ${LANG_English} "Slave Node"
 LangString SHORTCUT_README ${LANG_English} "README"
 LangString SHORTCUT_UNINSTALL ${LANG_English} "Uninstall"
-LangString SHORTCUT_WEBSITE ${LANG_English} "Official Website"
+LangString SHORTCUT_WEBSITE ${LANG_English} "Website"
 
-; Slave authorization related messages
-LangString SLAVE_AUTH_CHECK_TITLE ${LANG_English} "Authorization Verification"
-LangString SLAVE_AUTH_CHECK_MSG ${LANG_English} "Verifying service authorization..."
-LangString SLAVE_AUTH_REQUIRED ${LANG_English} "⚠️  Service Not Authorized$\n$\nCurrent MT5 copy trading service requires authorization.$\n$\nPlease visit the following URL to purchase or renew:$\n🔗 https://mt5data.cidhub.com$\n$\nAfter authorization, please restart the Slave service."
-LangString SLAVE_AUTH_EXPIRED ${LANG_English} "⚠️  Service Expired$\n$\nYour MT5 copy trading service authorization has expired.$\n$\nPlease visit the following URL to renew:$\n🔗 https://mt5data.cidhub.com$\n$\nAfter renewal, please restart the Slave service."
-LangString SLAVE_AUTH_VALID ${LANG_English} "✅ Authorization Verified Successfully"
+; Finish page text
+LangString FINISHPAGE_RUN_TEXT ${LANG_English} "Run Manager"
+LangString FINISHPAGE_SHOWREADME_TEXT ${LANG_English} "View README"
 
 ; Installation progress messages
 LangString MSG_INSTALLING_PANEL ${LANG_English} "Installing management panel..."
