@@ -3,6 +3,7 @@
 import subprocess
 import sys
 import time
+import psutil
 from pathlib import Path
 
 
@@ -32,6 +33,49 @@ class ProcessManager:
         # poll() 返回 None 表示进程仍在运行
         # 返回退出码表示进程已退出
         return process.poll() is None
+    
+    def _kill_process_tree(self, pid, timeout=5):
+        """
+        强制终止进程及其所有子进程
+        
+        Args:
+            pid: 进程 ID
+            timeout: 等待超时时间（秒）
+        """
+        try:
+            parent = psutil.Process(pid)
+            
+            # 获取所有子进程
+            children = parent.children(recursive=True)
+            
+            # 先终止子进程
+            for child in children:
+                try:
+                    child.terminate()
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    pass
+            
+            # 等待子进程结束
+            gone, alive = psutil.wait_procs(children, timeout=timeout)
+            
+            # 强制杀死仍然存活的子进程
+            for p in alive:
+                try:
+                    p.kill()
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    pass
+            
+            # 终止父进程
+            parent.terminate()
+            
+            # 等待父进程结束
+            try:
+                parent.wait(timeout=timeout)
+            except psutil.TimeoutExpired:
+                parent.kill()
+                
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            pass
     
     def start_master(self, config_path):
         """启动 Master 服务"""
@@ -63,13 +107,9 @@ class ProcessManager:
             return {'success': False, 'error': 'Master 未在运行'}
         
         try:
-            if self.master_process:
-                self.master_process.terminate()
-                try:
-                    self.master_process.wait(timeout=5)
-                except subprocess.TimeoutExpired:
-                    self.master_process.kill()
-                    self.master_process.wait()
+            if self.master_process and self.master_process.pid:
+                # 使用进程树终止（包括所有子进程）
+                self._kill_process_tree(self.master_process.pid)
             
             self.master_running = False
             self.master_process = None
@@ -108,13 +148,9 @@ class ProcessManager:
             return {'success': False, 'error': 'Slave 未在运行'}
         
         try:
-            if self.slave_process:
-                self.slave_process.terminate()
-                try:
-                    self.slave_process.wait(timeout=5)
-                except subprocess.TimeoutExpired:
-                    self.slave_process.kill()
-                    self.slave_process.wait()
+            if self.slave_process and self.slave_process.pid:
+                # 使用进程树终止（包括所有子进程）
+                self._kill_process_tree(self.slave_process.pid)
             
             self.slave_running = False
             self.slave_process = None
@@ -153,7 +189,6 @@ class ProcessManager:
                         if current_time - last_heartbeat_time < 60:
                             master_alive = True
                             self.master_running = True
-                            # 只有心跳文件有效时才标记为运行
                         else:
                             # 心跳超时，进程可能卡死
                             self.master_running = False

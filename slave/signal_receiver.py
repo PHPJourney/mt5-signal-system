@@ -466,8 +466,8 @@ class SlaveSignalReceiver:
             print(f"   ❌ 处理订单信号异常: {e}")
 
     def execute_order(self, order_type: int, symbol: str, volume: float,
-                     price: float = 0.0, sl: float = 0.0, tp: float = 0.0,
-                     magic: int = 0, comment: str = '') -> Optional[int]:
+                    price: float = 0.0, sl: float = 0.0, tp: float = 0.0,
+                    magic: int = 0, comment: str = '') -> Optional[int]:
         """
         执行订单
 
@@ -475,39 +475,130 @@ class SlaveSignalReceiver:
             int: 订单号（成功）或 None（失败）
         """
         try:
+            # 获取品种信息，验证是否存在
+            symbol_info = mt5.symbol_info(symbol)
+            if symbol_info is None:
+                self.logger.error(f"Symbol {symbol} not found")
+                print(f"   ❌ 品种不存在: {symbol}")
+                return None
+            
+            if not symbol_info.visible:
+                self.logger.error(f"Symbol {symbol} not visible in Market Watch")
+                print(f"   ❌ 品种未在市场报价中: {symbol}")
+                if not mt5.symbol_select(symbol, True):
+                    self.logger.error(f"Failed to select symbol {symbol}")
+                    print(f"   ❌ 无法选择品种: {symbol}")
+                    return None
+                self.logger.info(f"Symbol {symbol} added to Market Watch")
+                print(f"   ℹ️  已添加品种到市场报价: {symbol}")
+            
+            # 规范化手数
+            volume = self._normalize_volume(symbol, volume)
+            
+            # 获取当前价格（市价单）
+            if order_type in [mt5.ORDER_TYPE_BUY, mt5.ORDER_TYPE_SELL]:
+                tick = mt5.symbol_info_tick(symbol)
+                if tick is None:
+                    self.logger.error(f"Failed to get tick for {symbol}")
+                    print(f"   ❌ 无法获取价格: {symbol}")
+                    return None
+                
+                current_price = tick.ask if order_type == mt5.ORDER_TYPE_BUY else tick.bid
+                self.logger.info(f"Current {symbol} price: {current_price} (type: {'BUY' if order_type == mt5.ORDER_TYPE_BUY else 'SELL'})")
+                print(f"   💰 当前价格: {current_price}")
+            
+            # 构建订单请求
             request = {
                 "action": mt5.TRADE_ACTION_DEAL,
                 "symbol": symbol,
                 "volume": volume,
                 "type": order_type,
-                "type_filling": mt5.ORDER_FILLING_IOC,
                 "deviation": self.config.get('common', {}).get('slippage_points', 30),
                 "magic": magic if magic != 0 else self.config.get('common', {}).get('magic_number', 999999),
                 "comment": comment if comment else self.config.get('common', {}).get('comment_prefix', 'TM_'),
             }
-
-            if price > 0:
-                request["price"] = price
+            
+            # 市价单不设置 price，MT5 会使用当前市场价格
+            # 只有挂单才需要设置 price
+            # 注意：对于市价单，price 字段应该省略或设为 0
+            
+            # 设置止损止盈
             if sl > 0:
                 request["sl"] = sl
             if tp > 0:
                 request["tp"] = tp
-
-            result = mt5.order_send(request)
             
-            if result.retcode != mt5.TRADE_RETCODE_DONE:
-                self.logger.error(f"Order failed: {result.comment} (code: {result.retcode})")
-                print(f"   ❌ 订单失败: {result.comment} (代码: {result.retcode})")
-                return None
-
-            self.logger.info(f"Order sent: ticket={result.order}")
-            print(f"   📤 订单已发送: ticket={result.order}")
-            return result.order
+            # 尝试不同的填充模式
+            filling_modes = [
+                symbol_info.filling_mode,
+                mt5.ORDER_FILLING_FOK,
+                mt5.ORDER_FILLING_IOC,
+                mt5.ORDER_FILLING_RETURN
+            ]
+            
+            # 去重
+            filling_modes = list(dict.fromkeys(filling_modes))
+            
+            last_error = None
+            for filling_mode in filling_modes:
+                if filling_mode == 0:
+                    continue
+                
+                request["type_filling"] = filling_mode
+                
+                try:
+                    result = mt5.order_send(request)
+                    
+                    if result.retcode == mt5.TRADE_RETCODE_DONE:
+                        self.logger.info(f"Order sent: ticket={result.order}, volume={result.volume}, price={result.price}")
+                        print(f"   📤 订单已发送: ticket={result.order}")
+                        return result.order
+                    else:
+                        last_error = f"{result.comment} (code: {result.retcode})"
+                        self.logger.debug(f"Order failed with filling mode {filling_mode}: {last_error}")
+                        
+                except Exception as e:
+                    last_error = str(e)
+                    self.logger.debug(f"Order send exception with filling mode {filling_mode}: {e}")
+            
+            # 所有填充模式都失败
+            self.logger.error(f"Order failed: {last_error}")
+            print(f"   ❌ 订单失败: {last_error}")
+            return None
 
         except Exception as e:
             self.logger.error(f"Error executing order: {e}", exc_info=True)
             print(f"   ❌ 执行订单异常: {e}")
             return None
+    
+    def _normalize_volume(self, symbol: str, volume: float) -> float:
+        """规范化手数到品种允许的范围"""
+        try:
+            symbol_info = mt5.symbol_info(symbol)
+            if symbol_info is None:
+                return volume
+            
+            min_lot = symbol_info.volume_min
+            max_lot = symbol_info.volume_max
+            step_lot = symbol_info.volume_step
+            
+            # 限制在最小和最大手数之间
+            volume = max(min_lot, min(volume, max_lot))
+            
+            # 按步长规范化
+            volume = round(volume / step_lot) * step_lot
+            
+            # 保留 2 位小数
+            volume = round(volume, 2)
+            
+            if abs(volume - volume) > 0.001:
+                self.logger.info(f"Volume normalized: {volume}")
+            
+            return volume
+            
+        except Exception as e:
+            self.logger.debug(f"Failed to normalize volume: {e}")
+            return volume
 
     def handle_modify_signal(self, payload: Dict[str, Any]):
         """处理修改信号"""

@@ -199,6 +199,45 @@ class MonitoringTab:
                         pass
                 
                 self.slave_conn_label.config(text=status_text, foreground=status_color)
+            
+            # 更新 MQTT Broker 状态（基于主从进程状态综合判断）
+            if hasattr(self, 'mqtt_status_label'):
+                master_online = hasattr(self, 'master_conn_label') and self.master_conn_label.cget('foreground') == 'green'
+                slave_online = hasattr(self, 'slave_conn_label') and self.slave_conn_label.cget('foreground') == 'green'
+                
+                if master_online and slave_online:
+                    mqtt_status = "Broker 正常 (Master+Slave 在线)"
+                    mqtt_color = "green"
+                elif master_online or slave_online:
+                    mqtt_status = "Broker 正常 (部分在线)"
+                    mqtt_color = "orange"
+                else:
+                    # 检查是否有最近的心跳文件
+                    has_recent_heartbeat = False
+                    for hb_file in ['master.heartbeat', 'slave.heartbeat']:
+                        hb_path = self.app.base_dir / 'logs' / hb_file
+                        if hb_path.exists():
+                            try:
+                                with open(hb_path, 'r', encoding='utf-8') as f:
+                                    lines = f.readlines()
+                                    if lines:
+                                        last_time = float(lines[0].strip())
+                                        if time.time() - last_time < 120:  # 2分钟内
+                                            has_recent_heartbeat = True
+                                            break
+                            except:
+                                pass
+                    
+                    if has_recent_heartbeat:
+                        mqtt_status = "Broker 可能正常 (心跳存在但进程未响应)"
+                        mqtt_color = "orange"
+                    else:
+                        mqtt_status = "Broker 离线或无活动"
+                        mqtt_color = "red"
+                
+                self.mqtt_status_label.config(text=mqtt_status, foreground=mqtt_color)
                             
         except Exception as e:
-            pass
+            print(f"[ERROR] 刷新状态失败: {e}")
+            import traceback
+            traceback.print_exc()
