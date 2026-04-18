@@ -1,0 +1,27 @@
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   TradeMind MT5 - Intelligent Trading Signal System
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Copyright © 2026 TradeMind
+
+Official Website: https://mt5data.cidhub.com
+Technical Support: Visit website for help
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Features:
+- Master Engine: Monitor MT5 trading signals and broadcast
+- Slave Node: Receive signals and execute copy trading
+- Management Panel: Visual configuration and monitoring
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+License:
+This is commercial software requiring a valid license.
+Service will automatically stop without valid license.
+
+Purchase license at: https://mt5data.cidhub.com/pricing
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+© 2026 TradeMind. All Rights Reserved.

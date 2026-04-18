@@ -108,3 +108,9 @@ LangString MSG_CREATING_SHORTCUTS ${LANG_English} "Creating shortcuts..."
 LangString MSG_REGISTERING_UNINSTALL ${LANG_English} "Registering uninstall information..."
 LangString MSG_CREATING_UNINSTALLER ${LANG_English} "Creating uninstaller..."
 LangString MSG_POST_INSTALL_COMPLETE ${LANG_English} "Post-installation processing complete"
+
+; Copyright file name
+LangString COPYRIGHT_FILE ${LANG_English} "Copyright_Notice.txt"
+
+; Copyright installation progress message
+LangString MSG_INSTALLING_COPYRIGHT ${LANG_English} "Installing copyright notice..."

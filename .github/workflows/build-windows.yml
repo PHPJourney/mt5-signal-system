@@ -379,6 +379,29 @@ jobs:
           Copy-Item "icon.ico" "artifact/"
           Copy-Item "icon.png" "artifact/"
           
+          # Copy language files for installer
+          Copy-Item "lang\*.nsh" -Destination "lang\" -Force
+          
+          # Copy copyright files for installer
+          Copy-Item "版权说明_zh.txt" -Destination "." -Force
+          Copy-Item "版权说明_en.txt" -Destination "." -Force
+          Copy-Item "LICENSE" -Destination "." -Force
+          
+          # Fix copyright files encoding to UTF-8 BOM
+          $utf8BOM = New-Object System.Text.UTF8Encoding $true
+          
+          if (Test-Path "版权说明_zh.txt") {
+              $content = Get-Content "版权说明_zh.txt" -Raw -Encoding UTF8
+              [System.IO.File]::WriteAllText("$PWD/版权说明_zh.txt", $content, $utf8BOM)
+              Write-Host "✓ Fixed 版权说明_zh.txt encoding to UTF-8 BOM"
+          }
+          
+          if (Test-Path "版权说明_en.txt") {
+              $content = Get-Content "版权说明_en.txt" -Raw -Encoding UTF8
+              [System.IO.File]::WriteAllText("$PWD/版权说明_en.txt", $content, $utf8BOM)
+              Write-Host "✓ Fixed 版权说明_en.txt encoding to UTF-8 BOM"
+          }
+          
           # Language files are now bundled inside EXEs via --add-data
           # No need to copy them separately anymore
           
@@ -489,9 +512,25 @@ jobs:
           $utf8BOM = New-Object System.Text.UTF8Encoding $true
           [System.IO.File]::WriteAllText("$PWD/build/installer.nsi", $content, $utf8BOM)
           
-          Write-Host "✓ NSI file converted to UTF-8 BOM encoding"
-        shell: pwsh
-
+          Write-Host "✓ Fixed installer.nsi encoding to UTF-8 BOM"
+      
+      - name: Fix language files encoding to UTF-8 BOM
+        run: |
+          # Fix Chinese.nsh encoding
+          if (Test-Path "lang/Chinese.nsh") {
+              $content = Get-Content "lang/Chinese.nsh" -Raw -Encoding UTF8
+              $utf8BOM = New-Object System.Text.UTF8Encoding $true
+              [System.IO.File]::WriteAllText("$PWD/lang/Chinese.nsh", $content, $utf8BOM)
+              Write-Host "✓ Fixed Chinese.nsh encoding to UTF-8 BOM"
+          }
+          
+          # Fix English.nsh encoding
+          if (Test-Path "lang/English.nsh") {
+              $content = Get-Content "lang/English.nsh" -Raw -Encoding UTF8
+              $utf8BOM = New-Object System.Text.UTF8Encoding $true
+              [System.IO.File]::WriteAllText("$PWD/lang/English.nsh", $content, $utf8BOM)
+              Write-Host "✓ Fixed English.nsh encoding to UTF-8 BOM"
+          }
       - name: Calculate version
         id: version
         run: |

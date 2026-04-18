@@ -108,3 +108,9 @@ LangString MSG_CREATING_SHORTCUTS ${LANG_SimpChinese} "正在创建快捷方式.
 LangString MSG_REGISTERING_UNINSTALL ${LANG_SimpChinese} "正在注册卸载信息..."
 LangString MSG_CREATING_UNINSTALLER ${LANG_SimpChinese} "正在创建卸载程序..."
 LangString MSG_POST_INSTALL_COMPLETE ${LANG_SimpChinese} "安装后处理完成"
+
+; 版权文件名
+LangString COPYRIGHT_FILE ${LANG_SimpChinese} "版权说明.txt"
+
+; 版权说明安装进度消息
+LangString MSG_INSTALLING_COPYRIGHT ${LANG_SimpChinese} "正在安装版权说明..."

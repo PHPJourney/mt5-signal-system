@@ -50,6 +50,12 @@ VIAddVersionKey "Comments" "官方网站: https://mt5data.cidhub.com"
 !define MUI_FINISHPAGE_LINK_TEXT "$(FINISHPAGE_LINK_TEXT)"
 !define MUI_FINISHPAGE_LINK_COLOR "0066CC"
 
+; 添加购买授权链接提示
+!define MUI_FINISHPAGE_RUN "$INSTDIR\MT5_Manager.exe"
+!define MUI_FINISHPAGE_RUN_TEXT "$(FINISHPAGE_RUN_TEXT)"
+!define MUI_FINISHPAGE_SHOWREADME "$INSTDIR\版权说明.txt"
+!define MUI_FINISHPAGE_SHOWREADME_TEXT "$(FINISHPAGE_SHOWREADME_TEXT)"
+
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_LICENSE "..\LICENSE"
 !insertmacro MUI_PAGE_COMPONENTS
@@ -81,21 +87,23 @@ Section "$(SEC_PANEL_NAME)" SecPanel
     DetailPrint "$(MSG_INSTALLING_ICON)"
     File "..\dist\icon.png"
     
-    DetailPrint "$(MSG_CREATING_COPYRIGHT)"
-    FileOpen $0 "$INSTDIR\版权说明.txt" w
-    FileWrite $0 "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$\r$\n"
-    FileWrite $0 "   TradeMind MT5 - 智能交易策略跟单系统$\r$\n"
-    FileWrite $0 "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$\r$\n$\r$\n"
-    FileWrite $0 "版权所有 © 2026 TradeMind$\r$\n$\r$\n"
-    FileWrite $0 "官方网站: https://mt5data.cidhub.com$\r$\n"
-    FileWrite $0 "技术支持: 请访问官网获取帮助$\r$\n$\r$\n"
-    FileWrite $0 "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$\r$\n$\r$\n"
-    FileWrite $0 "功能说明：$\r$\n"
-    FileWrite $0 "- Master 策略引擎：监控 MT5 交易信号并推送$\r$\n"
-    FileWrite $0 "- Slave 执行节点：接收信号并执行跟单交易$\r$\n"
-    FileWrite $0 "- 管理面板：可视化配置和监控$\r$\n$\r$\n"
-    FileWrite $0 "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$\r$\n"
-    FileClose $0
+    DetailPrint "$(MSG_INSTALLING_COPYRIGHT)"
+    SetOutPath "$INSTDIR"
+    ; 复制预定义的版权文件（UTF-8 编码，避免乱码）
+    !ifmacrodef MUI_LANGDLL_DISPLAY
+        ; 根据选择的语言复制对应版本
+        ${If} $LANGUAGE == ${LANG_SimpChinese}
+            File "..\版权说明_zh.txt"
+            Rename "$INSTDIR\版权说明_zh.txt" "$INSTDIR\版权说明.txt"
+        ${Else}
+            File "..\版权说明_en.txt"
+            Rename "$INSTDIR\版权说明_en.txt" "$INSTDIR\版权说明.txt"
+        ${EndIf}
+    !else
+        ; 默认复制中文版
+        File "..\版权说明_zh.txt"
+        Rename "$INSTDIR\版权说明_zh.txt" "$INSTDIR\版权说明.txt"
+    !endif
     
     DetailPrint "$(MSG_INSTALLING_LANG)"
     SetOutPath "$INSTDIR\lang"
