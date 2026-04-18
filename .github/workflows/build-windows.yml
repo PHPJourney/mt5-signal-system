@@ -379,12 +379,7 @@ jobs:
           Copy-Item "icon.ico" "artifact/"
           Copy-Item "icon.png" "artifact/"
           
-          # Copy copyright files for installer
-          Copy-Item "版权说明_zh.txt" -Destination "." -Force
-          Copy-Item "版权说明_en.txt" -Destination "." -Force
-          Copy-Item "LICENSE" -Destination "." -Force
-          
-          # Fix copyright files encoding to UTF-8 BOM
+          # Fix copyright files encoding to UTF-8 BOM (files are already in root directory)
           $utf8BOM = New-Object System.Text.UTF8Encoding $true
           
           if (Test-Path "版权说明_zh.txt") {
@@ -397,6 +392,12 @@ jobs:
               $content = Get-Content "版权说明_en.txt" -Raw -Encoding UTF8
               [System.IO.File]::WriteAllText("$PWD/版权说明_en.txt", $content, $utf8BOM)
               Write-Host "✓ Fixed 版权说明_en.txt encoding to UTF-8 BOM"
+          }
+          
+          if (Test-Path "LICENSE") {
+              $content = Get-Content "LICENSE" -Raw -Encoding UTF8
+              [System.IO.File]::WriteAllText("$PWD/LICENSE", $content, $utf8BOM)
+              Write-Host "✓ Fixed LICENSE encoding to UTF-8 BOM"
           }
           
           # Language files are now bundled inside EXEs via --add-data
