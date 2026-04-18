@@ -1,6 +1,5 @@
 ; TradeMind MT5 - Unified Installer
-# 文件编码
-Unicode True
+; 文件编码: UTF-8 with BOM
 
 ; TradeMind MT5 Installer Script
 
@@ -17,12 +16,10 @@ SetCompressor /SOLID lzma
 !include "MUI2.nsh"
 !include "LogicLib.nsh"
 !include "FileFunc.nsh"
+!include "WinMessages.nsh"
 
 ; DO NOT change directory - work from build/
-; !cd ".."  ; <-- Remove this line
-
-; Set code page to UTF-8
-Unicode true
+; !cd ".."
 
 ; General settings
 Name "TradeMind MT5"
@@ -60,33 +57,30 @@ VIAddVersionKey "Comments" "官方网站: https://mt5data.cidhub.com"
 !insertmacro MUI_PAGE_COMPONENTS
 !insertmacro MUI_PAGE_DIRECTORY
 
-; 自定义完成页面（添加版权和链接信息）
+; Custom finish page function
 !define MUI_PAGE_CUSTOMFUNCTION_SHOW ShowFinishPage
 !insertmacro MUI_PAGE_FINISH
 
-; 创建自定义函数声明
+; Uninstaller pages
 !insertmacro MUI_UNPAGE_CONFIRM
 !insertmacro MUI_UNPAGE_INSTFILES
 !insertmacro MUI_UNPAGE_FINISH
 
-; Language - MUST be defined BEFORE including language files
+; Language declarations - MUST be before including language files
 !insertmacro MUI_LANGUAGE "SimpChinese"
 !insertmacro MUI_LANGUAGE "English"
 !insertmacro MUI_RESERVEFILE_LANGDLL
 
-; NOW include language packs (after MUI_LANGUAGE declarations)
+; Include language packs
 !include "..\lang\Chinese.nsh"
 !include "..\lang\English.nsh"
 
-; 自定义完成页面显示函数
+; Custom finish page display function
 Function ShowFinishPage
-    ; 获取完成页面文本框控件
     FindWindow $R0 "#32770" "" $HWNDPARENT
-    GetDlgItem $R1 $R0 1006  ; MUI 完成页面文本框 ID
+    GetDlgItem $R1 $R0 1006
     
-    ; 如果有控件，添加版权信息
     ${If} $R1 != 0
-        ; 设置新的文本内容（包含版权和链接）
         SendMessage $R1 ${WM_SETTEXT} 0 "STR:TradeMind MT5 安装完成！$\n$\n$\n📄 版权所有 © 2026 TradeMind$\n🔗 官方网站: https://mt5data.cidhub.com$\n📧 技术支持: 请访问官网获取帮助$\n$\n感谢您的使用！"
     ${EndIf}
 FunctionEnd
@@ -101,13 +95,11 @@ Section "$(SEC_PANEL_NAME)" SecPanel
     
     SetOutPath "$INSTDIR"
     
-    ; 复制管理面板 EXE（已打包所有代码和语言包）
     DetailPrint "$(MSG_INSTALLING_PANEL)"
     File "..\dist\MT5_Manager.exe"
     DetailPrint "$(MSG_INSTALLING_ICON)"
     File "..\dist\icon.png"
     
-    ; 创建版权信息文件
     DetailPrint "$(MSG_CREATING_COPYRIGHT)"
     FileOpen $0 "$INSTDIR\版权说明.txt" w
     FileWrite $0 "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$\r$\n"
@@ -124,7 +116,6 @@ Section "$(SEC_PANEL_NAME)" SecPanel
     FileWrite $0 "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$\r$\n"
     FileClose $0
     
-    ; 复制语言文件（用于运行时切换语言）
     DetailPrint "$(MSG_INSTALLING_LANG)"
     SetOutPath "$INSTDIR\lang"
     File "..\lang\Chinese.json"
@@ -137,11 +128,9 @@ SectionEnd
 Section "$(SEC_MASTER_NAME)" SecMaster
     SetOutPath "$INSTDIR"
     
-    ; 复制 Master 服务 EXE（已打包所有代码和语言包）
     DetailPrint "$(MSG_INSTALLING_MASTER)"
     File "..\dist\MT5_Master.exe"
     
-    ; 复制配置文件
     DetailPrint "$(MSG_INSTALLING_MASTER_CONFIG)"
     SetOutPath "$INSTDIR\config"
     IfFileExists "..\config\master_config.json" 0 +2
@@ -156,11 +145,9 @@ SectionEnd
 Section "$(SEC_SLAVE_NAME)" SecSlave
     SetOutPath "$INSTDIR"
     
-    ; 复制 Slave 服务 EXE（已打包所有代码和语言包）
     DetailPrint "$(MSG_INSTALLING_SLAVE)"
     File "..\dist\MT5_Slave.exe"
     
-    ; 复制配置文件
     DetailPrint "$(MSG_INSTALLING_SLAVE_CONFIG)"
     SetOutPath "$INSTDIR\config"
     IfFileExists "..\config\slave_config.json" 0 +2
@@ -184,13 +171,13 @@ Section "$(SEC_DOCS_NAME)" SecDocs
     DetailPrint "$(MSG_DOCS_COMPLETE)"
 SectionEnd
 
-; Post-installation: generate config and copy files
+; Post-installation section
 Section -Post
     SetOutPath "$INSTDIR"
     
     DetailPrint "$(MSG_GENERATING_CONFIG)"
     
-    ; 生成配置文件（如果不存在）
+    ; Generate master config if not exists
     IfFileExists "$INSTDIR\config\master_config.json" config_exist_m 0
         DetailPrint "$(MSG_CREATING_MASTER_CONFIG)"
         CreateDirectory "$INSTDIR\config"
@@ -232,6 +219,7 @@ Section -Post
         DetailPrint "$(MSG_MASTER_CONFIG_CREATED)"
     config_exist_m:
     
+    ; Generate slave config if not exists
     IfFileExists "$INSTDIR\config\slave_config.json" config_exist_s 0
         DetailPrint "$(MSG_CREATING_SLAVE_CONFIG)"
         CreateDirectory "$INSTDIR\config"
@@ -308,9 +296,8 @@ Section -Post
         DetailPrint "$(MSG_SLAVE_CONFIG_CREATED)"
     config_exist_s:
     
-    DetailPrint "$(MSG_CREATING_SHORTCUTS)"
-    create_links:
     ; Create shortcuts
+    DetailPrint "$(MSG_CREATING_SHORTCUTS)"
     CreateDirectory "$SMPROGRAMS\$(SHORTCUT_FOLDER_NAME)"
     CreateShortCut "$SMPROGRAMS\$(SHORTCUT_FOLDER_NAME)\$(SHORTCUT_MANAGER).lnk" "$INSTDIR\MT5_Manager.exe"
     CreateShortCut "$DESKTOP\$(SHORTCUT_MANAGER).lnk" "$INSTDIR\MT5_Manager.exe"
@@ -318,8 +305,8 @@ Section -Post
     CreateShortCut "$SMPROGRAMS\$(SHORTCUT_FOLDER_NAME)\$(SHORTCUT_UNINSTALL).lnk" "$INSTDIR\uninstall.exe"
     CreateShortCut "$SMPROGRAMS\$(SHORTCUT_FOLDER_NAME)\$(SHORTCUT_WEBSITE).lnk" "https://mt5data.cidhub.com"
 
-    DetailPrint "$(MSG_REGISTERING_UNINSTALL)"
     ; Write uninstall information
+    DetailPrint "$(MSG_REGISTERING_UNINSTALL)"
     WriteRegStr HKLM "${PRODUCT_UNINST_KEY}" "DisplayName" "${PRODUCT_NAME}"
     WriteRegStr HKLM "${PRODUCT_UNINST_KEY}" "UninstallString" "$INSTDIR\uninstall.exe"
     WriteRegStr HKLM "${PRODUCT_UNINST_KEY}" "DisplayIcon" "$INSTDIR\MT5_Manager.exe"
@@ -328,15 +315,15 @@ Section -Post
     WriteRegStr HKLM "${PRODUCT_UNINST_KEY}" "URLInfoAbout" "https://mt5data.cidhub.com"
     WriteRegStr HKLM "${PRODUCT_UNINST_KEY}" "URLUpdateInfo" "https://mt5data.cidhub.com"
 
-    DetailPrint "$(MSG_CREATING_UNINSTALLER)"
     ; Create uninstaller
+    DetailPrint "$(MSG_CREATING_UNINSTALLER)"
     WriteUninstaller "$INSTDIR\uninstall.exe"
     
     DetailPrint "$(MSG_POST_INSTALL_COMPLETE)"
 SectionEnd
 
 ; Uninstall section
-Section "Uninstall"
+Section Uninstall
     Delete "$INSTDIR\MT5_Manager.exe"
     Delete "$INSTDIR\MT5_Master.exe"
     Delete "$INSTDIR\MT5_Slave.exe"
@@ -367,23 +354,19 @@ SectionEnd
     !insertmacro MUI_DESCRIPTION_TEXT ${SecDocs} "$(SEC_DOCS_DESC)"
 !insertmacro MUI_FUNCTION_DESCRIPTION_END
 
-; Validation: at least one of Master/Slave must be selected
+; Validation function
 Function .onLeaveComponents
-    ; Check if Master is selected
     SectionGetFlags ${SecMaster} $R0
     IntOp $R0 $R0 & ${SF_SELECTED}
     
-    ; Check if Slave is selected
     SectionGetFlags ${SecSlave} $R1
     IntOp $R1 $R1 & ${SF_SELECTED}
     
-    ; If both are NOT selected (both flags are 0)
     IntCmp $R0 0 check_slave skip_check check_slave
     
     check_slave:
     IntCmp $R1 0 0 skip_check
     
-    ; Both are unselected, show error
     MessageBox MB_ICONEXCLAMATION|MB_OK \
         "$(VALIDATION_MASTER_SLAVE_REQUIRED)" \
         /SD IDOK
@@ -392,25 +375,23 @@ Function .onLeaveComponents
     skip_check:
 FunctionEnd
 
+; Initialization function
 Function .onInit
-    ; Initialize variables
     StrCpy $EnableMaster "false"
     StrCpy $EnableSlave "false"
     
-    ; Display language selection dialog FIRST
     !insertmacro MUI_LANGDLL_DISPLAY
     
-    ; Set default selections AFTER language selection
     SectionSetFlags ${SecPanel} ${SF_SELECTED}
     SectionSetFlags ${SecMaster} ${SF_SELECTED}
     SectionSetFlags ${SecSlave} ${SF_SELECTED}
     SectionSetFlags ${SecDocs} ${SF_SELECTED}
 FunctionEnd
 
+; Uninstaller initialization
 Function un.onInit
     !insertmacro MUI_UNGETLANGUAGE
     
-    ; Use language string for uninstall confirmation
     MessageBox MB_ICONQUESTION|MB_YESNO|MB_DEFBUTTON2 \
         "$(MUI_UNTEXT_CONFIRM_TEXT)" \
         /SD IDNO \
