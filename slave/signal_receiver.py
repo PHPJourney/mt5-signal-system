@@ -220,7 +220,6 @@ class SlaveSignalReceiver:
         
         # 5. 退出程序
         self.logger.error("Program will exit in 10 seconds...")
-        import sys
         time.sleep(10)
         sys.exit(1)
 
@@ -331,7 +330,6 @@ class SlaveSignalReceiver:
                 print(f"🔗 请访问: https://mt5data.cidhub.com")
                 print(f"{'='*60}\n")
                 
-                import sys
                 time.sleep(10)
                 sys.exit(1)
             
