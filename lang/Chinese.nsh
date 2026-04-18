@@ -30,7 +30,7 @@ LangString MUI_TEXT_WELCOME_INFO_TEXT ${LANG_SimpChinese} "本向导将引导您
 
 ; 完成页面
 LangString MUI_TEXT_FINISH_TITLE ${LANG_SimpChinese} "安装完成"
-LangString MUI_TEXT_FINISH_TEXT ${LANG_SimpChinese} "TradeMind MT5 已成功安装到您的计算机。$\n$\n点击$\"完成$\"退出安装向导。"
+LangString MUI_TEXT_FINISH_TEXT ${LANG_SimpChinese} "TradeMind MT5 已成功安装到您的计算机。$\n$\n📄 版权所有 © 2026 MT5策略授权系统$\n🔗 官方网站: https://mt5data.cidhub.com$\n$\n点击$\"完成$\"退出安装向导。"
 
 ; 中止页面
 LangString MUI_TEXT_ABORT_TITLE ${LANG_SimpChinese} "安装中止"
@@ -76,3 +76,11 @@ LangString SHORTCUT_FOLDER_NAME ${LANG_SimpChinese} "TradeMind MT5"
 LangString SHORTCUT_MANAGER ${LANG_SimpChinese} "TradeMind Manager"
 LangString SHORTCUT_README ${LANG_SimpChinese} "README"
 LangString SHORTCUT_UNINSTALL ${LANG_SimpChinese} "卸载"
+LangString SHORTCUT_WEBSITE ${LANG_SimpChinese} "官方网站"
+
+; Slave 授权相关消息
+LangString SLAVE_AUTH_CHECK_TITLE ${LANG_SimpChinese} "授权验证"
+LangString SLAVE_AUTH_CHECK_MSG ${LANG_SimpChinese} "正在验证服务授权..."
+LangString SLAVE_AUTH_REQUIRED ${LANG_SimpChinese} "⚠️  服务未授权$\n$\n当前 MT5 跟单服务需要授权才能使用。$\n$\n请前往以下网址购买或续费服务：$\n🔗 https://mt5data.cidhub.com$\n$\n完成授权后，请重新启动 Slave 服务。"
+LangString SLAVE_AUTH_EXPIRED ${LANG_SimpChinese} "⚠️  服务已过期$\n$\n您的 MT5 跟单服务授权已过期。$\n$\n请前往以下网址续费服务：$\n🔗 https://mt5data.cidhub.com$\n$\n完成续费后，请重新启动 Slave 服务。"
+LangString SLAVE_AUTH_VALID ${LANG_SimpChinese} "✅ 授权验证成功"

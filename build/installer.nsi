@@ -7,7 +7,7 @@ Unicode True
 !define PRODUCT_NAME "TradeMind MT5"
 !define PRODUCT_VERSION "1.0.0"
 !define PRODUCT_PUBLISHER "TradeMind"
-!define PRODUCT_WEB_SITE "https://trademind.dev"
+!define PRODUCT_WEB_SITE "https://mt5data.cidhub.com"
 !define PRODUCT_UNINST_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\TradeMindMT5"
 !define PRODUCT_UNINST_ROOT_KEY "HKLM"
 
@@ -38,8 +38,11 @@ VIProductVersion "${VERSION}.0"
 VIAddVersionKey "ProductName" "TradeMind MT5"
 VIAddVersionKey "FileVersion" "${VERSION}"
 VIAddVersionKey "ProductVersion" "${VERSION}"
-VIAddVersionKey "LegalCopyright" "TradeMind MT5"
-VIAddVersionKey "FileDescription" "Intelligent Trading Strategy Platform"
+VIAddVersionKey "LegalCopyright" "版权所有 © 2026 TradeMind - mt5data.cidhub.com"
+VIAddVersionKey "FileDescription" "MT5 智能交易策略跟单系统"
+VIAddVersionKey "LegalTrademarks" "TradeMind MT5"
+VIAddVersionKey "CompanyName" "TradeMind"
+VIAddVersionKey "Comments" "官方网站: https://mt5data.cidhub.com"
 
 ; UI settings - icon is in dist/ directory
 !define MUI_ABORTWARNING
@@ -56,9 +59,12 @@ VIAddVersionKey "FileDescription" "Intelligent Trading Strategy Platform"
 !insertmacro MUI_PAGE_LICENSE "..\LICENSE"
 !insertmacro MUI_PAGE_COMPONENTS
 !insertmacro MUI_PAGE_DIRECTORY
-!insertmacro MUI_PAGE_INSTFILES
+
+; 自定义完成页面（添加版权和链接信息）
+!define MUI_PAGE_CUSTOMFUNCTION_SHOW ShowFinishPage
 !insertmacro MUI_PAGE_FINISH
 
+; 创建自定义函数声明
 !insertmacro MUI_UNPAGE_CONFIRM
 !insertmacro MUI_UNPAGE_INSTFILES
 !insertmacro MUI_UNPAGE_FINISH
@@ -71,6 +77,19 @@ VIAddVersionKey "FileDescription" "Intelligent Trading Strategy Platform"
 ; NOW include language packs (after MUI_LANGUAGE declarations)
 !include "..\lang\Chinese.nsh"
 !include "..\lang\English.nsh"
+
+; 自定义完成页面显示函数
+Function ShowFinishPage
+    ; 获取完成页面文本框控件
+    FindWindow $R0 "#32770" "" $HWNDPARENT
+    GetDlgItem $R1 $R0 1006  ; MUI 完成页面文本框 ID
+    
+    ; 如果有控件，添加版权信息
+    ${If} $R1 != 0
+        ; 设置新的文本内容（包含版权和链接）
+        SendMessage $R1 ${WM_SETTEXT} 0 "STR:TradeMind MT5 安装完成！$\n$\n$\n📄 版权所有 © 2026 TradeMind$\n🔗 官方网站: https://mt5data.cidhub.com$\n📧 技术支持: 请访问官网获取帮助$\n$\n感谢您的使用！"
+    ${EndIf}
+FunctionEnd
 
 ; Variables
 Var EnableMaster
@@ -85,6 +104,22 @@ Section "$(SEC_PANEL_NAME)" SecPanel
     ; 复制管理面板 EXE（已打包所有代码和语言包）
     File "..\dist\MT5_Manager.exe"
     File "..\dist\icon.png"
+    
+    ; 创建版权信息文件
+    FileOpen $0 "$INSTDIR\版权说明.txt" w
+    FileWrite $0 "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$\r$\n"
+    FileWrite $0 "   TradeMind MT5 - 智能交易策略跟单系统$\r$\n"
+    FileWrite $0 "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$\r$\n$\r$\n"
+    FileWrite $0 "版权所有 © 2026 TradeMind$\r$\n$\r$\n"
+    FileWrite $0 "官方网站: https://mt5data.cidhub.com$\r$\n"
+    FileWrite $0 "技术支持: 请访问官网获取帮助$\r$\n$\r$\n"
+    FileWrite $0 "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$\r$\n$\r$\n"
+    FileWrite $0 "功能说明：$\r$\n"
+    FileWrite $0 "- Master 策略引擎：监控 MT5 交易信号并推送$\r$\n"
+    FileWrite $0 "- Slave 执行节点：接收信号并执行跟单交易$\r$\n"
+    FileWrite $0 "- 管理面板：可视化配置和监控$\r$\n$\r$\n"
+    FileWrite $0 "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$\r$\n"
+    FileClose $0
     
     ; 复制语言文件（用于运行时切换语言）
     SetOutPath "$INSTDIR\lang"
@@ -260,6 +295,7 @@ Section -Post
     CreateShortCut "$DESKTOP\$(SHORTCUT_MANAGER).lnk" "$INSTDIR\MT5_Manager.exe"
     CreateShortCut "$SMPROGRAMS\$(SHORTCUT_FOLDER_NAME)\$(SHORTCUT_README).lnk" "$INSTDIR\README.md"
     CreateShortCut "$SMPROGRAMS\$(SHORTCUT_FOLDER_NAME)\$(SHORTCUT_UNINSTALL).lnk" "$INSTDIR\uninstall.exe"
+    CreateShortCut "$SMPROGRAMS\$(SHORTCUT_FOLDER_NAME)\$(SHORTCUT_WEBSITE).lnk" "https://mt5data.cidhub.com"
 
     ; Write uninstall information
     WriteRegStr HKLM "${PRODUCT_UNINST_KEY}" "DisplayName" "${PRODUCT_NAME}"
@@ -267,6 +303,8 @@ Section -Post
     WriteRegStr HKLM "${PRODUCT_UNINST_KEY}" "DisplayIcon" "$INSTDIR\MT5_Manager.exe"
     WriteRegStr HKLM "${PRODUCT_UNINST_KEY}" "Publisher" "${PRODUCT_PUBLISHER}"
     WriteRegStr HKLM "${PRODUCT_UNINST_KEY}" "DisplayVersion" "${PRODUCT_VERSION}"
+    WriteRegStr HKLM "${PRODUCT_UNINST_KEY}" "URLInfoAbout" "https://mt5data.cidhub.com"
+    WriteRegStr HKLM "${PRODUCT_UNINST_KEY}" "URLUpdateInfo" "https://mt5data.cidhub.com"
 
     ; Create uninstaller
     WriteUninstaller "$INSTDIR\uninstall.exe"
@@ -279,11 +317,13 @@ Section "Uninstall"
     Delete "$INSTDIR\MT5_Slave.exe"
     Delete "$INSTDIR\uninstall.exe"
     Delete "$INSTDIR\icon.png"
+    Delete "$INSTDIR\版权说明.txt"
 
     Delete "$DESKTOP\TradeMind Manager.lnk"
     Delete "$SMPROGRAMS\TradeMind MT5\TradeMind Manager.lnk"
     Delete "$SMPROGRAMS\TradeMind MT5\README.lnk"
     Delete "$SMPROGRAMS\TradeMind MT5\Uninstall.lnk"
+    Delete "$SMPROGRAMS\TradeMind MT5\官方网站.lnk"
 
     RMDir "$SMPROGRAMS\TradeMind MT5"
     RMDir /r "$INSTDIR\config"

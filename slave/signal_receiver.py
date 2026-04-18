@@ -224,6 +224,84 @@ class SlaveSignalReceiver:
         time.sleep(10)
         sys.exit(1)
 
+    def _check_authorization(self) -> dict:
+        """
+        检查服务授权状态
+        
+        Returns:
+            dict: {'authorized': bool, 'message': str, 'status': str}
+        """
+        try:
+            # 获取代理服务器 URL
+            proxy_url = self.config.get('account_reporter', {}).get('proxy_url', 'http://localhost:5000')
+            
+            # 如果没有 MT5 账号信息，跳过验证
+            if not self.mt5_account_id:
+                return {
+                    'authorized': True,
+                    'message': 'Unable to verify - no account info',
+                    'status': 'unknown'
+                }
+            
+            # 调用验证接口
+            import requests
+            
+            verify_url = f"{proxy_url.rstrip('/')}/mt5/verify"
+            
+            payload = {
+                'account': self.mt5_account_id,
+                'ea': 'TradeMind-Follow-System-trademind-follow'
+            }
+            
+            self.logger.debug(f"Checking authorization: {verify_url}")
+            
+            response = requests.post(verify_url, json=payload, timeout=5)
+            
+            if response.status_code == 200:
+                result = response.json()
+                
+                # 检查授权状态
+                if result.get('authorized', False):
+                    return {
+                        'authorized': True,
+                        'message': 'Authorization valid',
+                        'expire_date': result.get('expire_date', ''),
+                        'status': 'valid'
+                    }
+                else:
+                    # 未授权或已过期
+                    status = result.get('status', 'invalid')
+                    
+                    if status == 'expired':
+                        return {
+                            'authorized': False,
+                            'message': '服务已过期，请续费',
+                            'status': 'expired'
+                        }
+                    else:
+                        return {
+                            'authorized': False,
+                            'message': '服务未授权，请购买',
+                            'status': 'invalid'
+                        }
+            else:
+                # 验证接口不可用，默认允许（避免误杀）
+                self.logger.warning(f"Auth server returned status {response.status_code}, allowing by default")
+                return {
+                    'authorized': True,
+                    'message': 'Auth server unavailable, allowing by default',
+                    'status': 'unknown'
+                }
+                
+        except Exception as e:
+            # 网络错误或其他异常，默认允许
+            self.logger.warning(f"Authorization check failed with error: {e}, allowing by default")
+            return {
+                'authorized': True,
+                'message': f'Auth error: {str(e)}, allowing by default',
+                'status': 'unknown'
+            }
+
     def initialize_mt5(self) -> bool:
         """
         初始化MT5连接
@@ -231,10 +309,34 @@ class SlaveSignalReceiver:
         支持指定 Terminal 路径（不同券商的终端）
         """
         try:
-            # 终端输出启动状态
+            # === 授权检测 ===
             print(f"\n{'='*60}")
             print(f"🚀 启动 Slave 信号接收器...")
             print(f"{'='*60}")
+            
+            print(f"\n🔐 正在验证服务授权...")
+            self.logger.info("Checking service authorization...")
+            
+            auth_result = self._check_authorization()
+            
+            if not auth_result['authorized']:
+                print(f"\n{'='*60}")
+                print(f"⚠️  {auth_result['message']}")
+                print(f"{'='*60}")
+                
+                self.logger.warning(f"Authorization check failed: {auth_result['message']}")
+                self.logger.info("Please visit https://mt5data.cidhub.com to purchase or renew service")
+                
+                print(f"\n⏳ 程序将在 10 秒后退出...")
+                print(f"🔗 请访问: https://mt5data.cidhub.com")
+                print(f"{'='*60}\n")
+                
+                import sys
+                time.sleep(10)
+                sys.exit(1)
+            
+            print(f"✅ 授权验证成功")
+            print(f"{'='*60}\n")
             
             self.logger.info("Attempting to initialize MetaTrader5...")
             self.logger.info(f"Python executable: {sys.executable}")
@@ -319,10 +421,10 @@ class SlaveSignalReceiver:
                 self.account_reporter.start(mt5_account_id=self.mt5_account_id)
             
             return True
-
+        
         except Exception as e:
-            self.logger.error(f"Error initializing MT5: {e}", exc_info=True)
-            print(f"\n❌ MT5 初始化异常: {e}")
+            self.logger.error(f"Exception during MT5 initialization: {e}", exc_info=True)
+            print(f"\n❌ MT5 初始化异常: {str(e)}")
             print(f"{'='*60}\n")
             return False
 
@@ -727,58 +829,268 @@ class SlaveSignalReceiver:
             print(f"   ❌ 处理修改信号异常: {e}")
 
     def handle_close_signal(self, payload: Dict[str, Any]):
-        """处理平仓信号"""
+        """
+        处理平仓信号（支持所有平仓类型）
+        
+        支持的操作:
+        - close_position: 平指定订单（完全或部分）
+        - partial_close: 部分平仓
+        - close_all_buy: 平所有多单
+        - close_all_sell: 平所有空单
+        - close_all: 平所有仓位
+        - limit_close: 限价平仓（挂单）
+        """
         try:
             action = payload.get('action')
             ticket = payload.get('ticket')
             
             print(f"\n📥 收到平仓信号: {action} ticket={ticket}")
             
-            if not ticket:
-                self.logger.error("Missing ticket in close signal")
-                print(f"   ❌ 缺少订单号")
+            # 1. 平指定订单（完全平仓）
+            if action == 'close_position':
+                self._close_single_position(ticket, payload)
+            
+            # 2. 部分平仓
+            elif action == 'partial_close':
+                self._partial_close_position(ticket, payload)
+            
+            # 3. 平所有多单
+            elif action == 'close_all_buy':
+                self._close_positions_by_type(mt5.ORDER_TYPE_BUY)
+            
+            # 4. 平所有空单
+            elif action == 'close_all_sell':
+                self._close_positions_by_type(mt5.ORDER_TYPE_SELL)
+            
+            # 5. 平所有仓位
+            elif action == 'close_all':
+                self._close_all_positions()
+            
+            # 6. 限价平仓（挂单平仓）
+            elif action == 'limit_close':
+                self._limit_close_position(ticket, payload)
+            
+            else:
+                self.logger.warning(f"Unknown close action: {action}")
+                print(f"   ⚠️  未知的平仓操作: {action}")
+        
+        except Exception as e:
+            self.logger.error(f"Error handling close signal: {e}", exc_info=True)
+            print(f"   ❌ 处理平仓信号异常: {e}")
+    
+    def _close_single_position(self, ticket: int, payload: Dict[str, Any]):
+        """平指定订单（完全平仓）"""
+        try:
+            # 获取持仓信息
+            positions = mt5.positions_get(ticket=ticket)
+            if not positions:
+                self.logger.error(f"Position not found: {ticket}")
+                print(f"   ❌ 未找到持仓: {ticket}")
                 return
             
-            if action == 'position_close':
-                # 平仓
-                positions = mt5.positions_get(ticket=ticket)
-                if not positions:
-                    self.logger.error(f"Position not found: {ticket}")
-                    print(f"   ❌ 未找到持仓: {ticket}")
-                    return
+            pos = positions[0]
+            
+            # 构建反向平仓订单
+            close_type = mt5.ORDER_TYPE_SELL if pos.type == mt5.ORDER_TYPE_BUY else mt5.ORDER_TYPE_BUY
+            
+            request = {
+                "action": mt5.TRADE_ACTION_DEAL,
+                "symbol": pos.symbol,
+                "volume": pos.volume,  # 完全平仓使用全部手数
+                "type": close_type,
+                "position": ticket,  # 关联原订单
+                "deviation": self.config.get('common', {}).get('slippage_points', 30),
+                "magic": pos.magic,
+                "comment": "Close " + (payload.get('comment') or ''),
+            }
+            
+            # 市价平仓不设置 price
+            # 如果需要设置 SL/TP（用于部分平仓后的剩余仓位），可以添加
+            
+            result = mt5.order_send(request)
+            
+            if result.retcode == mt5.TRADE_RETCODE_DONE:
+                self.logger.info(f"Position closed: ticket={ticket}, volume={pos.volume}")
+                print(f"   ✅ 平仓成功: #{ticket} vol={pos.volume}")
+            else:
+                self.logger.error(f"Close failed: {result.comment} (code: {result.retcode})")
+                print(f"   ❌ 平仓失败: {result.comment}")
                 
-                pos = positions[0]
+        except Exception as e:
+            self.logger.error(f"Error closing position {ticket}: {e}", exc_info=True)
+            print(f"   ❌ 平仓异常: {e}")
+    
+    def _partial_close_position(self, ticket: int, payload: Dict[str, Any]):
+        """部分平仓"""
+        try:
+            # 获取持仓信息
+            positions = mt5.positions_get(ticket=ticket)
+            if not positions:
+                self.logger.error(f"Position not found: {ticket}")
+                print(f"   ❌ 未找到持仓: {ticket}")
+                return
+            
+            pos = positions[0]
+            partial_volume = payload.get('volume', pos.volume / 2)  # 默认平一半
+            
+            # 验证平仓数量
+            if partial_volume <= 0 or partial_volume >= pos.volume:
+                self.logger.error(f"Invalid partial volume: {partial_volume}")
+                print(f"   ❌ 无效的平仓数量: {partial_volume}")
+                return
+            
+            # 构建反向平仓订单
+            close_type = mt5.ORDER_TYPE_SELL if pos.type == mt5.ORDER_TYPE_BUY else mt5.ORDER_TYPE_BUY
+            
+            request = {
+                "action": mt5.TRADE_ACTION_DEAL,
+                "symbol": pos.symbol,
+                "volume": partial_volume,
+                "type": close_type,
+                "position": ticket,
+                "deviation": self.config.get('common', {}).get('slippage_points', 30),
+                "magic": pos.magic,
+                "comment": f"Partial Close {partial_volume}",
+            }
+            
+            result = mt5.order_send(request)
+            
+            if result.retcode == mt5.TRADE_RETCODE_DONE:
+                remaining = pos.volume - partial_volume
+                self.logger.info(f"Partial close: ticket={ticket}, vol={partial_volume}, remaining={remaining}")
+                print(f"   ✅ 部分平仓成功: #{ticket} 平{partial_volume} 剩{remaining}")
+            else:
+                self.logger.error(f"Partial close failed: {result.comment}")
+                print(f"   ❌ 部分平仓失败: {result.comment}")
                 
-                # 构建平仓请求
+        except Exception as e:
+            self.logger.error(f"Error partial closing position {ticket}: {e}", exc_info=True)
+            print(f"   ❌ 部分平仓异常: {e}")
+    
+    def _close_positions_by_type(self, position_type: int):
+        """平仓指定类型的所有仓位（多单或空单）"""
+        try:
+            positions = mt5.positions_get()
+            if not positions:
+                print(f"   ℹ️  无持仓可平")
+                return
+            
+            closed_count = 0
+            type_name = "BUY" if position_type == mt5.ORDER_TYPE_BUY else "SELL"
+            
+            for pos in positions:
+                if pos.type == position_type:
+                    close_type = mt5.ORDER_TYPE_SELL if pos.type == mt5.ORDER_TYPE_BUY else mt5.ORDER_TYPE_BUY
+                    
+                    request = {
+                        "action": mt5.TRADE_ACTION_DEAL,
+                        "symbol": pos.symbol,
+                        "volume": pos.volume,
+                        "type": close_type,
+                        "position": pos.ticket,
+                        "deviation": self.config.get('common', {}).get('slippage_points', 30),
+                        "magic": pos.magic,
+                        "comment": f"Close All {type_name}",
+                    }
+                    
+                    result = mt5.order_send(request)
+                    
+                    if result.retcode == mt5.TRADE_RETCODE_DONE:
+                        closed_count += 1
+                        self.logger.info(f"Closed {type_name}: ticket={pos.ticket}")
+                    else:
+                        self.logger.error(f"Failed to close {type_name} #{pos.ticket}: {result.comment}")
+            
+            self.logger.info(f"Closed {closed_count} {type_name} positions")
+            print(f"   ✅ 已平 {closed_count} 个 {type_name} 仓位")
+            
+        except Exception as e:
+            self.logger.error(f"Error closing {type_name} positions: {e}", exc_info=True)
+            print(f"   ❌ 平仓异常: {e}")
+    
+    def _close_all_positions(self):
+        """平所有仓位"""
+        try:
+            positions = mt5.positions_get()
+            if not positions:
+                print(f"   ℹ️  无持仓可平")
+                return
+            
+            closed_count = 0
+            
+            for pos in positions:
+                close_type = mt5.ORDER_TYPE_SELL if pos.type == mt5.ORDER_TYPE_BUY else mt5.ORDER_TYPE_BUY
+                
                 request = {
                     "action": mt5.TRADE_ACTION_DEAL,
                     "symbol": pos.symbol,
                     "volume": pos.volume,
-                    "type": mt5.ORDER_TYPE_SELL if pos.type == mt5.ORDER_TYPE_BUY else mt5.ORDER_TYPE_BUY,
-                    "position": ticket,
+                    "type": close_type,
+                    "position": pos.ticket,
                     "deviation": self.config.get('common', {}).get('slippage_points', 30),
                     "magic": pos.magic,
-                    "comment": pos.comment,
+                    "comment": "Close All",
                 }
                 
                 result = mt5.order_send(request)
                 
                 if result.retcode == mt5.TRADE_RETCODE_DONE:
-                    self.logger.info(f"Position closed: ticket={ticket}")
-                    print(f"   ✅ 平仓成功")
+                    closed_count += 1
+                    self.logger.info(f"Closed: ticket={pos.ticket}")
                 else:
-                    self.logger.error(f"Close failed: {result.comment}")
-                    print(f"   ❌ 平仓失败: {result.comment}")
+                    self.logger.error(f"Failed to close #{pos.ticket}: {result.comment}")
             
-            elif action == 'delete_pending':
-                # 删除挂单（已经在 handle_modify_signal 中处理）
-                self.logger.info(f"Pending order delete signal received: {ticket}")
-                print(f"   ℹ️  收到挂单删除信号")
-        
+            self.logger.info(f"Closed all {closed_count} positions")
+            print(f"   ✅ 已平所有 {closed_count} 个仓位")
+            
         except Exception as e:
-            self.logger.error(f"Error handling close signal: {e}", exc_info=True)
-            print(f"   ❌ 处理平仓信号异常: {e}")
-
+            self.logger.error(f"Error closing all positions: {e}", exc_info=True)
+            print(f"   ❌ 全平异常: {e}")
+    
+    def _limit_close_position(self, ticket: int, payload: Dict[str, Any]):
+        """限价平仓（挂单平仓）"""
+        try:
+            positions = mt5.positions_get(ticket=ticket)
+            if not positions:
+                self.logger.error(f"Position not found: {ticket}")
+                print(f"   ❌ 未找到持仓: {ticket}")
+                return
+            
+            pos = positions[0]
+            limit_price = payload.get('price', 0.0)
+            
+            if limit_price <= 0:
+                self.logger.error("Limit close requires price > 0")
+                print(f"   ❌ 限价平仓必须设置价格")
+                return
+            
+            # 构建限价平仓挂单
+            close_type = (mt5.ORDER_TYPE_SELL_LIMIT if pos.type == mt5.ORDER_TYPE_BUY 
+                         else mt5.ORDER_TYPE_BUY_LIMIT)
+            
+            request = {
+                "action": mt5.TRADE_ACTION_PENDING,
+                "symbol": pos.symbol,
+                "volume": pos.volume,
+                "type": close_type,
+                "price": limit_price,
+                "deviation": self.config.get('common', {}).get('slippage_points', 30),
+                "magic": pos.magic,
+                "comment": "Limit Close",
+            }
+            
+            result = mt5.order_send(request)
+            
+            if result.retcode == mt5.TRADE_RETCODE_DONE:
+                self.logger.info(f"Limit close order placed: ticket={result.order}, price={limit_price}")
+                print(f"   ✅ 限价平仓挂单成功: #{result.order} price={limit_price}")
+            else:
+                self.logger.error(f"Limit close failed: {result.comment}")
+                print(f"   ❌ 限价平仓失败: {result.comment}")
+                
+        except Exception as e:
+            self.logger.error(f"Error limit closing position {ticket}: {e}", exc_info=True)
+            print(f"   ❌ 限价平仓异常: {e}")
     def run(self):
         """运行从服务器"""
         self.logger.info("="*60)
