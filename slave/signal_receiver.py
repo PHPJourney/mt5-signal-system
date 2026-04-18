@@ -466,10 +466,23 @@ class SlaveSignalReceiver:
             print(f"   ❌ 处理订单信号异常: {e}")
 
     def execute_order(self, order_type: int, symbol: str, volume: float,
-                    price: float = 0.0, sl: float = 0.0, tp: float = 0.0,
-                    magic: int = 0, comment: str = '') -> Optional[int]:
+                     price: float = 0.0, sl: float = 0.0, tp: float = 0.0,
+                     magic: int = 0, comment: str = '') -> Optional[int]:
         """
         执行订单
+
+        Args:
+            order_type: MT5 订单类型
+                - 市价单: ORDER_TYPE_BUY (0), ORDER_TYPE_SELL (1)
+                - 挂单: ORDER_TYPE_BUY_LIMIT (2), ORDER_TYPE_SELL_LIMIT (3),
+                       ORDER_TYPE_BUY_STOP (4), ORDER_TYPE_SELL_STOP (5)
+            symbol: 交易品种
+            volume: 交易量
+            price: 挂单价格（市价单可为 0）
+            sl: 止损价格
+            tp: 止盈价格
+            magic: Magic Number
+            comment: 订单注释
 
         Returns:
             int: 订单号（成功）或 None（失败）
@@ -495,21 +508,17 @@ class SlaveSignalReceiver:
             # 规范化手数
             volume = self._normalize_volume(symbol, volume)
             
-            # 获取当前价格（市价单）
-            if order_type in [mt5.ORDER_TYPE_BUY, mt5.ORDER_TYPE_SELL]:
-                tick = mt5.symbol_info_tick(symbol)
-                if tick is None:
-                    self.logger.error(f"Failed to get tick for {symbol}")
-                    print(f"   ❌ 无法获取价格: {symbol}")
-                    return None
-                
-                current_price = tick.ask if order_type == mt5.ORDER_TYPE_BUY else tick.bid
-                self.logger.info(f"Current {symbol} price: {current_price} (type: {'BUY' if order_type == mt5.ORDER_TYPE_BUY else 'SELL'})")
-                print(f"   💰 当前价格: {current_price}")
+            # 判断是市价单还是挂单
+            is_market_order = order_type in [mt5.ORDER_TYPE_BUY, mt5.ORDER_TYPE_SELL]
+            is_pending_order = order_type in [
+                mt5.ORDER_TYPE_BUY_LIMIT, mt5.ORDER_TYPE_SELL_LIMIT,
+                mt5.ORDER_TYPE_BUY_STOP, mt5.ORDER_TYPE_SELL_STOP,
+                mt5.ORDER_TYPE_BUY_STOP_LIMIT, mt5.ORDER_TYPE_SELL_STOP_LIMIT
+            ]
             
             # 构建订单请求
             request = {
-                "action": mt5.TRADE_ACTION_DEAL,
+                "action": mt5.TRADE_ACTION_DEAL if is_market_order else mt5.TRADE_ACTION_PENDING,
                 "symbol": symbol,
                 "volume": volume,
                 "type": order_type,
@@ -518,50 +527,80 @@ class SlaveSignalReceiver:
                 "comment": comment if comment else self.config.get('common', {}).get('comment_prefix', 'TM_'),
             }
             
-            # 市价单不设置 price，MT5 会使用当前市场价格
-            # 只有挂单才需要设置 price
-            # 注意：对于市价单，price 字段应该省略或设为 0
-            
-            # 设置止损止盈
-            if sl > 0:
-                request["sl"] = sl
-            if tp > 0:
-                request["tp"] = tp
+            # 市价单：不需要 price，MT5 会使用当前市场价格
+            # 挂单：必须设置 price
+            if is_pending_order:
+                if price <= 0:
+                    self.logger.error(f"Pending order requires price > 0")
+                    print(f"   ❌ 挂单必须设置价格")
+                    return None
+                
+                request["price"] = price
+                
+                # 挂单的止损止盈是相对于挂单价格的偏移（点数）
+                # MT5 Python API 中，挂单的 SL/TP 是绝对价格
+                if sl > 0:
+                    request["sl"] = sl
+                if tp > 0:
+                    request["tp"] = tp
+                
+                print(f"   📋 挂单信息: {symbol} | 类型: {order_type} | 价格: {price}")
+            else:
+                # 市价单：获取当前价格用于显示
+                tick = mt5.symbol_info_tick(symbol)
+                if tick is None:
+                    self.logger.error(f"Failed to get tick for {symbol}")
+                    print(f"   ❌ 无法获取价格: {symbol}")
+                    return None
+                
+                current_price = tick.ask if order_type == mt5.ORDER_TYPE_BUY else tick.bid
+                
+                # 市价单不设置 price 字段（MT5 自动使用市场价格）
+                # 但止损止盈是绝对价格
+                if sl > 0:
+                    request["sl"] = sl
+                if tp > 0:
+                    request["tp"] = tp
+                
+                print(f"   💰 市价单信息: {symbol} | 类型: {'BUY' if order_type == mt5.ORDER_TYPE_BUY else 'SELL'} | 当前价: {current_price}")
             
             # 尝试不同的填充模式
-            filling_modes = [
-                symbol_info.filling_mode,
-                mt5.ORDER_FILLING_FOK,
-                mt5.ORDER_FILLING_IOC,
-                mt5.ORDER_FILLING_RETURN
-            ]
+            filling_modes = []
             
-            # 去重
-            filling_modes = list(dict.fromkeys(filling_modes))
+            if is_market_order:
+                # 市价单常用填充模式
+                filling_modes = [
+                    mt5.ORDER_FILLING_FOK,
+                    mt5.ORDER_FILLING_IOC,
+                    mt5.ORDER_FILLING_RETURN
+                ]
+            else:
+                # 挂单不需要填充模式，设置为 0
+                filling_modes = [0]
             
             last_error = None
             for filling_mode in filling_modes:
-                if filling_mode == 0:
-                    continue
-                
-                request["type_filling"] = filling_mode
+                if filling_mode > 0:
+                    request["type_filling"] = filling_mode
+                elif "type_filling" in request:
+                    del request["type_filling"]
                 
                 try:
                     result = mt5.order_send(request)
                     
                     if result.retcode == mt5.TRADE_RETCODE_DONE:
                         self.logger.info(f"Order sent: ticket={result.order}, volume={result.volume}, price={result.price}")
-                        print(f"   📤 订单已发送: ticket={result.order}")
+                        print(f"   ✅ 订单已发送: ticket={result.order}")
                         return result.order
                     else:
                         last_error = f"{result.comment} (code: {result.retcode})"
-                        self.logger.debug(f"Order failed with filling mode {filling_mode}: {last_error}")
+                        self.logger.debug(f"Order failed: {last_error}")
                         
                 except Exception as e:
                     last_error = str(e)
-                    self.logger.debug(f"Order send exception with filling mode {filling_mode}: {e}")
+                    self.logger.debug(f"Order send exception: {e}")
             
-            # 所有填充模式都失败
+            # 所有尝试都失败
             self.logger.error(f"Order failed: {last_error}")
             print(f"   ❌ 订单失败: {last_error}")
             return None
@@ -590,9 +629,6 @@ class SlaveSignalReceiver:
             
             # 保留 2 位小数
             volume = round(volume, 2)
-            
-            if abs(volume - volume) > 0.001:
-                self.logger.info(f"Volume normalized: {volume}")
             
             return volume
             
