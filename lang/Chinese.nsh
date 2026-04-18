@@ -83,6 +83,7 @@ LangString SHORTCUT_WEBSITE ${LANG_SimpChinese} "官方网站"
 ; 完成页面文本
 LangString FINISHPAGE_RUN_TEXT ${LANG_SimpChinese} "运行管理面板"
 LangString FINISHPAGE_SHOWREADME_TEXT ${LANG_SimpChinese} "查看README"
+LangString FINISHPAGE_LINK_TEXT ${LANG_SimpChinese} "访问 TradeMind 官方网站"
 
 ; 安装进度消息
 LangString MSG_INSTALLING_PANEL ${LANG_SimpChinese} "正在安装管理面板..."
@@ -107,6 +108,3 @@ LangString MSG_CREATING_SHORTCUTS ${LANG_SimpChinese} "正在创建快捷方式.
 LangString MSG_REGISTERING_UNINSTALL ${LANG_SimpChinese} "正在注册卸载信息..."
 LangString MSG_CREATING_UNINSTALLER ${LANG_SimpChinese} "正在创建卸载程序..."
 LangString MSG_POST_INSTALL_COMPLETE ${LANG_SimpChinese} "安装后处理完成"
-```
-
-```

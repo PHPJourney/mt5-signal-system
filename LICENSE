@@ -1,22 +1,56 @@
-NEW_FILE_CODE
-MIT License
+================================================================================
+                        TradeMind MT5 信号系统
+                    商业软件许可协议 © 2026 TradeMind
+================================================================================
 
-Copyright (c) 2024 TradeMind MT5
+官方网站: https://mt5data.cidhub.com
+技术支持: support@cidhub.com
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+--------------------------------------------------------------------------------
+                            软件功能说明
+--------------------------------------------------------------------------------
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+TradeMind MT5 是一套专业的 MT5 交易信号管理系统，包含以下核心组件：
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+• Master 信号发送器 - 监控主账号交易并广播信号
+• Slave 信号接收器 - 接收信号并在从账号执行交易
+• 统一管理面板   - 图形化配置和监控界面
+
+系统特性：
+- 多终端支持：支持多个 MT5 终端同时运行
+- 实时同步：毫秒级信号传输和订单执行
+- 风控管理：内置风险控制和资金管理
+- 授权验证：在线授权验证，确保服务有效性
+
+--------------------------------------------------------------------------------
+                            使用条款
+--------------------------------------------------------------------------------
+
+1. 授权许可
+   本软件为商业软件，需要购买有效授权方可使用。
+   未经授权或授权过期后，软件将自动停止服务。
+
+2. 使用限制
+   - 仅限购买授权的用户使用
+   - 禁止逆向工程、反编译或破解
+   - 禁止将授权分享给第三方使用
+
+3. 服务支持
+   - 授权期内提供免费技术支持
+   - 定期更新和功能改进
+   - 访问官网获取最新信息
+
+4. 免责声明
+   本软件仅提供信号传输和执行功能，不构成投资建议。
+   用户应自行承担交易风险，软件作者不对任何交易损失负责。
+
+--------------------------------------------------------------------------------
+                            联系我们
+--------------------------------------------------------------------------------
+
+官方网站: https://mt5data.cidhub.com
+购买授权: https://mt5data.cidhub.com/pricing
+技术支持: support@cidhub.com
+
+© 2026 TradeMind. All Rights Reserved.
+================================================================================

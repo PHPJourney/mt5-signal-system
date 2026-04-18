@@ -83,6 +83,7 @@ LangString SHORTCUT_WEBSITE ${LANG_English} "Website"
 ; Finish page text
 LangString FINISHPAGE_RUN_TEXT ${LANG_English} "Run Manager"
 LangString FINISHPAGE_SHOWREADME_TEXT ${LANG_English} "View README"
+LangString FINISHPAGE_LINK_TEXT ${LANG_English} "Visit TradeMind Website"
 
 ; Installation progress messages
 LangString MSG_INSTALLING_PANEL ${LANG_English} "Installing management panel..."
