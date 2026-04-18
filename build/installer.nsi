@@ -397,18 +397,14 @@ Function .onInit
     StrCpy $EnableMaster "false"
     StrCpy $EnableSlave "false"
     
-    ; Display language selection dialog
+    ; Display language selection dialog FIRST
     !insertmacro MUI_LANGDLL_DISPLAY
     
-    ; Check if user cancelled language selection
-    ; $Language will be 0 if cancelled
-    StrCmp $Language 0 0 lang_ok
-    
-    ; User cancelled, abort installation
-    Abort
-    
-    lang_ok:
-    ; Continue with installation
+    ; Set default selections AFTER language selection
+    SectionSetFlags ${SecPanel} ${SF_SELECTED}
+    SectionSetFlags ${SecMaster} ${SF_SELECTED}
+    SectionSetFlags ${SecSlave} ${SF_SELECTED}
+    SectionSetFlags ${SecDocs} ${SF_SELECTED}
 FunctionEnd
 
 Function un.onInit
