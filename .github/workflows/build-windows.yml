@@ -44,6 +44,53 @@ jobs:
           pip install pyinstaller paho-mqtt numpy psutil ttkbootstrap pillow MetaTrader5 requests
         shell: pwsh
 
+      - name: Validate configuration files
+        run: |
+          Write-Host "Validating configuration files..."
+          
+          # Check master config
+          if (Test-Path "config/master_config.json") {
+              $masterConfig = Get-Content "config/master_config.json" | ConvertFrom-Json
+              
+              if (-not $masterConfig.strategy_id) {
+                  Write-Error "ERROR: master_config.json missing 'strategy_id'"
+                  exit 1
+              }
+              
+              Write-Host "[OK] master_config.json - strategy_id: $($masterConfig.strategy_id)"
+          } else {
+              Write-Error "ERROR: config/master_config.json not found"
+              exit 1
+          }
+          
+          # Check slave config
+          if (Test-Path "config/slave_config.json") {
+              $slaveConfig = Get-Content "config/slave_config.json" | ConvertFrom-Json
+              
+              if (-not $slaveConfig.strategy_id) {
+                  Write-Error "ERROR: slave_config.json missing 'strategy_id'"
+                  exit 1
+              }
+              
+              Write-Host "[OK] slave_config.json - strategy_id: $($slaveConfig.strategy_id)"
+              
+              # Verify both configs use the same strategy_id
+              if ($masterConfig.strategy_id -ne $slaveConfig.strategy_id) {
+                  Write-Error "ERROR: strategy_id mismatch between master and slave configs!"
+                  Write-Error "  Master: $($masterConfig.strategy_id)"
+                  Write-Error "  Slave: $($slaveConfig.strategy_id)"
+                  exit 1
+              }
+              
+              Write-Host "[OK] Strategy ID matches between master and slave"
+          } else {
+              Write-Error "ERROR: config/slave_config.json not found"
+              exit 1
+          }
+          
+          Write-Host "✓ All configuration files validated successfully"
+        shell: pwsh
+
       - name: Generate icon
         run: |
           python -c "
