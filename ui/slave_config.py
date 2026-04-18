@@ -33,8 +33,8 @@ class SlaveConfigTab:
         self.mqtt_pass_var = tk.StringVar()
         self.client_id_var = tk.StringVar()
         
-        # 订阅配置
-        self.master_id_var = tk.StringVar()
+        # 策略ID（统一订阅频道）
+        self.strategy_id_var = tk.StringVar(value="STRATEGY_001")
         
         # 常用设置
         self.follow_mode_var = tk.StringVar(value="both")
@@ -94,6 +94,9 @@ class SlaveConfigTab:
         self.config = self.app.config_manager.load_config("slave_config")
         self.app.slave_config = self.config
         
+        # 策略ID
+        self.strategy_id_var.set(self.config.get('strategy_id', 'STRATEGY_001'))
+        
         # MT5 终端
         self.mt5_path_var.set(self.config.get('mt5', {}).get('terminal_path', ''))
         
@@ -104,9 +107,6 @@ class SlaveConfigTab:
         self.mqtt_user_var.set(mqtt_config.get('username', ''))
         self.mqtt_pass_var.set(mqtt_config.get('password', ''))
         self.client_id_var.set(mqtt_config.get('client_id', 'slave_001'))
-        
-        # 订阅配置
-        self.master_id_var.set(self.config.get('subscription', {}).get('master_id', 'master_001'))
         
         # 常用设置
         common_config = self.config.get('common', {})
@@ -190,7 +190,7 @@ class SlaveConfigTab:
         self._create_security_section(scrollable_frame)
         self._create_mt5_terminal_section(scrollable_frame)
         self._create_mqtt_section(scrollable_frame)
-        self._create_subscription_section(scrollable_frame)
+        self._create_strategy_section(scrollable_frame)
         self._create_risk_section(scrollable_frame)
         self._create_lot_section(scrollable_frame)
         self._create_filter_section(scrollable_frame)
@@ -220,13 +220,12 @@ class SlaveConfigTab:
 
         row = 0
         ttk.Label(common_frame, text=_("CONFIG_FOLLOW_MODE")).grid(row=row, column=0, sticky=tk.W, pady=2)
-        mode_combo = ttk.Combobox(common_frame, textvariable=self.follow_mode_var, 
-                                 values=["both", "long_only", "short_only"], width=38, state="readonly")
+        mode_combo = ttk.Combobox(common_frame, textvariable=self.follow_mode_var, width=38, state="readonly")
+        mode_combo['values'] = ('buy_only', 'sell_only', 'both')
         mode_combo.grid(row=row, column=1, padx=5)
-        ttk.Label(common_frame, text="(both=多空都跟, long_only=只跟多, short_only=只跟空)").grid(row=row, column=2, sticky=tk.W)
         row += 1
 
-        ttk.Checkbutton(common_frame, text=_("CONFIG_ENABLE_ALERTS"), variable=self.enable_alerts_var).grid(row=row, column=0, columnspan=2, sticky=tk.W, pady=2)
+        ttk.Checkbutton(common_frame, text=_("CONFIG_ENABLE_ALERTS"), variable=self.enable_alerts_var).grid(row=row, column=0, sticky=tk.W, pady=2)
         row += 1
 
     def _create_security_section(self, parent):
@@ -311,14 +310,29 @@ class SlaveConfigTab:
         ttk.Label(mqtt_frame, text=_("CONFIG_CLIENT_ID")).grid(row=row, column=0, sticky=tk.W, pady=2)
         ttk.Entry(mqtt_frame, textvariable=self.client_id_var, width=40).grid(row=row, column=1, padx=5)
     
-    def _create_subscription_section(self, parent):
-        """创建订阅配置区域"""
-        sub_frame = ttk.LabelFrame(parent, text=_("CONFIG_SUBSCRIPTION_SETTINGS"), padding=10)
-        sub_frame.pack(fill=tk.X, padx=10, pady=5)
+    def _create_strategy_section(self, parent):
+        """创建策略ID区域"""
+        strategy_frame = ttk.LabelFrame(parent, text="策略配置", padding=10)
+        strategy_frame.pack(fill=tk.X, padx=10, pady=5)
 
         row = 0
-        ttk.Label(sub_frame, text=_("CONFIG_MASTER_ID")).grid(row=row, column=0, sticky=tk.W, pady=2)
-        ttk.Entry(sub_frame, textvariable=self.master_id_var, width=40).grid(row=row, column=1, padx=5)
+        ttk.Label(strategy_frame, text="策略ID (Strategy ID)").grid(row=row, column=0, sticky=tk.W, pady=2)
+        ttk.Entry(strategy_frame, textvariable=self.strategy_id_var, width=40).grid(row=row, column=1, padx=5)
+        ttk.Label(strategy_frame, text="(必须与 Master 相同)", foreground="gray").grid(row=row, column=2, sticky=tk.W)
+        row += 1
+        
+        info_text = "说明：\n" \
+                   "• 所有 Slave 必须配置与 Master 相同的策略ID\n" \
+                   "• 用于统一订阅频道，例如: STRATEGY_001\n" \
+                   "• 不同策略使用不同的 ID，互不干扰"
+        ttk.Label(strategy_frame, text=info_text, foreground="blue", justify=tk.LEFT).grid(
+            row=row, column=0, columnspan=3, sticky=tk.W, pady=5
+        )
+    
+    def _create_subscription_section(self, parent):
+        """创建订阅配置区域（已废弃，保留兼容）"""
+        # 这个区域可以隐藏或删除，因为现在使用 strategy_id
+        pass
     
     def _create_risk_section(self, parent):
         """创建风险管理区域"""
@@ -512,6 +526,9 @@ class SlaveConfigTab:
         
         config = {
             "enabled": True,
+            
+            "strategy_id": self.strategy_id_var.get(),  # ← 新增
+            
             "common": {
                 "follow_mode": self.follow_mode_var.get(),
                 "enable_alerts": self.enable_alerts_var.get(),
@@ -526,14 +543,18 @@ class SlaveConfigTab:
                 "port": self.port_var.get(),
                 "username": self.mqtt_user_var.get(),
                 "password": self.mqtt_pass_var.get(),
-                "client_id": self.client_id_var.get()
+                "client_id": self.client_id_var.get(),
+                "topic_prefix": "trademind/signals",
+                "qos": 1,
+                "keepalive": 60
             },
             "mt5": {
                 "terminal_path": self.mt5_path_var.get(),
                 "auto_select": False
             },
-            "subscription": {
-                "master_id": self.master_id_var.get()
+            "account_reporter": {
+                "proxy_url": f"http://{self.broker_var.get()}:5000",
+                "interval": 60
             },
             "risk": {
                 "max_drawdown_percent": self.max_dd_percent_var.get(),

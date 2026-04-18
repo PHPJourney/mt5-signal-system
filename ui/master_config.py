@@ -26,6 +26,9 @@ class MasterConfigTab:
         self.mt5_terminal_var = tk.StringVar()
         self.mt5_path_var = tk.StringVar()
         
+        # 策略ID
+        self.strategy_id_var = tk.StringVar(value="STRATEGY_001")
+        
         # MQTT
         self.broker_var = tk.StringVar()
         self.port_var = tk.IntVar()
@@ -33,10 +36,14 @@ class MasterConfigTab:
         self.mqtt_pass_var = tk.StringVar()
         self.client_id_var = tk.StringVar()
         
-        # 信号
-        self.symbols_var = tk.StringVar()
-        self.max_pos_var = tk.IntVar()
-        self.lot_size_var = tk.DoubleVar()
+        # 账户上报
+        self.reporter_proxy_var = tk.StringVar()
+        self.reporter_interval_var = tk.IntVar()
+        
+        # 通用配置
+        self.magic_number_var = tk.IntVar()
+        self.slippage_points_var = tk.IntVar()
+        self.comment_prefix_var = tk.StringVar()
     
     def load_config_to_ui(self):
         """从配置文件加载到 UI"""
@@ -44,19 +51,30 @@ class MasterConfigTab:
         self.config = self.app.config_manager.load_config("master_config")
         self.app.master_config = self.config  # 同步到 app
         
-        # 更新变量值
+        # 策略ID
+        self.strategy_id_var.set(self.config.get('strategy_id', 'STRATEGY_001'))
+        
+        # MT5 终端
         self.mt5_path_var.set(self.config.get('mt5', {}).get('terminal_path', ''))
         
-        self.broker_var.set(self.config.get('mqtt', {}).get('broker', 'localhost'))
-        self.port_var.set(self.config.get('mqtt', {}).get('port', 1883))
-        self.mqtt_user_var.set(self.config.get('mqtt', {}).get('username', ''))
-        self.mqtt_pass_var.set(self.config.get('mqtt', {}).get('password', ''))
-        self.client_id_var.set(self.config.get('mqtt', {}).get('client_id', 'master_001'))
+        # MQTT
+        mqtt_config = self.config.get('mqtt', {})
+        self.broker_var.set(mqtt_config.get('broker', 'localhost'))
+        self.port_var.set(mqtt_config.get('port', 1883))
+        self.mqtt_user_var.set(mqtt_config.get('username', ''))
+        self.mqtt_pass_var.set(mqtt_config.get('password', ''))
+        self.client_id_var.set(mqtt_config.get('client_id', 'master_001'))
         
-        symbols = ','.join(self.config.get('signal', {}).get('symbols', []))
-        self.symbols_var.set(symbols)
-        self.max_pos_var.set(self.config.get('signal', {}).get('max_positions', 5))
-        self.lot_size_var.set(self.config.get('signal', {}).get('lot_size', 0.01))
+        # 账户上报
+        reporter_config = self.config.get('account_reporter', {})
+        self.reporter_proxy_var.set(reporter_config.get('proxy_url', 'http://localhost:5000'))
+        self.reporter_interval_var.set(reporter_config.get('interval', 60))
+        
+        # 通用配置
+        common_config = self.config.get('common', {})
+        self.magic_number_var.set(common_config.get('magic_number', 123456))
+        self.slippage_points_var.set(common_config.get('slippage_points', 30))
+        self.comment_prefix_var.set(common_config.get('comment_prefix', 'TM_'))
         
         print("✓ Master 配置已加载到 UI")
     
@@ -81,11 +99,17 @@ class MasterConfigTab:
         # MT5 终端选择
         self._create_mt5_terminal_section(scrollable_frame)
         
+        # 策略配置
+        self._create_strategy_section(scrollable_frame)
+        
         # MQTT 配置
         self._create_mqtt_section(scrollable_frame)
         
-        # 信号配置
-        self._create_signal_section(scrollable_frame)
+        # 账户上报
+        self._create_reporter_section(scrollable_frame)
+        
+        # 通用配置
+        self._create_common_section(scrollable_frame)
         
         # 按钮区域
         btn_frame = ttk.Frame(scrollable_frame)
@@ -163,6 +187,65 @@ class MasterConfigTab:
             command=lambda: self.browse_folder(self.mt5_path_var)
         ).pack(side=tk.LEFT, padx=5)
     
+    def _create_strategy_section(self, parent):
+        """创建策略ID区域"""
+        strategy_frame = ttk.LabelFrame(parent, text="策略配置", padding=10)
+        strategy_frame.pack(fill=tk.X, padx=10, pady=5)
+
+        row = 0
+        ttk.Label(strategy_frame, text="策略ID (Strategy ID)").grid(row=row, column=0, sticky=tk.W, pady=2)
+        ttk.Entry(strategy_frame, textvariable=self.strategy_id_var, width=40).grid(row=row, column=1, padx=5)
+        ttk.Label(strategy_frame, text="(用于统一订阅频道)", foreground="gray").grid(row=row, column=2, sticky=tk.W)
+        row += 1
+        
+        info_text = "说明：\n" \
+                   "• 所有 Slave 必须配置与 Master 相同的策略ID\n" \
+                   "• 信号将发布到: trademind/signals/{strategy_id}/trade\n" \
+                   "• 不同策略使用不同的 ID，互不干扰"
+        ttk.Label(strategy_frame, text=info_text, foreground="blue", justify=tk.LEFT).grid(
+            row=row, column=0, columnspan=3, sticky=tk.W, pady=5
+        )
+    
+    def _create_reporter_section(self, parent):
+        """创建账户上报配置区域"""
+        reporter_frame = ttk.LabelFrame(parent, text="账户上报配置", padding=10)
+        reporter_frame.pack(fill=tk.X, padx=10, pady=5)
+
+        row = 0
+        ttk.Label(reporter_frame, text="Auth Proxy URL").grid(row=row, column=0, sticky=tk.W, pady=2)
+        ttk.Entry(reporter_frame, textvariable=self.reporter_proxy_var, width=40).grid(row=row, column=1, padx=5)
+        ttk.Label(reporter_frame, text="(如: http://154.36.184.20:5000)", foreground="gray").grid(row=row, column=2, sticky=tk.W)
+        row += 1
+
+        ttk.Label(reporter_frame, text="上报间隔(秒)").grid(row=row, column=0, sticky=tk.W, pady=2)
+        ttk.Spinbox(reporter_frame, from_=10, to=300, increment=10, textvariable=self.reporter_interval_var, width=38).grid(row=row, column=1, padx=5)
+        ttk.Label(reporter_frame, text="(默认 60 秒)", foreground="gray").grid(row=row, column=2, sticky=tk.W)
+    
+    def _create_common_section(self, parent):
+        """创建通用配置区域"""
+        common_frame = ttk.LabelFrame(parent, text="通用配置", padding=10)
+        common_frame.pack(fill=tk.X, padx=10, pady=5)
+
+        row = 0
+        ttk.Label(common_frame, text="Magic Number").grid(row=row, column=0, sticky=tk.W, pady=2)
+        ttk.Spinbox(common_frame, from_=0, to=999999, textvariable=self.magic_number_var, width=38).grid(row=row, column=1, padx=5)
+        ttk.Label(common_frame, text="(订单魔术码，用于识别)", foreground="gray").grid(row=row, column=2, sticky=tk.W)
+        row += 1
+
+        ttk.Label(common_frame, text="滑点点数").grid(row=row, column=0, sticky=tk.W, pady=2)
+        ttk.Spinbox(common_frame, from_=0, to=100, textvariable=self.slippage_points_var, width=38).grid(row=row, column=1, padx=5)
+        ttk.Label(common_frame, text="(允许的价格偏差)", foreground="gray").grid(row=row, column=2, sticky=tk.W)
+        row += 1
+
+        ttk.Label(common_frame, text="订单注释前缀").grid(row=row, column=0, sticky=tk.W, pady=2)
+        ttk.Entry(common_frame, textvariable=self.comment_prefix_var, width=40).grid(row=row, column=1, padx=5)
+        ttk.Label(common_frame, text="(如: TM_)", foreground="gray").grid(row=row, column=2, sticky=tk.W)
+    
+    def _create_signal_section(self, parent):
+        """创建信号配置区域（已废弃，保留兼容）"""
+        # 这个区域可以隐藏或删除
+        pass
+    
     def _create_mqtt_section(self, parent):
         """创建 MQTT 配置区域"""
         mqtt_frame = ttk.LabelFrame(parent, text=_("CONFIG_MQTT_SETTINGS"), padding=10)
@@ -187,23 +270,6 @@ class MasterConfigTab:
 
         ttk.Label(mqtt_frame, text=_("CONFIG_CLIENT_ID")).grid(row=row, column=0, sticky=tk.W, pady=2)
         ttk.Entry(mqtt_frame, textvariable=self.client_id_var, width=40).grid(row=row, column=1, padx=5)
-    
-    def _create_signal_section(self, parent):
-        """创建信号配置区域"""
-        signal_frame = ttk.LabelFrame(parent, text=_("CONFIG_SIGNAL_SETTINGS"), padding=10)
-        signal_frame.pack(fill=tk.X, padx=10, pady=5)
-
-        row = 0
-        ttk.Label(signal_frame, text=_("CONFIG_SYMBOLS")).grid(row=row, column=0, sticky=tk.W, pady=2)
-        ttk.Entry(signal_frame, textvariable=self.symbols_var, width=40).grid(row=row, column=1, padx=5)
-        row += 1
-
-        ttk.Label(signal_frame, text=_("CONFIG_MAX_POSITIONS")).grid(row=row, column=0, sticky=tk.W, pady=2)
-        ttk.Spinbox(signal_frame, from_=1, to=100, textvariable=self.max_pos_var, width=38).grid(row=row, column=1, padx=5)
-        row += 1
-
-        ttk.Label(signal_frame, text=_("CONFIG_LOT_SIZE")).grid(row=row, column=0, sticky=tk.W, pady=2)
-        ttk.Spinbox(signal_frame, from_=0.01, to=100, increment=0.01, textvariable=self.lot_size_var, width=38).grid(row=row, column=1, padx=5)
     
     def refresh_terminals(self):
         """刷新 MT5 终端列表"""
@@ -256,21 +322,34 @@ class MasterConfigTab:
     def save_config(self):
         """保存配置"""
         config = {
+            "strategy_id": self.strategy_id_var.get(),
+            
             "mqtt": {
                 "broker": self.broker_var.get(),
                 "port": self.port_var.get(),
                 "username": self.mqtt_user_var.get(),
                 "password": self.mqtt_pass_var.get(),
-                "client_id": self.client_id_var.get()
+                "client_id": self.client_id_var.get(),
+                "topic_prefix": "trademind/signals",
+                "qos": 1,
+                "keepalive": 60
             },
             "mt5": {
                 "terminal_path": self.mt5_path_var.get(),
                 "auto_select": False
             },
-            "signal": {
-                "symbols": [s.strip() for s in self.symbols_var.get().split(",") if s.strip()],
-                "max_positions": self.max_pos_var.get(),
-                "lot_size": self.lot_size_var.get()
+            "account_reporter": {
+                "proxy_url": self.reporter_proxy_var.get(),
+                "interval": self.reporter_interval_var.get()
+            },
+            "common": {
+                "magic_number": self.magic_number_var.get(),
+                "slippage_points": self.slippage_points_var.get(),
+                "comment_prefix": self.comment_prefix_var.get()
+            },
+            "logging": {
+                "level": "INFO",
+                "file": "logs/master.log"
             }
         }
 
