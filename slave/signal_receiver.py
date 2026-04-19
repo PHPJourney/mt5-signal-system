@@ -701,12 +701,15 @@ class SlaveSignalReceiver:
                     self.logger.debug(f"Order send exception: {e}")
             
             # 所有尝试都失败
-            self.logger.error(f"Order failed: {last_error}")
+            self.logger.error(f"Order failed: symbol={symbol}, type={order_type}, volume={volume}, request={request}")
+            self.logger.error(f"Last error: {last_error}")
+            self.logger.error(f"MT5 last_error(): {mt5.last_error()}")
             print(f"   ❌ 订单失败: {last_error}")
             return None
 
         except Exception as e:
-            self.logger.error(f"Error executing order: {e}", exc_info=True)
+            self.logger.error(f"Order execution exception: symbol={symbol}, type={order_type}, volume={volume}")
+            self.logger.error(f"Exception: {e}", exc_info=True)
             print(f"   ❌ 执行订单异常: {e}")
             return None
     
@@ -918,11 +921,12 @@ class SlaveSignalReceiver:
                 self.logger.info(f"Position closed: ticket={ticket}, volume={pos.volume}")
                 print(f"   ✅ 平仓成功: #{ticket} vol={pos.volume}")
             else:
-                self.logger.error(f"Close failed: {result.comment} (code: {result.retcode})")
+                self.logger.error(f"Close failed: ticket={ticket}, request={request}, retcode={result.retcode}, comment={result.comment}")
+                self.logger.error(f"MT5 last error(): {mt5.last_error()}")
                 print(f"   ❌ 平仓失败: {result.comment}")
                 
         except Exception as e:
-            self.logger.error(f"Error closing position {ticket}: {e}", exc_info=True)
+            self.logger.error(f"Close position exception: ticket={ticket}", exc_info=True)
             print(f"   ❌ 平仓异常: {e}")
     
     def _partial_close_position(self, ticket: int, payload: Dict[str, Any]):
@@ -965,11 +969,12 @@ class SlaveSignalReceiver:
                 self.logger.info(f"Partial close: ticket={ticket}, vol={partial_volume}, remaining={remaining}")
                 print(f"   ✅ 部分平仓成功: #{ticket} 平{partial_volume} 剩{remaining}")
             else:
-                self.logger.error(f"Partial close failed: {result.comment}")
+                self.logger.error(f"Partial close failed: ticket={ticket}, request={request}, retcode={result.retcode}, comment={result.comment}")
+                self.logger.error(f"MT5 last_error(): {mt5.last_error()}")
                 print(f"   ❌ 部分平仓失败: {result.comment}")
                 
         except Exception as e:
-            self.logger.error(f"Error partial closing position {ticket}: {e}", exc_info=True)
+            self.logger.error(f"Partial close exception: ticket={ticket}", exc_info=True)
             print(f"   ❌ 部分平仓异常: {e}")
     
     def _close_positions_by_type(self, position_type: int):
@@ -1002,12 +1007,11 @@ class SlaveSignalReceiver:
                     
                     if result.retcode == mt5.TRADE_RETCODE_DONE:
                         closed_count += 1
-                        self.logger.info(f"Closed {type_name}: ticket={pos.ticket}")
+                        self.logger.info(f"Closed: ticket={pos.ticket}")
                     else:
-                        self.logger.error(f"Failed to close {type_name} #{pos.ticket}: {result.comment}")
-            
-            self.logger.info(f"Closed {closed_count} {type_name} positions")
-            print(f"   ✅ 已平 {closed_count} 个 {type_name} 仓位")
+                        self.logger.error(f"Failed to close #{pos.ticket}: request={request}, retcode={result.retcode}, comment={result.comment}")
+                self.logger.info(f"Closed {closed_count} {type_name} positions")
+                print(f"   ✅ 已平 {closed_count} 个 {type_name} 仓位")
             
         except Exception as e:
             self.logger.error(f"Error closing {type_name} positions: {e}", exc_info=True)
@@ -1090,11 +1094,12 @@ class SlaveSignalReceiver:
                 self.logger.info(f"Limit close order placed: ticket={result.order}, price={limit_price}")
                 print(f"   ✅ 限价平仓挂单成功: #{result.order} price={limit_price}")
             else:
-                self.logger.error(f"Limit close failed: {result.comment}")
+                self.logger.error(f"Limit close failed: ticket={ticket}, request={request}, retcode={result.retcode}, comment={result.comment}")
+                self.logger.error(f"MT5 last_error(): {mt5.last_error()}")
                 print(f"   ❌ 限价平仓失败: {result.comment}")
                 
         except Exception as e:
-            self.logger.error(f"Error limit closing position {ticket}: {e}", exc_info=True)
+            self.logger.error(f"Limit close exception: ticket={ticket}", exc_info=True)
             print(f"   ❌ 限价平仓异常: {e}")
     def run(self):
         """运行从服务器"""
