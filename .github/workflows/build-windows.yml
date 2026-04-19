@@ -512,6 +512,18 @@ jobs:
           
           Write-Host "✓ Fixed installer.nsi encoding to UTF-8 BOM"
       
+      - name: Fix LICENSE file encoding to UTF-8 BOM
+        run: |
+          # Fix LICENSE file encoding - this is displayed on the license agreement page
+          if (Test-Path "LICENSE") {
+              $content = Get-Content "LICENSE" -Raw -Encoding UTF8
+              $utf8BOM = New-Object System.Text.UTF8Encoding $true
+              [System.IO.File]::WriteAllText("$PWD/LICENSE", $content, $utf8BOM)
+              Write-Host "✓ Fixed LICENSE encoding to UTF-8 BOM"
+          } else {
+              Write-Host "⚠ LICENSE file not found!" -ForegroundColor Yellow
+          }
+      
       - name: Fix language files encoding to UTF-8 BOM
         run: |
           # Fix Chinese.nsh encoding
