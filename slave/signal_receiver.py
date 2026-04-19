@@ -754,10 +754,12 @@ class SlaveSignalReceiver:
                 price = payload.get('price', 0.0)
                 sl = payload.get('sl', 0.0)
                 tp = payload.get('tp', 0.0)
+                symbol = payload.get('symbol', '')
                 
                 request = {
                     "action": mt5.TRADE_ACTION_MODIFY,
                     "order": ticket,
+                    "symbol": symbol,  # MT5 requires symbol field
                 }
                 
                 if price > 0:
@@ -773,44 +775,17 @@ class SlaveSignalReceiver:
                     self.logger.info(f"Pending order modified: ticket={ticket}")
                     print(f"   ✅ 挂单修改成功")
                 else:
-                    self.logger.error(f"Modify failed: {result.comment}")
+                    self.logger.error(f"Modify failed: retcode={result.retcode}, comment={result.comment}")
                     print(f"   ❌ 挂单修改失败: {result.comment}")
-            
-            elif action == 'modify_position':
-                # 修改持仓（止损/止盈）
-                sl = payload.get('sl', 0.0)
-                tp = payload.get('tp', 0.0)
-                
-                # 获取持仓信息
-                positions = mt5.positions_get(ticket=ticket)
-                if not positions:
-                    self.logger.error(f"Position not found: {ticket}")
-                    print(f"   ❌ 未找到持仓: {ticket}")
-                    return
-                
-                pos = positions[0]
-                
-                request = {
-                    "action": mt5.TRADE_ACTION_SLTP,
-                    "position": ticket,
-                    "sl": sl if sl > 0 else pos.sl,
-                    "tp": tp if tp > 0 else pos.tp,
-                }
-                
-                result = mt5.order_send(request)
-                
-                if result.retcode == mt5.TRADE_RETCODE_DONE:
-                    self.logger.info(f"Position SL/TP modified: ticket={ticket}")
-                    print(f"   ✅ 持仓止损/止盈修改成功")
-                else:
-                    self.logger.error(f"Modify SL/TP failed: {result.comment}")
-                    print(f"   ❌ 修改止损/止盈失败: {result.comment}")
             
             elif action == 'delete_pending':
                 # 删除挂单
+                symbol = payload.get('symbol', '')
+                
                 request = {
                     "action": mt5.TRADE_ACTION_REMOVE,
                     "order": ticket,
+                    "symbol": symbol,  # MT5 requires symbol field
                 }
                 
                 result = mt5.order_send(request)
@@ -819,7 +794,7 @@ class SlaveSignalReceiver:
                     self.logger.info(f"Pending order deleted: ticket={ticket}")
                     print(f"   ✅ 挂单删除成功")
                 else:
-                    self.logger.error(f"Delete failed: {result.comment}")
+                    self.logger.error(f"Delete failed: retcode={result.retcode}, comment={result.comment}")
                     print(f"   ❌ 挂单删除失败: {result.comment}")
         
         except Exception as e:

@@ -470,6 +470,7 @@ class MasterSignalSender:
                             'signal_type': 'close',
                             'action': 'delete_pending',
                             'ticket': ticket,
+                            'symbol': last_orders[ticket].symbol,
                             'timestamp': time.time()
                         })
                 
@@ -701,6 +702,8 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
 
 
 
