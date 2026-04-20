@@ -543,6 +543,26 @@ jobs:
           }
           
           Write-Host "=== Language files encoding fixed ==="
+      
+      - name: Fix copyright files encoding to UTF-8 BOM
+        run: |
+          # Fix 版权说明_zh.txt encoding
+          if (Test-Path "版权说明_zh.txt") {
+              $content = Get-Content "版权说明_zh.txt" -Raw -Encoding UTF8
+              $utf8BOM = New-Object System.Text.UTF8Encoding $true
+              [System.IO.File]::WriteAllText("$PWD/版权说明_zh.txt", $content, $utf8BOM)
+              Write-Host "✓ Fixed 版权说明_zh.txt encoding to UTF-8 BOM"
+          }
+          
+          # Fix 版权说明_en.txt encoding
+          if (Test-Path "版权说明_en.txt") {
+              $content = Get-Content "版权说明_en.txt" -Raw -Encoding UTF8
+              $utf8BOM = New-Object System.Text.UTF8Encoding $true
+              [System.IO.File]::WriteAllText("$PWD/版权说明_en.txt", $content, $utf8BOM)
+              Write-Host "✓ Fixed 版权说明_en.txt encoding to UTF-8 BOM"
+          }
+          
+          Write-Host "=== Copyright files encoding fixed ==="
       - name: Calculate version
         id: version
         run: |
@@ -624,7 +644,10 @@ jobs:
     name: Create GitHub Release
     needs: build-nsis-installer
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+    if: |
+      startsWith(github.ref, 'refs/tags/v') || 
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main')
 
     permissions:
       contents: write
@@ -636,13 +659,35 @@ jobs:
       - name: Display structure of downloaded files
         run: ls -R
 
+      - name: Set release properties
+        id: release_props
+        run: |
+          if [ "${{ startsWith(github.ref, 'refs/tags/v') }}" = "true" ]; then
+            echo "IS_TAG=true" >> $GITHUB_OUTPUT
+            echo "TAG_NAME=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+            echo "PRERELEASE=false" >> $GITHUB_OUTPUT
+            echo "DRAFT=false" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "IS_TAG=false" >> $GITHUB_OUTPUT
+            echo "TAG_NAME=${{ github.event.inputs.release_version || 'v'$(date +%Y%m%d%H%M%S) }}" >> $GITHUB_OUTPUT
+            echo "PRERELEASE=false" >> $GITHUB_OUTPUT
+            echo "DRAFT=false" >> $GITHUB_OUTPUT
+          else
+            echo "IS_TAG=false" >> $GITHUB_OUTPUT
+            echo "TAG_NAME=latest" >> $GITHUB_OUTPUT
+            echo "PRERELEASE=true" >> $GITHUB_OUTPUT
+            echo "DRAFT=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
           files: |
             windows-installer/*.exe
-          draft: false
-          prerelease: false
+          tag_name: ${{ steps.release_props.outputs.TAG_NAME }}
+          name: "TradeMind MT5 ${{ steps.release_props.outputs.TAG_NAME }}"
+          draft: ${{ steps.release_props.outputs.DRAFT == 'true' }}
+          prerelease: ${{ steps.release_props.outputs.PRERELEASE == 'true' }}
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
