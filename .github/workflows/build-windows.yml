@@ -668,8 +668,12 @@ jobs:
             echo "PRERELEASE=false" >> $GITHUB_OUTPUT
             echo "DRAFT=false" >> $GITHUB_OUTPUT
           elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.release_version }}"
+            if [ -z "$VERSION" ]; then
+              VERSION="v$(date +%Y%m%d%H%M%S)"
+            fi
             echo "IS_TAG=false" >> $GITHUB_OUTPUT
-            echo "TAG_NAME=${{ github.event.inputs.release_version || 'v'$(date +%Y%m%d%H%M%S) }}" >> $GITHUB_OUTPUT
+            echo "TAG_NAME=$VERSION" >> $GITHUB_OUTPUT
             echo "PRERELEASE=false" >> $GITHUB_OUTPUT
             echo "DRAFT=false" >> $GITHUB_OUTPUT
           else
